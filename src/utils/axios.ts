@@ -2,11 +2,9 @@ import type { AxiosRequestConfig } from 'axios';
 
 import axios from 'axios';
 
-import { CONFIG } from 'src/config-global';
-
 // ----------------------------------------------------------------------
 
-const axiosInstance = axios.create({ baseURL: CONFIG.site.serverUrl });
+const axiosInstance = axios.create({ baseURL: process.env.NEXT_PUBLIC_BASE_API_URL });
 
 axiosInstance.interceptors.response.use(
   (response) => response,

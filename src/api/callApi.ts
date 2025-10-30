@@ -1,5 +1,6 @@
 import FE_Error from "./errors/fe_error";
 import API_Error from "./errors/api_error";
+import { STORAGE_KEY } from "src/auth/context/jwt";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
@@ -16,7 +17,7 @@ function buildHeaders(body: any) {
   }
 
   // Auth header — add only if we actually have a token
-  const token = localStorage.getItem("accessToken") || "";
+  const token = localStorage.getItem(STORAGE_KEY);
   if (token) headers.set("authorization", `Bearer ${token}`);
 
   // Misc headers

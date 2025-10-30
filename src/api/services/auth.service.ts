@@ -6,17 +6,29 @@ export interface LoginRequest {
   password: string;
 }
 
-export interface UserInfo {
+export interface Organization {
   id: string;
-  email: string;
-  name?: string;
-  roles?: string[];
+  name: string;
   // extend with fields returned by your backend
+}
+
+export interface UserInfo {
+  email: string;
+  id: string;
+  is_admin: boolean;
+  name: string;
+  organizations: Organization[];
+  project_permissions: string[];
 }
 
 const authService = {
   login: (payload: LoginRequest) => callPostApi(urls.LOGIN, payload),
-  getUserInfo: () => callGetApi(urls.USER_INFO) as Promise<UserInfo>,
+  getUserInfo: () =>
+    callGetApi(urls.USER_INFO) as Promise<{
+      success: boolean;
+      data: { user: UserInfo };
+      status_code: number;
+    }>
 };
 
 export default authService;

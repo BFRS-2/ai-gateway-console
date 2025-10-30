@@ -16,13 +16,15 @@ const urls = {
   UPDATE_ORGANIZATION: "/api/v1/organizations",
   DELETE_ORGANIZATION: "/api/v1/organizations",
   GET_ORGANIZATION_BY_ID: "/api/v1/organizations",
+  USER_ORGANIZATIONS : "/api/v1/user/organizations",
 
   // Project (both old and new keys included for compatibility)
-  GET_PROJECTS: "/api/v1/projects",              // <-- your requested key (list & create)
+  GET_PROJECTS: "/api/v1/projects/setup",              // <-- your requested key (list & create)
   PROJECTS: "/api/v1/projects",                 // alternate name used in examples
   PROJECT_BY_ORGANIZATION: "/api/v1/projects/by-organization",
   PROJECT_USAGE: "/api/v1/projects",            // use with `${PROJECTS}/${projectId}/usage`
   PROJECT_SERVICES: "/api/v1/projects",         // use with `${PROJECT_SERVICES}/${projectId}/services`
+  USER_PROJECTS : "/api/v1/user/projects",
 
   // Service Management
   GET_ALL_SERVICES: "/api/v1/services",

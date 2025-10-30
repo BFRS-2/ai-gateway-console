@@ -24,6 +24,7 @@ export interface Organization {
 
 const organizationService = {
   getAll: () => callGetApi(urls.GET_ORGANIZATIONS) as Promise<Organization[]>,
+  getUserOrganizations: () => callGetApi(urls.USER_ORGANIZATIONS) as Promise<Organization[]>,
   getActive: () => callGetApi(`${urls.GET_ORGANIZATIONS}?active_only=true`) as Promise<Organization[]>,
   getById: (id: string) => callGetApi(`${urls.GET_ORGANIZATIONS}/${id}`) as Promise<Organization>,
   create: (body: OrganizationCreateBody) => callPostApi(urls.CREATE_ORGANIZATION, body),

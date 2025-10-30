@@ -4,6 +4,8 @@ import axios, { endpoints } from 'src/utils/axios';
 
 import { setSession } from './utils';
 import { STORAGE_KEY } from './constant';
+import urls from 'src/api/urls';
+import authService from 'src/api/services/auth.service';
 
 // ----------------------------------------------------------------------
 
@@ -25,17 +27,18 @@ export type SignUpParams = {
 export const signInWithPassword = async ({ email, password }: SignInParams): Promise<void> => {
   try {
     const params = { email, password };
-
-    // const res = await axios.post(endpoints.auth.signIn, params);
-
-    const accessToken  = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vYXBpdjIuc2hpcHJvY2tldC5pbi92MS9hdXRoL2xvZ2luIiwiaWF0IjoxNzU5MjE0NTQ5LCJleHAiOjE3NjAwNzg1NDksIm5iZiI6MTc1OTIxNDU0OSwianRpIjoiZVlPdXk0NWhIRVdPQkszVCIsInN1YiI6MjUyMDgsInBydiI6IjA1YmI2NjBmNjdjYWM3NDVmN2IzZGExZWVmMTk3MTk1YTIxMWU2ZDkiLCJjaWQiOjI1MTQ5fQ.S4L5PlFpUdf5miF7rFK3nxAlIU7FPm86RRMV57p5qno"
+    const res = await authService.login(params);
+    if(res.success !== true){
+      throw new Error(res.error.payload.message || 'Login failed');
+    }
+    const { access_token, user } = res.data;
+    if (!access_token) {
     
-    if (!accessToken) {
-      console.log("🚀 ~ signInWithPassword ~ accessToken:", accessToken)
       throw new Error('Access token not found in response');
     }
-
-    setSession(accessToken);
+    sessionStorage.setItem(STORAGE_KEY, access_token);
+    localStorage.setItem("_user", JSON.stringify(user));
+    setSession(access_token);
   } catch (error) {
     console.error('Error during sign in:', error);
     throw error;

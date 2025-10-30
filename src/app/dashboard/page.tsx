@@ -1,3 +1,4 @@
+"use client"
 import { CONFIG } from 'src/config-global';
 
 import { BlankView } from 'src/sections/blank/view';
