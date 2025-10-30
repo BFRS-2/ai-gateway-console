@@ -48,11 +48,22 @@ export interface Project {
 }
 
 const projectService = {
-  create: (body: ProjectCreateBody) => callPostApi(urls.GET_PROJECTS , body),
-  getAll: () => callGetApi(urls.GET_PROJECTS) as Promise<Project[]>,
+  create: (body: ProjectCreateBody) => callPostApi(urls.GET_PROJECTS, body),
+  getAll: () =>
+    callGetApi(urls.PROJECTS) as Promise<{
+      data: { projects: Project[] };
+      success: boolean;
+      status_code: number;
+      message?: string;
+    }>,
   getByOrganization: (organizationId: string) =>
-    callGetApi(`${urls.GET_PROJECTS}/by-organization?organization_id=${encodeURIComponent(organizationId)}`) as Promise<Project[]>,
-  getUsage: (projectId: string) => callGetApi(`${urls.GET_PROJECTS}/${projectId}/usage`),
+    callGetApi(
+      `${
+        urls.GET_PROJECTS
+      }/by-organization?organization_id=${encodeURIComponent(organizationId)}`
+    ) as Promise<Project[]>,
+  getUsage: (projectId: string) =>
+    callGetApi(`${urls.GET_PROJECTS}/${projectId}/usage`),
 };
 
 export default projectService;

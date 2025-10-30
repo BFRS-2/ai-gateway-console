@@ -1,58 +1,72 @@
-import type { NavSectionProps } from 'src/components/nav-section';
+"use client";
 
-import Box from '@mui/material/Box';
-import Link from '@mui/material/Link';
-import Button from '@mui/material/Button';
-import { styled, useTheme } from '@mui/material/styles';
+import type { NavSectionProps } from "src/components/nav-section";
 
-import { paths } from 'src/routes/paths';
-import { RouterLink } from 'src/routes/components';
+import Box from "@mui/material/Box";
+import Link from "@mui/material/Link";
+import Button from "@mui/material/Button";
+import { styled, useTheme } from "@mui/material/styles";
 
-import { Logo } from 'src/components/logo';
+import { paths } from "src/routes/paths";
+import { RouterLink } from "src/routes/components";
 
-import { HeaderSection } from './header-section';
-import { Searchbar } from '../components/searchbar';
-import { MenuButton } from '../components/menu-button';
-import { SignInButton } from '../components/sign-in-button';
-import { AccountDrawer } from '../components/account-drawer';
-import { SettingsButton } from '../components/settings-button';
-import { LanguagePopover } from '../components/language-popover';
-import { ContactsPopover } from '../components/contacts-popover';
-import { WorkspacesPopover } from '../components/workspaces-popover';
-import { NotificationsDrawer } from '../components/notifications-drawer';
+import { Logo } from "src/components/logo";
 
-import type { HeaderSectionProps } from './header-section';
-import type { AccountDrawerProps } from '../components/account-drawer';
-import type { ContactsPopoverProps } from '../components/contacts-popover';
-import type { LanguagePopoverProps } from '../components/language-popover';
-import type { WorkspacesPopoverProps } from '../components/workspaces-popover';
-import type { NotificationsDrawerProps } from '../components/notifications-drawer';
+import { HeaderSection } from "./header-section";
+import { Searchbar } from "../components/searchbar";
+import { MenuButton } from "../components/menu-button";
+import { SignInButton } from "../components/sign-in-button";
+import { AccountDrawer } from "../components/account-drawer";
+import { SettingsButton } from "../components/settings-button";
+import { LanguagePopover } from "../components/language-popover";
+import { ContactsPopover } from "../components/contacts-popover";
+import { WorkspacesPopover } from "../components/workspaces-popover";
+import { NotificationsDrawer } from "../components/notifications-drawer";
+
+import type { HeaderSectionProps } from "./header-section";
+import type { AccountDrawerProps } from "../components/account-drawer";
+import type { ContactsPopoverProps } from "../components/contacts-popover";
+import type { LanguagePopoverProps } from "../components/language-popover";
+import type { WorkspacesPopoverProps } from "../components/workspaces-popover";
+import type { NotificationsDrawerProps } from "../components/notifications-drawer";
+import AppSelector from "src/components/nav-section/app-selector";
+import authService, { Organization } from "src/api/services/auth.service";
+import projectService, { Project } from "src/api/services/project.service";
+import { OrganizationWithProjects } from "src/app/dashboard/layout";
+import { selectOrganizationProject, setOrganizationProjectMapping } from "src/stores/slicers/orgProject";
+import { useDispatch } from "react-redux";
+import { useEffect } from "react";
+import organizationService from "src/api/services/organization.service";
+import {
+  generateOrganizationName,
+  generateProjectName,
+} from "src/utils/nameGenerator";
 
 // ----------------------------------------------------------------------
 
-const StyledDivider = styled('span')(({ theme }) => ({
+const StyledDivider = styled("span")(({ theme }) => ({
   width: 1,
   height: 10,
   flexShrink: 0,
-  display: 'none',
-  position: 'relative',
-  alignItems: 'center',
-  flexDirection: 'column',
+  display: "none",
+  position: "relative",
+  alignItems: "center",
+  flexDirection: "column",
   marginLeft: theme.spacing(2.5),
   marginRight: theme.spacing(2.5),
-  backgroundColor: 'currentColor',
+  backgroundColor: "currentColor",
   color: theme.vars.palette.divider,
-  '&::before, &::after': {
+  "&::before, &::after": {
     top: -5,
     width: 3,
     height: 3,
     content: '""',
     flexShrink: 0,
-    borderRadius: '50%',
-    position: 'absolute',
-    backgroundColor: 'currentColor',
+    borderRadius: "50%",
+    position: "absolute",
+    backgroundColor: "currentColor",
   },
-  '&::after': { bottom: -5, top: 'auto' },
+  "&::after": { bottom: -5, top: "auto" },
 }));
 
 // ----------------------------------------------------------------------
@@ -60,12 +74,12 @@ const StyledDivider = styled('span')(({ theme }) => ({
 export type HeaderBaseProps = HeaderSectionProps & {
   onOpenNav: () => void;
   data?: {
-    nav?: NavSectionProps['data'];
-    account?: AccountDrawerProps['data'];
-    langs?: LanguagePopoverProps['data'];
-    contacts?: ContactsPopoverProps['data'];
-    workspaces?: WorkspacesPopoverProps['data'];
-    notifications?: NotificationsDrawerProps['data'];
+    nav?: NavSectionProps["data"];
+    account?: AccountDrawerProps["data"];
+    langs?: LanguagePopoverProps["data"];
+    contacts?: ContactsPopoverProps["data"];
+    workspaces?: WorkspacesPopoverProps["data"];
+    notifications?: NotificationsDrawerProps["data"];
   };
   slots?: {
     navMobile?: {
@@ -112,6 +126,112 @@ export function HeaderBase({
 }: HeaderBaseProps) {
   const theme = useTheme();
 
+  const dispatch = useDispatch();
+  useEffect(() => {
+    authService
+      .getUserInfo()
+      .then((res) => {
+        if (res.success === true) {
+          const user = res.data.user;
+          localStorage.setItem("_user", JSON.stringify(user));
+        }
+      })
+      .catch((err) => {
+        console.error("Error fetching user info:", err);
+      });
+
+    organizationService.getAll().then((orgs) => {
+      const organizations: Organization[] = orgs?.data?.organizations;
+      if (organizations.length === 0) {
+        createDefaultSetup();
+      } else {
+        projectService.getAll().then((projs) => {
+          const projects = projs?.data?.projects || [];
+          if (projects.length === 0) {
+            createProject(organizations[0].id);
+          } else {
+            console.log(
+              "🚀 ~ HeaderBase ~ orgs, projs:",
+              organizations,
+              projects
+            );
+            saveOrgProject(organizations, projects);
+          }
+        });
+      }
+    });
+  }, []);
+
+  function mergeOrgsWithProjects(
+    organizations: Organization[],
+    projects: Project[]
+  ): OrganizationWithProjects[] {
+    const projectMap = projects.reduce<Record<string, Project[]>>(
+      (acc, project) => {
+        const orgId = project.organization_id;
+        if (!acc[orgId]) acc[orgId] = [];
+        acc[orgId].push(project);
+        return acc;
+      },
+      {}
+    );
+
+    return organizations.map((org) => ({
+      ...org,
+      projects: projectMap[org.id] || [],
+    }));
+  }
+
+  const saveOrgProject = (org: Organization[], project: Project[]) => {
+    const orgWithProjects: OrganizationWithProjects[] = mergeOrgsWithProjects(
+      org,
+      project
+    );
+    console.log("🚀 ~ saveOrgProject ~  org,", org, project);
+
+    dispatch(setOrganizationProjectMapping(orgWithProjects));
+    // pick first org and project to select by default
+    const firstOrg = orgWithProjects[0];
+    const firstProject = firstOrg?.projects?.[0];
+    if (firstOrg) {
+      dispatch(
+        selectOrganizationProject({
+          organizationId: firstOrg.id,
+          organizationName: firstOrg.name,
+          projectId: firstProject?.id ?? "",
+          projectName: firstProject?.name ?? "",
+        })
+      );
+    }
+    // save to redux
+  };
+  const createProject = (organizationId: string) => {
+    if (!organizationId) return;
+    projectService
+      .create({ name: generateProjectName(), organization_id: organizationId })
+      .then((projRes) => {
+        if (projRes.success === true) {
+          const project = projRes.data;
+        }
+      });
+  };
+
+  const createOrganization = (cb: Function) => {
+    organizationService
+      .create({ name: generateOrganizationName() })
+      .then((orgRes) => {
+        if (orgRes.success === true) {
+          const org = orgRes.data.organization;
+          cb(org);
+        }
+      });
+  };
+
+  const createDefaultSetup = () =>
+    createOrganization((org: Organization) => {
+      createProject(org.id);
+    });
+
   return (
     <HeaderSection
       sx={sx}
@@ -128,7 +248,11 @@ export function HeaderBase({
               <MenuButton
                 data-slot="menu-button"
                 onClick={onOpenNav}
-                sx={{ mr: 1, ml: -1, [theme.breakpoints.up(layoutQuery)]: { display: 'none' } }}
+                sx={{
+                  mr: 1,
+                  ml: -1,
+                  [theme.breakpoints.up(layoutQuery)]: { display: "none" },
+                }}
               />
             )}
 
@@ -139,7 +263,8 @@ export function HeaderBase({
             <StyledDivider data-slot="divider" />
 
             {/* -- Workspace popover -- */}
-            {workspaces && <WorkspacesPopover data-slot="workspaces" data={data?.workspaces} />}
+            {/* {workspaces && <WorkspacesPopover data-slot="workspaces" data={data?.workspaces} />} */}
+            <AppSelector />
 
             {slots?.leftAreaEnd}
           </>
@@ -151,8 +276,8 @@ export function HeaderBase({
             <Box
               data-area="right"
               sx={{
-                display: 'flex',
-                alignItems: 'center',
+                display: "flex",
+                alignItems: "center",
                 gap: { xs: 1, sm: 1.5 },
               }}
             >
@@ -163,31 +288,42 @@ export function HeaderBase({
                   href={paths.faqs}
                   component={RouterLink}
                   color="inherit"
-                  sx={{ typography: 'subtitle2' }}
+                  sx={{ typography: "subtitle2" }}
                 >
                   Need help?
                 </Link>
               )}
 
               {/* -- Searchbar -- */}
-              {searchbar && <Searchbar data-slot="searchbar" data={data?.nav} />}
+              {searchbar && (
+                <Searchbar data-slot="searchbar" data={data?.nav} />
+              )}
 
               {/* -- Language popover -- */}
-              {localization && <LanguagePopover data-slot="localization" data={data?.langs} />}
+              {localization && (
+                <LanguagePopover data-slot="localization" data={data?.langs} />
+              )}
 
               {/* -- Notifications popover -- */}
               {notifications && (
-                <NotificationsDrawer data-slot="notifications" data={data?.notifications} />
+                <NotificationsDrawer
+                  data-slot="notifications"
+                  data={data?.notifications}
+                />
               )}
 
               {/* -- Contacts popover -- */}
-              {contacts && <ContactsPopover data-slot="contacts" data={data?.contacts} />}
+              {contacts && (
+                <ContactsPopover data-slot="contacts" data={data?.contacts} />
+              )}
 
               {/* -- Settings button -- */}
               {/* {settings && <SettingsButton data-slot="settings" />} */}
 
               {/* -- Account drawer -- */}
-              {account && <AccountDrawer data-slot="account" data={data?.account} />}
+              {account && (
+                <AccountDrawer data-slot="account" data={data?.account} />
+              )}
 
               {/* -- Sign in button -- */}
               {signIn && <SignInButton />}
