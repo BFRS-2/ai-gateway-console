@@ -22,13 +22,15 @@ export type ServiceDoc = {
 
 export type Service = {
   id: string;
-  kind: ServiceKind;
-  title: string;
+  // kind: ServiceKind;
+  name: string;
+  status : string;
   description: string;
-  enabled: boolean;
-  versions?: string[];
-  defaultVersion?: string;
-  models: ModelInfo[];
-  useCases: string[];
-  doc: ServiceDoc;
+  is_active: boolean;
+  // enabled: boolean;
+  // versions?: string[];
+  // defaultVersion?: string;
+  // models: ModelInfo[];
+  // useCases: string[];
+  // doc: ServiceDoc;
 };

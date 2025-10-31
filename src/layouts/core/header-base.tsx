@@ -125,10 +125,11 @@ export function HeaderBase({
   ...other
 }: HeaderBaseProps) {
   const theme = useTheme();
-
+  const isAuthenticated = Boolean(localStorage?.getItem("jwt_access_token"));
   const dispatch = useDispatch();
   useEffect(() => {
-    authService
+    if(isAuthenticated){
+      authService
       .getUserInfo()
       .then((res) => {
         if (res.success === true) {
@@ -150,16 +151,14 @@ export function HeaderBase({
           if (projects.length === 0) {
             createProject(organizations[0].id);
           } else {
-            console.log(
-              "🚀 ~ HeaderBase ~ orgs, projs:",
-              organizations,
-              projects
-            );
             saveOrgProject(organizations, projects);
           }
         });
       }
     });
+
+    }
+    
   }, []);
 
   function mergeOrgsWithProjects(
@@ -187,7 +186,6 @@ export function HeaderBase({
       org,
       project
     );
-    console.log("🚀 ~ saveOrgProject ~  org,", org, project);
 
     dispatch(setOrganizationProjectMapping(orgWithProjects));
     // pick first org and project to select by default

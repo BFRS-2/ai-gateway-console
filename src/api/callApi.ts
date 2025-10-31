@@ -16,6 +16,8 @@ function buildHeaders(body: any) {
     headers.set("Content-Type", "application/json");
   }
 
+
+  headers.set("ngrok-skip-browser-warning", "43534");
   // Auth header — add only if we actually have a token
   const token = localStorage.getItem(STORAGE_KEY);
   if (token) headers.set("authorization", `Bearer ${token}`);
@@ -69,7 +71,7 @@ async function callAPI(url: string, body: any, method: HttpMethod) {
     // Handle explicit auth failure
     if (response.status === 401) {
       localStorage.removeItem("_user");
-      localStorage.removeItem("accessToken");
+      localStorage.removeItem("jwt_access_token");
       window.location.href = "/login";
       return; // stop processing
     }

@@ -1,5 +1,5 @@
 import urls from "../urls";
-import { callPostApi } from "../callApi";
+import { callPostApi, callPutApi } from "../callApi";
 
 export interface AddProjectServiceBody {
   service: "summarization" | "inference" | "embedding" | "ocr" | string;
@@ -22,7 +22,10 @@ export interface AddProjectServiceBody {
 
 const addService = {
   addToProject: (projectId: string, body: AddProjectServiceBody) =>
-    callPostApi(`${urls.GET_PROJECTS}/${projectId}/services`, body),
+    callPostApi(`${urls.PROJECTS}${projectId}/services`, body),
+
+  updateService: (projectId: string, body: AddProjectServiceBody) =>
+    callPutApi(`${urls.PROJECTS}${projectId}/services`, body),
 };
 
 export default addService;

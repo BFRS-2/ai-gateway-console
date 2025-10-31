@@ -34,7 +34,6 @@ export default function AppSelector(props: { sx?: any }) {
     (state: RootState) =>
       state.orgProject.organizationProjects as OrganizationWithProjectsLite[]
   );
-  console.log("🚀 ~ AppSelector ~ organizationProjects:", organizationProjects);
 
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
   const [nestedAnchorEl, setNestedAnchorEl] = useState<HTMLLIElement | null>(

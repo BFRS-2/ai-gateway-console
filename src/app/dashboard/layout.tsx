@@ -6,6 +6,7 @@ import { AuthGuard } from "src/auth/guard";
 import ReduxProvider from "./provider";
 import { Organization } from "src/api/services/auth.service";
 import { Project } from "src/api/services/project.service";
+import { SnackbarProvider } from "notistack";
 
 // ----------------------------------------------------------------------
 
@@ -22,9 +23,9 @@ export default function Layout({ children }: Props) {
 
   return (
     <AuthGuard>
-      <ReduxProvider>
+      <SnackbarProvider>
         <DashboardLayout>{children}</DashboardLayout>
-      </ReduxProvider>
+      </SnackbarProvider>
     </AuthGuard>
   );
 }

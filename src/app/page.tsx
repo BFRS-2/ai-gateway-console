@@ -12,6 +12,7 @@ export default function Page() {
   const router = useRouter();
 
   useEffect(() => {
+    console.log(CONFIG.auth.redirectPath)
     router.push(CONFIG.auth.redirectPath);
   }, [router]);
 

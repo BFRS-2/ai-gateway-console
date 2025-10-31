@@ -17,7 +17,7 @@ const DataCard = (props: any) => {
           <Typography variant="h4" sx={props.styles.value}>
             {props.value}
           </Typography>
-          <Typography variant="subtitle2" color={theme.palette.text.secondary}>
+          <Typography variant="subtitle2" color={theme.palette.common.black}>
             {props.title}
           </Typography>
         </Stack>

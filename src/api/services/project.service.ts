@@ -63,7 +63,7 @@ const projectService = {
       }/by-organization?organization_id=${encodeURIComponent(organizationId)}`
     ) as Promise<Project[]>,
   getUsage: (projectId: string) =>
-    callGetApi(`${urls.GET_PROJECTS}/${projectId}/usage`),
+    callGetApi(`${urls.PROJECT_USAGE}/${projectId}/usage`),
 };
 
 export default projectService;

@@ -175,6 +175,9 @@ export function useChart(options?: ChartOptions): ChartOptions {
     yaxis: {
       tickAmount: 5,
       ...options?.yaxis,
+      labels : {
+        formatter : (val) => val.toFixed(0),
+      }
     },
 
     /** **************************************
@@ -192,6 +195,10 @@ export function useChart(options?: ChartOptions): ChartOptions {
     tooltip: {
       theme: 'false',
       fillSeriesColor: false,
+      style : {
+        fontSize: theme.typography.body2.fontSize as string,
+        fontFamily: theme.typography.fontFamily,
+      },
       x: {
         show: true,
       },
