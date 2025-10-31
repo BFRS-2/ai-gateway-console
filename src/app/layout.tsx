@@ -1,3 +1,5 @@
+"use client"
+
 import "src/global.css";
 
 // ----------------------------------------------------------------------
@@ -11,7 +13,6 @@ import { getInitColorSchemeScript } from "src/theme/color-scheme-script";
 
 import { ProgressBar } from "src/components/progress-bar";
 import { MotionLazy } from "src/components/animate/motion-lazy";
-import { detectSettings } from "src/components/settings/server";
 import {
   SettingsDrawer,
   defaultSettings,
@@ -34,10 +35,8 @@ type Props = {
 };
 
 export default async function RootLayout({ children }: Props) {
-  const settings = CONFIG.isStaticExport
-    ? defaultSettings
-    : await detectSettings();
-
+  const settings =  defaultSettings
+    // : await detectSettings();
   return (
     <html lang="en" suppressHydrationWarning>
       <body>

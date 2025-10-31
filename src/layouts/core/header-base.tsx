@@ -4,7 +4,6 @@ import type { NavSectionProps } from "src/components/nav-section";
 
 import Box from "@mui/material/Box";
 import Link from "@mui/material/Link";
-import Button from "@mui/material/Button";
 import { styled, useTheme } from "@mui/material/styles";
 
 import { paths } from "src/routes/paths";
@@ -16,31 +15,41 @@ import { HeaderSection } from "./header-section";
 import { Searchbar } from "../components/searchbar";
 import { MenuButton } from "../components/menu-button";
 import { SignInButton } from "../components/sign-in-button";
-import { AccountDrawer } from "../components/account-drawer";
+// import { AccountDrawer } from "../components/account-drawer";
 import { SettingsButton } from "../components/settings-button";
-import { LanguagePopover } from "../components/language-popover";
-import { ContactsPopover } from "../components/contacts-popover";
-import { WorkspacesPopover } from "../components/workspaces-popover";
-import { NotificationsDrawer } from "../components/notifications-drawer";
+// import { LanguagePopover } from "../components/language-popover";
+// import { ContactsPopover } from "../components/contacts-popover";
+// import { WorkspacesPopover } from "../components/workspaces-popover";
+// import { NotificationsDrawer } from "../components/notifications-drawer";
 
 import type { HeaderSectionProps } from "./header-section";
-import type { AccountDrawerProps } from "../components/account-drawer";
+// import type { AccountDrawerProps } from "../components/account-drawer";
 import type { ContactsPopoverProps } from "../components/contacts-popover";
 import type { LanguagePopoverProps } from "../components/language-popover";
 import type { WorkspacesPopoverProps } from "../components/workspaces-popover";
 import type { NotificationsDrawerProps } from "../components/notifications-drawer";
+
 import AppSelector from "src/components/nav-section/app-selector";
+
 import authService, { Organization } from "src/api/services/auth.service";
 import projectService, { Project } from "src/api/services/project.service";
-import { OrganizationWithProjects } from "src/app/dashboard/layout";
-import { selectOrganizationProject, setOrganizationProjectMapping } from "src/stores/slicers/orgProject";
-import { useDispatch } from "react-redux";
-import { useEffect } from "react";
 import organizationService from "src/api/services/organization.service";
+
+import { OrganizationWithProjects } from "src/app/dashboard/layout";
+import {
+  selectOrganizationProject,
+  setOrganizationProjectMapping,
+} from "src/stores/slicers/orgProject";
+
+import { useDispatch, useSelector } from "react-redux";
+import { useEffect, useMemo, useState } from "react";
+import { RootState } from "src/stores/store";
+
 import {
   generateOrganizationName,
   generateProjectName,
 } from "src/utils/nameGenerator";
+
 import AccountPopover from "../components/account-popover";
 
 // ----------------------------------------------------------------------
@@ -71,12 +80,87 @@ const StyledDivider = styled("span")(({ theme }) => ({
 }));
 
 // ----------------------------------------------------------------------
+// Persistence helpers (safe on client)
+// ----------------------------------------------------------------------
+
+type StoredSelection = {
+  organizationId: string;
+  projectId: string; // may be "" if none
+};
+
+const STORAGE_KEY = "orgProject:selected";
+
+function readStoredSelection(): StoredSelection | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as StoredSelection) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredSelection(sel: StoredSelection) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sel));
+  } catch {
+    // ignore quota/availability errors
+  }
+}
+
+// ----------------------------------------------------------------------
+// Selection resolver
+// ----------------------------------------------------------------------
+
+function resolveSelection(
+  orgs: OrganizationWithProjects[],
+  stored: StoredSelection | null
+): {
+  organizationId: string;
+  organizationName: string;
+  projectId: string;
+  projectName: string;
+} | null {
+  if (!orgs.length) return null;
+
+  // 1) Try previous stored selection if still valid
+  if (stored?.organizationId) {
+    const org = orgs.find((o) => o.id === stored.organizationId);
+    if (org) {
+      const proj =
+        (stored.projectId &&
+          org.projects?.find((p) => p.id === stored.projectId)) ||
+        org.projects?.[0];
+
+      return {
+        organizationId: org.id,
+        organizationName: org.name,
+        projectId: proj?.id ?? "",
+        projectName: proj?.name ?? "",
+      };
+    }
+  }
+
+  // 2) Fallback to first org (and its first project)
+  const firstOrg = orgs[0];
+  const firstProj = firstOrg.projects?.[0];
+
+  return {
+    organizationId: firstOrg.id,
+    organizationName: firstOrg.name,
+    projectId: firstProj?.id ?? "",
+    projectName: firstProj?.name ?? "",
+  };
+}
+
+// ----------------------------------------------------------------------
 
 export type HeaderBaseProps = HeaderSectionProps & {
   onOpenNav: () => void;
   data?: {
     nav?: NavSectionProps["data"];
-    account?: AccountDrawerProps["data"];
+    // account?: AccountDrawerProps["data"];
     langs?: LanguagePopoverProps["data"];
     contacts?: ContactsPopoverProps["data"];
     workspaces?: WorkspacesPopoverProps["data"];
@@ -126,41 +210,90 @@ export function HeaderBase({
   ...other
 }: HeaderBaseProps) {
   const theme = useTheme();
-  const isAuthenticated = Boolean(localStorage?.getItem("jwt_access_token"));
   const dispatch = useDispatch();
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+   useEffect(() => {
+    // runs only on client
+    try {
+      const token =
+        typeof window !== "undefined"
+          ? window.localStorage.getItem("jwt_access_token")
+          : null;
+      setIsAuthenticated(Boolean(token));
+    } catch {
+      setIsAuthenticated(false);
+    }
+  }, []);
+
+  // keep localStorage in sync when user changes selection anywhere (e.g., AppSelector)
+  const selected = useSelector(
+    (state: RootState) => state.orgProject.selectedOrganizationProject
+  );
+
   useEffect(() => {
-    if(isAuthenticated){
-      authService
+    if (typeof window === "undefined") return;
+    if (selected?.organizationId) {
+      writeStoredSelection({
+        organizationId: selected.organizationId,
+        projectId: selected.projectId ?? "",
+      });
+    }
+  }, [selected?.organizationId, selected?.projectId]);
+
+  // On mount (if authed): fetch orgs+projects, create defaults if needed, then map and select
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    // hydrate user info (optional)
+    authService
       .getUserInfo()
       .then((res) => {
-        if (res.success === true) {
+        if (res?.success === true) {
           const user = res.data.user;
-          localStorage.setItem("_user", JSON.stringify(user));
+          try {
+            localStorage.setItem("_user", JSON.stringify(user));
+          } catch {}
         }
       })
       .catch((err) => {
         console.error("Error fetching user info:", err);
       });
 
-    organizationService.getAll().then((orgs) => {
-      const organizations: Organization[] = orgs?.data?.organizations;
-      if (organizations.length === 0) {
-        createDefaultSetup();
-      } else {
-        projectService.getAll().then((projs) => {
-          const projects = projs?.data?.projects || [];
-          if (projects.length === 0) {
-            createProject(organizations[0].id);
-          } else {
-            saveOrgProject(organizations, projects);
-          }
-        });
-      }
-    });
+    // main bootstrap flow
+    bootstrapOrgsAndProjects();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
 
+  // ------------------------------
+  // Data plumbing
+  // ------------------------------
+
+  async function bootstrapOrgsAndProjects() {
+    try {
+      const orgsResp = await organizationService.getAll();
+      const organizations: Organization[] =
+        orgsResp?.data?.organizations || [];
+
+      if (!organizations.length) {
+        await createDefaultSetup(); // will create org + project
+        // refetch after creation
+        return await bootstrapOrgsAndProjects();
+      }
+
+      const projsResp = await projectService.getAll();
+      const projects: Project[] = projsResp?.data?.projects || [];
+
+      if (!projects.length) {
+        await createProject(organizations[0].id);
+        // refetch after creation
+        return await bootstrapOrgsAndProjects();
+      }
+
+      saveOrgProject(organizations, projects);
+    } catch (err) {
+      console.error("Bootstrap error:", err);
     }
-    
-  }, []);
+  }
 
   function mergeOrgsWithProjects(
     organizations: Organization[],
@@ -182,54 +315,69 @@ export function HeaderBase({
     }));
   }
 
-  const saveOrgProject = (org: Organization[], project: Project[]) => {
-    const orgWithProjects: OrganizationWithProjects[] = mergeOrgsWithProjects(
-      org,
-      project
-    );
+  function saveOrgProject(orgs: Organization[], projs: Project[]) {
+    const orgWithProjects: OrganizationWithProjects[] =
+      mergeOrgsWithProjects(orgs, projs);
 
+    // set mapping
     dispatch(setOrganizationProjectMapping(orgWithProjects));
-    // pick first org and project to select by default
-    const firstOrg = orgWithProjects[0];
-    const firstProject = firstOrg?.projects?.[0];
-    if (firstOrg) {
+
+    // resolve previous selection or default
+    const stored = readStoredSelection();
+    const selection = resolveSelection(orgWithProjects, stored);
+
+    if (selection) {
       dispatch(
         selectOrganizationProject({
-          organizationId: firstOrg.id,
-          organizationName: firstOrg.name,
-          projectId: firstProject?.id ?? "",
-          projectName: firstProject?.name ?? "",
+          organizationId: selection.organizationId,
+          organizationName: selection.organizationName,
+          projectId: selection.projectId,
+          projectName: selection.projectName,
         })
       );
+
+      // persist for next reload
+      writeStoredSelection({
+        organizationId: selection.organizationId,
+        projectId: selection.projectId,
+      });
     }
-    // save to redux
-  };
-  const createProject = (organizationId: string) => {
+  }
+
+  async function createProject(organizationId: string) {
     if (!organizationId) return;
-    projectService
-      .create({ name: generateProjectName(), organization_id: organizationId })
-      .then((projRes) => {
-        if (projRes.success === true) {
-          const project = projRes.data;
-        }
+    try {
+      const projRes = await projectService.create({
+        name: generateProjectName(),
+        organization_id: organizationId,
       });
-  };
+      if (projRes?.success === true) {
+        // no-op; caller refetches
+      }
+    } catch (e) {
+      console.error("createProject error:", e);
+    }
+  }
 
-  const createOrganization = (cb: Function) => {
-    organizationService
-      .create({ name: generateOrganizationName() })
-      .then((orgRes) => {
-        if (orgRes.success === true) {
-          const org = orgRes.data.organization;
-          cb(org);
-        }
+  async function createOrganization(cb?: (org: Organization) => void) {
+    try {
+      const orgRes = await organizationService.create({
+        name: generateOrganizationName(),
       });
-  };
+      if (orgRes?.success === true) {
+        const org: Organization = orgRes.data.organization;
+        cb?.(org);
+      }
+    } catch (e) {
+      console.error("createOrganization error:", e);
+    }
+  }
 
-  const createDefaultSetup = () =>
-    createOrganization((org: Organization) => {
+  function createDefaultSetup() {
+    return createOrganization((org: Organization) => {
       createProject(org.id);
     });
+  }
 
   return (
     <HeaderSection
@@ -261,7 +409,7 @@ export function HeaderBase({
             {/* -- Divider -- */}
             <StyledDivider data-slot="divider" />
 
-            {/* -- Workspace popover -- */}
+            {/* -- Workspace selector -- */}
             {/* {workspaces && <WorkspacesPopover data-slot="workspaces" data={data?.workspaces} />} */}
             <AppSelector />
 
@@ -303,8 +451,8 @@ export function HeaderBase({
                 <LanguagePopover data-slot="localization" data={data?.langs} />
               )} */}
 
-              {/* -- Notifications popover --
-              {notifications && (
+              {/* -- Notifications drawer -- */}
+              {/* {notifications && (
                 <NotificationsDrawer
                   data-slot="notifications"
                   data={data?.notifications}
@@ -319,11 +467,11 @@ export function HeaderBase({
               {/* -- Settings button -- */}
               {/* {settings && <SettingsButton data-slot="settings" />} */}
 
-              {/* -- Account drawer -- */}
+              {/* -- Account drawer / popover -- */}
               {/* {account && (
                 <AccountDrawer data-slot="account" data={data?.account} />
               )} */}
-              <AccountPopover/>
+              <AccountPopover />
 
               {/* -- Sign in button -- */}
               {signIn && <SignInButton />}

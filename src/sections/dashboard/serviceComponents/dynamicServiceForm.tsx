@@ -89,7 +89,7 @@ export default function DynamicServiceForm({
   // Auto-fill provider when a model is picked and provider is empty
   useEffect(() => {
     const syncProvider = (modelPath: Path, providerPath: Path) => {
-      const modelName = getByPath(value, modelPath);
+      const modelName: any = getByPath(value, modelPath);
       const providerName = getByPath(value, providerPath);
       if (!modelName) return;
 
@@ -116,7 +116,7 @@ export default function DynamicServiceForm({
   const validate = () => {
     const e: Record<Path, string> = {};
     Object.entries(schema.fields).forEach(([path, f]) => {
-      const v = getByPath(value, path);
+      const v :any = getByPath(value, path);
 
       if (f.required) {
         const isEmpty =
@@ -191,7 +191,7 @@ export default function DynamicServiceForm({
         return (
           <Box>
             <Typography variant="caption" sx={{ fontWeight: 600 }}>
-              {label}: <b>{v ?? f.default ?? 0}</b>
+              {label}: <b>{v  as any ?? f.default ?? 0}</b>
             </Typography>
             <Slider size="small"
               value={Number(v ?? f.default ?? 0)}

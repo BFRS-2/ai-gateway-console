@@ -49,7 +49,3 @@ export function generateProjectName() {
       return `${prefix} ${core} ${suffix}`;
   }
 }
-
-// Example usage:
-console.log("Organization:", generateOrganizationName());
-console.log("Project:", generateProjectName());

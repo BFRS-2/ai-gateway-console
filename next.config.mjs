@@ -1,14 +1,13 @@
 /**
  * @type {import('next').NextConfig}
  */
-
-const isStaticExport = 'true';
+const isStaticExport = true;
 
 const nextConfig = {
   trailingSlash: true,
   basePath: process.env.NEXT_PUBLIC_BASE_PATH,
   env: {
-    BUILD_STATIC_EXPORT: isStaticExport,
+    BUILD_STATIC_EXPORT: true,
   },
   modularizeImports: {
     '@mui/icons-material': {

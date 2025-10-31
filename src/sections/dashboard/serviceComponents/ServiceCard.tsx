@@ -100,13 +100,8 @@ export function ServiceCard({
       serviceManagementService.getAllProviders(),
     ])
       .then(([modelsRes, providersRes]) => {
-        const modelList: ModelRow[] =
-          modelsRes?.data?.models ?? modelsRes?.models ?? modelsRes ?? [];
-        const providerList: ProviderRow[] =
-          providersRes?.data?.providers ??
-          providersRes?.providers ??
-          providersRes ??
-          [];
+        const modelList: ModelRow[] = modelsRes?.data?.models ?? [];
+        const providerList: ProviderRow[] = providersRes?.data?.providers ?? []
         setModels(Array.isArray(modelList) ? modelList : []);
         setProviders(Array.isArray(providerList) ? providerList : []);
       })
