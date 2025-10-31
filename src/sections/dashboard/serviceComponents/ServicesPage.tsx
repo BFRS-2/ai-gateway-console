@@ -17,8 +17,8 @@ import ServiceDetailsDialog from "./ServiceDetailsDrawer";
 import serviceManagementService from "src/api/services/serviceManagement.service";
 import { useSelector } from "react-redux";
 import { RootState } from "src/stores/store";
-import addService from "src/api/services/addService.service";
-import { useSnackbar } from "notistack";
+import projectService from "src/api/services/project.service";
+import { SavedServiceConfig } from "src/api/services/addService.service";
 const KIND_FILTER: ("All" | ServiceKind)[] = [
   "All",
   "ocr",
@@ -40,6 +40,8 @@ export function ServicesPage() {
 
   const [drawer, setDrawer] = useState<Service | null>(null);
   const [services, setServices] = useState<Service[]>([]);
+
+  const [activeSevices, setActiveServices] = useState<SavedServiceConfig[]>([]);
   const selectedOrganizationProject = useSelector(
     (state: RootState) => state.orgProject.selectedOrganizationProject
   );
@@ -47,18 +49,29 @@ export function ServicesPage() {
     serviceManagementService
       .getAllServices(selectedOrganizationProject?.projectId || "")
       .then((data) => {
-        console.log("🚀 ~ ServicesPage ~ data:", data);
         if (data.success) {
           setServices(data.data.services);
         }
       });
   };
+
+
+  const getProjectServices = ()=>{
+    if(selectedOrganizationProject?.projectId){
+      projectService.getProjectServices(selectedOrganizationProject?.projectId)
+      .then((data) => {
+        console.log("🚀 ~ getProjectServices ~ data:", data);
+        if (data.success) {
+          setActiveServices(data.data.services);
+        }
+      });
+    }
+      
+  }
   useEffect(() => {
-    // In real app, fetch services from API
-    // For demo, we use mock data
-    // setServices(SERVICES);
     if (selectedOrganizationProject?.projectId) {
       getServices();
+      getProjectServices();
     }
   }, [selectedOrganizationProject]);
 
@@ -69,11 +82,11 @@ export function ServicesPage() {
         !s ||
         svc.name.toLowerCase().includes(s) ||
         svc.description.toLowerCase().includes(s);
-      const kindOk = kind === "All" || svc.kind === kind;
+      // const kindOk = kind === "All" || svc.kind === kind;
       const statusOk =
         status === "All" ||
         (status === "enabled" ? svc.is_active : !svc.is_active);
-      return textOk && kindOk && statusOk;
+      return textOk && statusOk;
     });
   }, [services, search, kind, status]);
 
@@ -143,7 +156,8 @@ export function ServicesPage() {
               service={svc}
               onOpen={(s) => setDrawer(s)}
               onToggle={onToggle}
-              onSaveConfig={() => {getServices()}}
+              onSaveConfig={() => {getServices(); getProjectServices()}}
+              savedConfig = {activeSevices.find((as)=>as.service_id === svc.id)}
             />
           </Grid>
         ))}

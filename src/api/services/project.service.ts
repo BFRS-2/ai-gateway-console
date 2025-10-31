@@ -64,6 +64,9 @@ const projectService = {
     ) as Promise<Project[]>,
   getUsage: (projectId: string) =>
     callGetApi(`${urls.PROJECT_USAGE}/${projectId}/usage`),
+
+  getProjectServices: (projectId: string) =>
+    callGetApi(`${urls.PROJECT_SERVICES}/${projectId}/services`),
 };
 
 export default projectService;

@@ -41,6 +41,7 @@ import {
   generateOrganizationName,
   generateProjectName,
 } from "src/utils/nameGenerator";
+import AccountPopover from "../components/account-popover";
 
 // ----------------------------------------------------------------------
 
@@ -298,30 +299,31 @@ export function HeaderBase({
               )}
 
               {/* -- Language popover -- */}
-              {localization && (
+              {/* {localization && (
                 <LanguagePopover data-slot="localization" data={data?.langs} />
-              )}
+              )} */}
 
-              {/* -- Notifications popover -- */}
+              {/* -- Notifications popover --
               {notifications && (
                 <NotificationsDrawer
                   data-slot="notifications"
                   data={data?.notifications}
                 />
-              )}
+              )} */}
 
               {/* -- Contacts popover -- */}
-              {contacts && (
+              {/* {contacts && (
                 <ContactsPopover data-slot="contacts" data={data?.contacts} />
-              )}
+              )} */}
 
               {/* -- Settings button -- */}
               {/* {settings && <SettingsButton data-slot="settings" />} */}
 
               {/* -- Account drawer -- */}
-              {account && (
+              {/* {account && (
                 <AccountDrawer data-slot="account" data={data?.account} />
-              )}
+              )} */}
+              <AccountPopover/>
 
               {/* -- Sign in button -- */}
               {signIn && <SignInButton />}
