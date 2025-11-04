@@ -268,6 +268,27 @@ export function HeaderBase({
   // Data plumbing
   // ------------------------------
 
+  // Event listener to allow external parts of the app to trigger a refresh
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handler = (ev: Event) => {
+      // Only run when authenticated
+      if (!isAuthenticated) return;
+      try {
+        bootstrapOrgsAndProjects();
+      } catch (err) {
+        console.error("fetch_org_project handler error:", err);
+      }
+    };
+
+    window.addEventListener("fetch_org_project", handler as EventListener);
+    return () => {
+      window.removeEventListener("fetch_org_project", handler as EventListener);
+    };
+  }, [isAuthenticated]);
+
+
   async function bootstrapOrgsAndProjects() {
     try {
       const orgsResp = await organizationService.getAll();
@@ -275,8 +296,7 @@ export function HeaderBase({
         orgsResp?.data?.organizations || [];
 
       if (!organizations.length) {
-        await createDefaultSetup(); // will create org + project
-        // refetch after creation
+        await createDefaultSetup();
         return await bootstrapOrgsAndProjects();
       }
 
