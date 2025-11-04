@@ -1,5 +1,6 @@
 "use client";
-import { useMemo, useState } from "react";
+
+import { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Stack,
@@ -22,50 +23,79 @@ import MenuIcon from "@mui/icons-material/Menu";
 import FolderIcon from "@mui/icons-material/Folder";
 import { useSelector } from "react-redux";
 import { RootState } from "src/stores/store";
-import { MOCK_TEAMS } from "./projectManagementComponents/mock";
-import { ProjectPage } from "./projectManagementComponents/projectPage";
-import { TeamSidebarDrawer } from "./projectManagementComponents/teamSidebarDrawer";
+
+// reuse your existing components
+import { TeamSidebarDrawer as OrgSidebarDrawer } from "./projectManagementComponents/teamSidebarDrawer";
 import { ProjectListDrawer } from "./projectManagementComponents/projectListDrawer";
-import { TeamSidebar } from "./projectManagementComponents/teamSidebar";
+import { TeamSidebar as OrgSidebar } from "./projectManagementComponents/teamSidebar";
 import { ProjectListPanel } from "./projectManagementComponents/projectListPanel";
-import projectService from "src/api/services/project.service"; // adjust path if needed
-import { enqueueSnackbar } from "notistack";
+
+import projectService from "src/api/services/project.service";
+// <- path adjust if different
+import { useSnackbar } from "notistack";
+import OverviewSection from "./overview";
 
 export function ProjectManagementRoot() {
   const theme = useTheme();
   const mdDown = useMediaQuery(theme.breakpoints.down("md"));
+  const { enqueueSnackbar } = useSnackbar();
 
-  // ✅ correct selector
-  const organizationId = useSelector(
+  // all orgs with their projects from store
+  const orgMapping = useSelector(
+    (state: RootState) => state.orgProject.organizationProjects
+  ) as {
+    id: string;
+    name: string;
+    projects: {
+      id: string;
+      name: string;
+      organization_id: string;
+    }[];
+  }[];
+
+  // this was in your previous version — sometimes you keep "selectedOrganizationProject" separately
+  const orgIdFromStore = useSelector(
     (state: RootState) =>
       state.orgProject.selectedOrganizationProject?.organizationId
   );
 
-  const [teamId, setTeamId] = useState(MOCK_TEAMS[0]?.id ?? "");
-  const [projectId, setProjectId] = useState(
-    MOCK_TEAMS[0]?.projects[0]?.id ?? ""
-  );
+  // selected org & project
+  const [orgId, setOrgId] = useState<string>("");
+  const [projectId, setProjectId] = useState<string>("");
 
-  const [leftOpen, setLeftOpen] = useState(false); // Teams
-  const [rightOpen, setRightOpen] = useState(false); // Projects
+  // drawers (mobile)
+  const [leftOpen, setLeftOpen] = useState(false); // orgs
+  const [rightOpen, setRightOpen] = useState(false); // projects
 
-  // modal state
+  // create project modal
   const [createOpen, setCreateOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [creating, setCreating] = useState(false);
 
-  const selectedTeam = useMemo(
-    () => MOCK_TEAMS.find((t) => t.id === teamId),
-    [teamId]
-  );
-  const selectedProject = useMemo(
-    () => selectedTeam?.projects.find((p) => p.id === projectId),
-    [selectedTeam, projectId]
+  // pick first org on load / change
+  useEffect(() => {
+    if (orgMapping && orgMapping.length > 0) {
+      setOrgId((prev) => prev || orgMapping[0].id);
+      const firstProj = orgMapping[0].projects?.[0];
+      if (firstProj) {
+        setProjectId((prev) => prev || firstProj.id);
+      }
+    }
+  }, [orgMapping]);
+
+  const selectedOrg = useMemo(
+    () => orgMapping?.find((o) => o.id === orgId),
+    [orgMapping, orgId]
   );
 
-  const handleSelectTeam = (id: string) => {
-    setTeamId(id);
-    const first = MOCK_TEAMS.find((t) => t.id === id)?.projects[0];
+  const selectedProject = useMemo(
+    () => selectedOrg?.projects?.find((p) => p.id === projectId),
+    [selectedOrg, projectId]
+  );
+
+  const handleSelectOrg = (id: string) => {
+    setOrgId(id);
+    const first = orgMapping.find((o) => o.id === id)?.projects?.[0];
     setProjectId(first?.id ?? "");
     setLeftOpen(false);
   };
@@ -79,53 +109,60 @@ export function ProjectManagementRoot() {
     setProjectName("");
     setCreateOpen(true);
   };
+
   const handleCloseCreate = () => {
     if (creating) return;
     setCreateOpen(false);
   };
 
   const handleCreateProject = async () => {
-    if (!organizationId) {
-      // you can toast/snackbar here if you want
+    // prefer currently selected org; fallback to store’s selectedOrganizationProject
+    const finalOrgId = orgId || orgIdFromStore;
+    if (!finalOrgId) {
+      enqueueSnackbar("No organization selected", { variant: "error" });
       return;
     }
     if (!projectName.trim()) {
+      enqueueSnackbar("Project name is required", { variant: "warning" });
       return;
     }
+
     try {
       setCreating(true);
       const projRes = await projectService.create({
         name: projectName.trim(),
-        organization_id: organizationId,
+        organization_id: finalOrgId,
       });
 
-      if(projRes.success){
-      const created = projRes?.data ?? projRes;
-      if (created) {
-        setProjectId(created.id);
-        enqueueSnackbar("Project created", {variant : "success"})
-        window.dispatchEvent(new Event('fetch_org_project'));
+      if (projRes?.success) {
+        const created = projRes?.data ?? projRes;
+        if (created?.id) {
+          setProjectId(created.id);
+        }
+        enqueueSnackbar("Project created", { variant: "success" });
+        // let parent/page know to refetch mapping
+        window.dispatchEvent(new Event("fetch_org_project"));
+        setCreateOpen(false);
+      } else {
+        enqueueSnackbar("Project creation failed", { variant: "error" });
       }
-      setCreateOpen(false);
-      }
-      else{
-         enqueueSnackbar("Project creation failed", {variant : "error"})
-      }
-
-      
     } catch (err) {
       console.error("create project failed", err);
-      // show snackbar here if you have it in this component
+      enqueueSnackbar("Project creation failed", { variant: "error" });
     } finally {
       setCreating(false);
     }
   };
 
-  // ---------- Mobile / mdDown ----------
+  // =============== MOBILE / TABLET LAYOUT ===============
   if (mdDown) {
     return (
       <Box
-        sx={{ height: "calc(100vh - 64px)", display: "flex", flexDirection: "column" }}
+        sx={{
+          height: "calc(100vh - 64px)",
+          display: "flex",
+          flexDirection: "column",
+        }}
       >
         <AppBar
           position="static"
@@ -133,20 +170,19 @@ export function ProjectManagementRoot() {
           sx={{ borderBottom: 1, borderColor: "divider" }}
         >
           <Toolbar variant="dense">
-            <Tooltip title="Teams">
+            <Tooltip title="Organizations">
               <IconButton edge="start" onClick={() => setLeftOpen(true)}>
                 <MenuIcon />
               </IconButton>
             </Tooltip>
 
             <Typography variant="subtitle1" noWrap sx={{ ml: 1 }}>
-              {selectedTeam?.name ?? "Teams"}{" "}
+              {selectedOrg?.name ?? "Organizations"}{" "}
               {selectedProject ? `• ${selectedProject.name}` : ""}
             </Typography>
 
             <Box sx={{ flex: 1 }} />
 
-            {/* create button on mobile */}
             <Button size="small" onClick={handleOpenCreate}>
               New
             </Button>
@@ -159,30 +195,41 @@ export function ProjectManagementRoot() {
           </Toolbar>
         </AppBar>
 
+        {/* middle / content */}
         <Box sx={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
-          {selectedTeam && selectedProject ? (
-            <ProjectPage team={selectedTeam} project={selectedProject} isCompact />
+          {selectedOrg && projectId ? (
+            <OverviewSection
+              projectId={projectId}
+              projectName={
+                selectedOrg.projects?.find((p) => p.id === projectId)?.name
+              }
+            />
           ) : null}
         </Box>
 
-        {/* Drawers for smaller screens */}
-        <TeamSidebarDrawer
+        {/* drawers */}
+        <OrgSidebarDrawer
           open={leftOpen}
           onClose={() => setLeftOpen(false)}
-          teams={MOCK_TEAMS}
-          teamId={teamId}
-          onSelectTeam={handleSelectTeam}
+          teams={orgMapping as Project}
+          teamId={orgId}
+          onSelectTeam={handleSelectOrg}
         />
         <ProjectListDrawer
           open={rightOpen}
           onClose={() => setRightOpen(false)}
-          team={selectedTeam}
+          team={selectedOrg as any}
           selectedProjectId={projectId}
           onSelectProject={handleSelectProject}
         />
 
-        {/* Create project modal */}
-        <Dialog open={createOpen} onClose={handleCloseCreate} fullWidth maxWidth="xs">
+        {/* create project modal */}
+        <Dialog
+          open={createOpen}
+          onClose={handleCloseCreate}
+          fullWidth
+          maxWidth="xs"
+        >
           <DialogTitle>Create project</DialogTitle>
           <DialogContent sx={{ pt: 1 }}>
             <TextField
@@ -198,7 +245,11 @@ export function ProjectManagementRoot() {
             <Button onClick={handleCloseCreate} disabled={creating}>
               Cancel
             </Button>
-            <Button onClick={handleCreateProject} variant="contained" disabled={creating}>
+            <Button
+              onClick={handleCreateProject}
+              variant="contained"
+              disabled={creating}
+            >
               {creating ? "Creating..." : "Create"}
             </Button>
           </DialogActions>
@@ -207,18 +258,19 @@ export function ProjectManagementRoot() {
     );
   }
 
-  // ---------- Desktop / Large screen layout ----------
+  // =============== DESKTOP LAYOUT ===============
   return (
     <>
       <Stack direction="row" sx={{ height: "calc(100vh - 160px)" }}>
-        <TeamSidebar
-          teams={MOCK_TEAMS}
-          teamId={teamId}
-          onSelectTeam={handleSelectTeam}
+        {/* LEFT: orgs */}
+        <OrgSidebar
+          teams={orgMapping}
+          teamId={orgId}
+          onSelectTeam={handleSelectOrg}
         />
         <Divider orientation="vertical" flexItem />
 
-        {/* project list + create button over there? */}
+        {/* MIDDLE: projects of selected org */}
         <Box sx={{ display: "flex", flexDirection: "column" }}>
           <Box sx={{ p: 1, display: "flex", justifyContent: "flex-end" }}>
             <Button size="small" variant="outlined" onClick={handleOpenCreate}>
@@ -226,21 +278,32 @@ export function ProjectManagementRoot() {
             </Button>
           </Box>
           <ProjectListPanel
-            team={selectedTeam}
+            team={selectedOrg as any}
             selectedProjectId={projectId}
             onSelectProject={handleSelectProject}
           />
         </Box>
 
         <Divider orientation="vertical" flexItem />
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          {selectedTeam && selectedProject ? (
-            <ProjectPage team={selectedTeam} project={selectedProject} />
-          ) : null}
+
+        {/* RIGHT: usage of selected project */}
+        <Box sx={{ flex: 1, minWidth: 0, overflow: "auto" }}>
+          {selectedOrg && projectId ? (
+            <OverviewSection
+              projectId={projectId}
+              projectName={
+                selectedOrg.projects?.find((p) => p.id === projectId)?.name
+              }
+            />
+          ) : (
+            <Typography sx={{ p: 3 }} variant="body2">
+              Select a project to view its usage.
+            </Typography>
+          )}
         </Box>
       </Stack>
 
-      {/* Create project modal */}
+      {/* Create project modal (desktop) */}
       <Dialog open={createOpen} onClose={handleCloseCreate} fullWidth maxWidth="xs">
         <DialogTitle>Create project</DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
@@ -257,7 +320,11 @@ export function ProjectManagementRoot() {
           <Button onClick={handleCloseCreate} disabled={creating}>
             Cancel
           </Button>
-          <Button onClick={handleCreateProject} variant="contained" disabled={creating}>
+          <Button
+            onClick={handleCreateProject}
+            variant="contained"
+            disabled={creating}
+          >
             {creating ? "Creating..." : "Create"}
           </Button>
         </DialogActions>

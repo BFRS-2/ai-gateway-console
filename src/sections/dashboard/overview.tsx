@@ -1,9 +1,9 @@
+// OverviewSection.tsx
 "use client";
 
 import {
   Alert,
   Box,
-  Chip,
   Divider,
   Grid,
   Paper,
@@ -25,7 +25,7 @@ import projectService from "src/api/services/project.service";
 import { useSelector } from "react-redux";
 import { RootState } from "src/stores/store";
 
-// ---------- Types for Usage ----------
+// ---------- Types ----------
 type LimitBlock = { daily: number; monthly: number };
 type MetricBlock = { cost_used: number; requests: number; tokens_used: number };
 
@@ -51,7 +51,6 @@ type UsageResponse = {
   data: UsageData;
 };
 
-// ---------- Utils ----------
 const formatINR = (n: number) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -59,39 +58,41 @@ const formatINR = (n: number) =>
     maximumFractionDigits: 2,
   }).format(Number.isFinite(n) ? n : 0);
 
-// ---------- Component ----------
-const OverviewSection = () => {
+type OverviewSectionProps = {
+  projectId?: string;
+  projectName?: string;
+};
+
+const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
   const theme = useTheme();
-  const selected = useSelector(
+
+  // fallback to redux if prop not given
+  const selectedFromStore = useSelector(
     (state: RootState) => state.orgProject.selectedOrganizationProject
   );
+
+  const effectiveProjectId = projectId || selectedFromStore?.projectId;
+  const effectiveProjectName = projectName || selectedFromStore?.projectName;
 
   const [usage, setUsage] = useState<UsageData | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // Filters (kept for future use)
   const [team, setTeam] = useState("All");
   const [range, setRange] = useState("30d");
-
-  // Tabs
   const [tab, setTab] = useState(0);
   const [pServices, setPServices] = useState({ page: 0, rowsPerPage: 5 });
 
-  const selectedOrganizationProject = useSelector(
-    (state: RootState) => state.orgProject.selectedOrganizationProject
-  );
-
-  // Fetch usage when selected project changes
+  // Fetch usage when project changes
   useEffect(() => {
     setErr(null);
     setUsage(null);
 
-    if (!selected?.projectId) return;
+    if (!effectiveProjectId) return;
 
     setLoading(true);
     projectService
-      .getUsage(selected.projectId)
+      .getUsage(effectiveProjectId)
       .then((res: UsageResponse) => {
         if (res?.success && res?.data) {
           setUsage(res.data);
@@ -104,9 +105,8 @@ const OverviewSection = () => {
         setErr("Failed to fetch usage. Please try again.");
       })
       .finally(() => setLoading(false));
-  }, [selected?.projectId]);
+  }, [effectiveProjectId]);
 
-  // KPIs – safe defaults
   const kpis = useMemo(() => {
     const sLen = usage?.services?.length ?? 0;
     const totalReq = usage?.month_to_date?.requests ?? 0;
@@ -116,11 +116,10 @@ const OverviewSection = () => {
       productsUsed: sLen,
       totalReq,
       totalCost,
-      p95Label: "—", // not in payload
+      p95Label: "—",
     };
   }, [usage]);
 
-  // Area chart – guard empty with a placeholder point
   const areaData = useMemo(() => {
     const list =
       usage?.services?.map((s) => ({
@@ -131,7 +130,6 @@ const OverviewSection = () => {
     return list.length ? list : [{ x: "No data", req: 0, cost: 0 }];
   }, [usage?.services]);
 
-  // Donut – guard empty with zero slice
   const donutSeries = useMemo(() => {
     const series =
       usage?.services?.map((s) => ({
@@ -141,7 +139,6 @@ const OverviewSection = () => {
     return series.length ? series : [{ label: "No data", value: 1 }];
   }, [usage?.services]);
 
-  // Services table rows
   const servicesRows =
     usage?.services?.map((s) => [
       s.service,
@@ -158,17 +155,14 @@ const OverviewSection = () => {
   return (
     <DashboardContent maxWidth="xl">
       <Stack spacing={4}>
-        {/* Empty state if nothing selected */}
-        {!selected?.projectId && (
+        {!effectiveProjectId && (
           <Alert severity="info">
-            Select a project from the selector to view usage.
+            Select a project to view usage.
           </Alert>
         )}
 
-        {/* Error state */}
         {err && <Alert severity="error">{err}</Alert>}
 
-        {/* Filters (kept; does not hide content) */}
         <FiltersBar
           team={team}
           setTeam={setTeam}
@@ -176,13 +170,13 @@ const OverviewSection = () => {
           setRange={setRange}
         />
 
-        {/* Top KPIs */}
+        {/* KPIs */}
         <Grid container spacing={2}>
           <Grid item xs={12} sm={6} md={3}>
             <DataCard
               title="Products Used"
               value={kpis.productsUsed}
-              icon="/assets/icons/navbar/ic-job.svg" // NOTE: no "public/" prefix
+              icon="/assets/icons/navbar/ic-job.svg"
               loading={loading}
               styles={{
                 background: bgGradient({
@@ -196,7 +190,6 @@ const OverviewSection = () => {
               }}
             />
           </Grid>
-
           <Grid item xs={12} sm={6} md={3}>
             <DataCard
               title="Requests (30d)"
@@ -215,7 +208,6 @@ const OverviewSection = () => {
               }}
             />
           </Grid>
-
           <Grid item xs={12} sm={6} md={3}>
             <DataCard
               title="Cost (30d)"
@@ -234,11 +226,10 @@ const OverviewSection = () => {
               }}
             />
           </Grid>
-
           <Grid item xs={12} sm={6} md={3}>
             <DataCard
               title="p95 Latency"
-              value={`${kpis.p95Label} ms`}
+              value={`— ms`}
               icon="/assets/icons/navbar/ic-tour.svg"
               loading={loading}
               styles={{
@@ -262,11 +253,10 @@ const OverviewSection = () => {
               title="Usage & Cost by Service (MTD)"
               subheader={
                 usage?.project_id
-                  ? `Project: ${selectedOrganizationProject?.projectName || usage.project_id}`
+                  ? `Project: ${effectiveProjectName || usage.project_id}`
                   : "No project loaded"
               }
               data={areaData}
-              // remove `loading` prop if your component doesn’t support it
             />
           </Grid>
           <Grid item xs={12} md={4}>
@@ -278,7 +268,6 @@ const OverviewSection = () => {
                   : "No data available"
               }
               chart={{ series: donutSeries }}
-              // remove `loading` prop if unsupported
             />
           </Grid>
         </Grid>
@@ -326,8 +315,6 @@ const OverviewSection = () => {
             )}
           </Box>
         </Paper>
-
-        <Divider sx={{ opacity: 0 }} />
       </Stack>
     </DashboardContent>
   );
