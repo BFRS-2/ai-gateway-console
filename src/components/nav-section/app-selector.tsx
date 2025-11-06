@@ -23,7 +23,6 @@ export default function AppSelector(props: { sx?: any }) {
   const selected = useSelector(
     (state: RootState) => state.orgProject.selectedOrganizationProject
   );
-  console.log("🚀 ~ AppSelector ~ selected:", selected)
 
   const organizationProjects = useSelector(
     (state: RootState) =>

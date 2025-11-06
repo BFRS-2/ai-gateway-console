@@ -285,8 +285,8 @@ export default function DynamicServiceForm({
 
   return (
     <Scrollbar>
-    <Stack spacing={3} sx={{ width: 640, maxWidth: "100%" }}>
-      <Typography variant="h6">{schema.title}</Typography>
+    <Stack spacing={3} sx={{ maxWidth: "100%" }}>
+      {/* <Typography variant="h6">{schema.title}</Typography> */}
 
       {Object.entries(groups).map(([group, fields]) => (
         <Box key={group} sx={{ p: 2, border: "1px solid", borderColor: "divider", borderRadius: 2 }}>

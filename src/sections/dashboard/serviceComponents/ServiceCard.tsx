@@ -2,17 +2,36 @@
 "use client";
 
 import {
-  Card, CardHeader, CardContent, Stack, Chip, Switch, FormControlLabel,
-  Typography, Button, Dialog, DialogContent, CircularProgress,
+  Card,
+  CardHeader,
+  CardContent,
+  Stack,
+  Chip,
+  Switch,
+  FormControlLabel,
+  Typography,
+  Button,
+  CircularProgress,
+  Drawer,
+  Box,
+  IconButton,
+  useTheme,
+  useMediaQuery,
 } from "@mui/material";
 import LaunchIcon from "@mui/icons-material/Launch";
 import SettingsIcon from "@mui/icons-material/Settings";
+import CloseIcon from "@mui/icons-material/Close";
 import { useEffect, useMemo, useState } from "react";
 
 import serviceManagementService from "src/api/services/serviceManagement.service";
 import { serviceSchemas } from "./serviceschema";
-import DynamicServiceForm, { ModelRow, ProviderRow } from "./dynamicServiceForm";
-import addService, { SavedServiceConfig } from "src/api/services/addService.service";
+import DynamicServiceForm, {
+  ModelRow,
+  ProviderRow,
+} from "./dynamicServiceForm";
+import addService, {
+  SavedServiceConfig,
+} from "src/api/services/addService.service";
 import { useSelector } from "react-redux";
 import { RootState } from "src/stores/store";
 import { useSnackbar } from "notistack";
@@ -22,8 +41,9 @@ export function ServiceCard({
   service,
   onOpen,
   onToggle,
-  onSaveConfig,          // typically triggers a refetch above this card
-  savedConfig,           // <-- pass the saved config object (or undefined)
+  onSaveConfig, // typically triggers a refetch above this card
+  savedConfig, // <-- pass the saved config object (or undefined)
+  projectId, // <-- new optional prop
 }: {
   service: {
     id: string;
@@ -38,11 +58,15 @@ export function ServiceCard({
   onToggle: (svc: any, enabled: boolean) => void;
   onSaveConfig: () => void | Promise<void>;
   savedConfig?: SavedServiceConfig;
+  projectId?: string;
 }) {
-  console.log("🚀 ~ ServiceCard ~ savedConfig:", savedConfig)
+  const theme = useTheme();
+  const downMd = useMediaQuery(theme.breakpoints.down("md"));
+
   const svcKey = (service.name || "").toLowerCase().trim();
   const schema = serviceSchemas[svcKey];
 
+  // drawer open/close for Configure
   const [open, setOpen] = useState(false);
   const [formVal, setFormVal] = useState<any>(() =>
     schema ? structuredClone(schema.initial) : {}
@@ -52,9 +76,13 @@ export function ServiceCard({
   const [providers, setProviders] = useState<ProviderRow[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // optional fallback to store if projectId not passed
   const selectedOrganizationProject = useSelector(
     (state: RootState) => state.orgProject.selectedOrganizationProject
   );
+  const effectiveProjectId =
+    projectId || "";
+
   const { enqueueSnackbar } = useSnackbar();
 
   // --------- helpers ----------
@@ -63,7 +91,6 @@ export function ServiceCard({
     // If we already have a saved configuration for this service, merge it
     if (savedConfig && savedConfig.service?.toLowerCase?.() === svcKey) {
       return mergeWithSchemaInitial(schema.initial, {
-        // keep the same envelope as schema.initial
         service: savedConfig.service,
         config: savedConfig.config,
         limits: savedConfig.limits,
@@ -73,7 +100,7 @@ export function ServiceCard({
     return structuredClone(schema.initial);
   };
 
-  const openConfigModal = () => {
+  const openConfigDrawer = () => {
     setFormVal(computeInitialForm());
     setOpen(true);
   };
@@ -84,9 +111,11 @@ export function ServiceCard({
         console.error(`No schema for service "${svcKey}"`);
         return;
       }
-      openConfigModal();   // prefill (saved OR defaults), then open
-      return;              // enable after Save
+      // open config drawer, then save -> activate
+      openConfigDrawer();
+      return;
     }
+    // disabling is straightforward
     onToggle(service, false);
   };
 
@@ -101,7 +130,8 @@ export function ServiceCard({
     ])
       .then(([modelsRes, providersRes]) => {
         const modelList: ModelRow[] = modelsRes?.data?.models ?? [];
-        const providerList: ProviderRow[] = providersRes?.data?.providers ?? []
+        const providerList: ProviderRow[] =
+          providersRes?.data?.providers ?? [];
         setModels(Array.isArray(modelList) ? modelList : []);
         setProviders(Array.isArray(providerList) ? providerList : []);
       })
@@ -110,23 +140,39 @@ export function ServiceCard({
 
   // --------- save handler ----------
   const handleSubmit = async () => {
-    const fn = service.is_active ? addService.updateService : addService.addToProject;
+    if (!effectiveProjectId) {
+      enqueueSnackbar("No project selected", { variant: "warning" });
+      return;
+    }
 
-    fn(selectedOrganizationProject?.projectId || "", {
+    // if it was already active, update; otherwise add
+    const fn = service.is_active
+      ? addService.updateService
+      : addService.addToProject;
+
+    fn(effectiveProjectId, {
       ...formVal,
       service_id: service.id,
     })
       .then(async (res) => {
         if (res?.success) {
-          enqueueSnackbar("Service configuration saved", { variant: "success" });
+          enqueueSnackbar("Service configuration saved", {
+            variant: "success",
+          });
 
-          // If API returns the saved object, prefer it; else reuse formVal
           const latestSaved =
             res?.data ??
-            { service: svcKey, config: formVal.config, limits: formVal.limits, enabled: true };
+            ({
+              service: svcKey,
+              config: formVal.config,
+              limits: formVal.limits,
+              enabled: true,
+            } as any);
 
-          // Optionally update local formVal to the canonical saved values
-          setFormVal(mergeWithSchemaInitial(schema.initial, latestSaved));
+          // normalize the form with schema initial
+          if (schema) {
+            setFormVal(mergeWithSchemaInitial(schema.initial, latestSaved));
+          }
 
           // Let parent refresh the cards list / savedConfig
           await onSaveConfig();
@@ -138,13 +184,15 @@ export function ServiceCard({
           if (Array.isArray(errors) && errors.length) {
             errors.forEach((key: any) => {
               enqueueSnackbar(
-                res.error?.payload?.errors?.[key] || "Error saving service configuration",
+                res.error?.payload?.errors?.[key] ||
+                  "Error saving service configuration",
                 { variant: "error" }
               );
             });
           } else {
             enqueueSnackbar(
-              res?.error?.payload?.message || "Error saving service configuration",
+              res?.error?.payload?.message ||
+                "Error saving service configuration",
               { variant: "error" }
             );
           }
@@ -152,7 +200,9 @@ export function ServiceCard({
       })
       .catch((err) => {
         console.error("Error saving service configuration:", err);
-        enqueueSnackbar("Error saving service configuration", { variant: "error" });
+        enqueueSnackbar("Error saving service configuration", {
+          variant: "error",
+        });
       });
   };
 
@@ -162,7 +212,8 @@ export function ServiceCard({
         <CardHeader title={service.name} subheader={service.description} />
         <CardContent>
           <Typography variant="body2" color="error">
-            Missing schema for “{service.name}”. Ensure serviceSchemas has a “{svcKey}” key.
+            Missing schema for “{service.name}”. Ensure serviceSchemas has a “
+            {svcKey}” key.
           </Typography>
         </CardContent>
       </Card>
@@ -190,10 +241,18 @@ export function ServiceCard({
         <CardContent>
           <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 2 }}>
             {service?.models?.slice(0, 3).map((m) => (
-              <Chip key={m.id} label={m.displayName} size="small" variant="outlined" />
+              <Chip
+                key={m.id}
+                label={m.displayName}
+                size="small"
+                variant="outlined"
+              />
             ))}
             {service?.models?.length! > 3 && (
-              <Chip size="small" label={`+${(service?.models?.length || 0) - 3} models`} />
+              <Chip
+                size="small"
+                label={`+${(service?.models?.length || 0) - 3} models`}
+              />
             )}
           </Stack>
 
@@ -202,14 +261,19 @@ export function ServiceCard({
           </Typography>
 
           <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
-            <Button size="small" variant="contained" endIcon={<LaunchIcon />} onClick={() => onOpen(service)}>
+            <Button
+              size="small"
+              variant="contained"
+              endIcon={<LaunchIcon />}
+              onClick={() => onOpen(service)}
+            >
               Open Docs
             </Button>
             <Button
               size="small"
               variant="outlined"
               startIcon={<SettingsIcon />}
-              onClick={openConfigModal}       // <- uses savedConfig if present
+              onClick={openConfigDrawer}
             >
               Configure
             </Button>
@@ -217,8 +281,38 @@ export function ServiceCard({
         </CardContent>
       </Card>
 
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
-        <DialogContent>
+      {/* Drawer for Configure */}
+      <Drawer
+        anchor="right"
+        open={open}
+        onClose={() => setOpen(false)}
+        PaperProps={{
+          sx: {
+            width: downMd ? "100%" : "77vw",
+            maxWidth: "100%",
+          },
+        }}
+      >
+        <Box
+          sx={{
+            p: 2,
+            borderBottom: 1,
+            borderColor: "divider",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 1,
+          }}
+        >
+          <Typography variant="h6">
+            Configure: {service.name}
+          </Typography>
+          <IconButton onClick={() => setOpen(false)}>
+            <CloseIcon />
+          </IconButton>
+        </Box>
+
+        <Box sx={{ p: 2, overflowY: "auto" }}>
           {loading ? (
             <Stack alignItems="center" justifyContent="center" sx={{ py: 6 }}>
               <CircularProgress />
@@ -238,8 +332,8 @@ export function ServiceCard({
               submitLabel="Save & Activate"
             />
           )}
-        </DialogContent>
-      </Dialog>
+        </Box>
+      </Drawer>
     </>
   );
 }

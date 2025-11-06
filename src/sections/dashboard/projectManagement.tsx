@@ -61,10 +61,10 @@ export function ProjectManagementRoot() {
     (state: RootState) => state.orgProject.selectedOrganizationProject
   );
 
-  const projectList = selectedOrgFromStore?.projects && selectedOrgFromStore.projects.length
+  const projectList =
+    selectedOrgFromStore?.projects && selectedOrgFromStore.projects.length
       ? selectedOrgFromStore.projects
       : [];
-  console.log("🚀 ~ ProjectManagementRoot ~ projectList:", selectedOrgFromStore)
 
   const organizationId = selectedOrgFromStore?.organizationId || "";
 
@@ -162,7 +162,7 @@ export function ProjectManagementRoot() {
   };
 
   // ----------------------------
-  // fetch users with pagination
+  // fetch users with pagination (now passing page & limit explicitly)
   // ----------------------------
   const fetchUsers = async (
     name: string,
@@ -171,12 +171,12 @@ export function ProjectManagementRoot() {
   ): Promise<void> => {
     try {
       setUserLoading(true);
-      // API is 1-based, MUI is 0-based → add 1
-      const res = await (userManagementService as any).listUsers(
-        name || undefined,
-        page + 1,
-        limit
-      );
+      // API is 1-based, UI is 0-based
+      const res = await (userManagementService as any).listUsers({
+        name: name || undefined,
+        page: page + 1,
+        limit,
+      });
 
       if (res?.success && res?.data) {
         const items: ApiUser[] = res.data.items || [];
@@ -204,7 +204,6 @@ export function ProjectManagementRoot() {
 
   // refetch when search changes
   useEffect(() => {
-    // reset to first page on new search
     setUserPage(0);
     fetchUsers(userSearch, 0, userRowsPerPage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -266,7 +265,7 @@ export function ProjectManagementRoot() {
       await userManagementService.addMember(payload);
       enqueueSnackbar("Invitation sent", { variant: "success" });
       setInviteOpen(false);
-      // refetch current page with same search
+      // refetch with current paging
       fetchUsers(userSearch, userPage, userRowsPerPage);
     } catch (err) {
       console.error("invite failed", err);
@@ -324,12 +323,12 @@ export function ProjectManagementRoot() {
             <Box sx={{ p: 2 }}>
               <Box
                 sx={{
-                    mb: 2,
-                    display: "flex",
-                    gap: 1,
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
+                  mb: 2,
+                  display: "flex",
+                  gap: 1,
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
               >
                 <Typography variant="subtitle1">
                   Users for:{" "}
@@ -419,7 +418,7 @@ export function ProjectManagementRoot() {
 
           {tab === 1 && (
             <Box sx={{ p: 2 }}>
-              <ServicesPage />
+              <ServicesPage  projectId={projectId}/>
             </Box>
           )}
         </Box>
@@ -618,7 +617,7 @@ export function ProjectManagementRoot() {
             minWidth: 0,
             display: "flex",
             flexDirection: "column",
-            p:1
+            p: 1,
           }}
         >
           <Tabs value={tab} onChange={(_, v) => setTab(v)}>
@@ -729,7 +728,7 @@ export function ProjectManagementRoot() {
 
             {tab === 1 && (
               <Box sx={{ p: 2 }}>
-                <ServicesPage />
+                <ServicesPage projectId={projectId}/>
               </Box>
             )}
           </Box>

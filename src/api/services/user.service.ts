@@ -38,7 +38,15 @@ const userManagementService = {
    * - member → email + role + organization_id + project_id + access_type
    */
 
-  listUsers : (name:string | undefined) => callGetApi("/api/v1/users" + (name ? objectToQueryString({name}) : "")),
+  listUsers : (body?: { name?: string; page?: number; limit?: number }) => {
+    const params: { [key: string]: string | number | boolean } = {};
+    if (body?.name !== undefined && body.name !== null && body.name !== "") params.name = body.name;
+    if (body?.page !== undefined) params.page = body.page;
+    if (body?.limit !== undefined) params.limit = body.limit;
+
+    const query = Object.keys(params).length ? objectToQueryString(params) : "";
+    return callGetApi("/api/v1/users" + query);
+  },
   addMember: (payload: AddMemberPayload) => {
     return callPostApi(ENDPOINT, payload);
   },
