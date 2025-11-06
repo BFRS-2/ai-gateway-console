@@ -30,7 +30,7 @@ import { ProjectListDrawer } from "./projectManagementComponents/projectListDraw
 import { TeamSidebar as OrgSidebar } from "./projectManagementComponents/teamSidebar";
 import { ProjectListPanel } from "./projectManagementComponents/projectListPanel";
 
-import projectService from "src/api/services/project.service";
+import projectService, { Project } from "src/api/services/project.service";
 // <- path adjust if different
 import { useSnackbar } from "notistack";
 import OverviewSection from "./overview";
@@ -211,7 +211,7 @@ export function ProjectManagementRoot() {
         <OrgSidebarDrawer
           open={leftOpen}
           onClose={() => setLeftOpen(false)}
-          teams={orgMapping as Project}
+          teams={orgMapping as any}
           teamId={orgId}
           onSelectTeam={handleSelectOrg}
         />
@@ -264,7 +264,7 @@ export function ProjectManagementRoot() {
       <Stack direction="row" sx={{ height: "calc(100vh - 160px)" }}>
         {/* LEFT: orgs */}
         <OrgSidebar
-          teams={orgMapping}
+          teams={orgMapping as any}
           teamId={orgId}
           onSelectTeam={handleSelectOrg}
         />
