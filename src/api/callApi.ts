@@ -86,6 +86,7 @@ async function callAPI(url: string, body: any, method: HttpMethod) {
     // Success
     return await parseResponse(response);
   } catch (e) {
+    console.log("🚀 ~ callAPI ~ e:", e)
     return new FE_Error(e);
   }
 }

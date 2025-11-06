@@ -1,5 +1,7 @@
 import urls from "../urls";
 import { callGetApi, callPostApi } from "../callApi";
+import { object } from "zod";
+import objectToQueryString from "src/utils/objectToGetParams";
 
 export type ProviderName = "openai" | "gemini" | "pytesseract" | string;
 
@@ -62,8 +64,11 @@ const projectService = {
         urls.GET_PROJECTS
       }/by-organization?organization_id=${encodeURIComponent(organizationId)}`
     ) as Promise<Project[]>,
-  getUsage: (projectId: string) =>
-    callGetApi(`${urls.PROJECT_USAGE}/${projectId}/usage`),
+  getUsage: (body : {project_id?: string,
+        organization_id?: string,
+        start_date: string,
+        end_date: string}) =>
+    callGetApi(`${urls.PROJECT_USAGE}` + objectToQueryString(body)),
 
   getProjectServices: (projectId: string) =>
     callGetApi(`${urls.PROJECT_SERVICES}/${projectId}/services`),

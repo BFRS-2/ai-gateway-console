@@ -159,11 +159,11 @@ export function DashboardLayout({ sx, children, data }: DashboardLayoutProps) {
               isNavMini={isNavMini}
               layoutQuery={layoutQuery}
               cssVars={navColorVars.section}
-              onToggleNav={() =>
-                settings.onUpdateField(
-                  'navLayout',
-                  settings.navLayout === 'vertical' ? 'mini' : 'vertical'
-                )
+              onToggleNav={() =>{}
+                // settings.onUpdateField(
+                //   'navLayout',
+                //   settings.navLayout === 'vertical' ? 'mini' : 'vertical'
+                // )
               }
             />
           )

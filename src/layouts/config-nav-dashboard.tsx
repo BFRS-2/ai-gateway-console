@@ -47,14 +47,14 @@ export const navData = [
    * Overview
    */
   {
-    subheader: 'Overview 6.0.0',
+    subheader: 'Dockyard',
     items: [
       { title: 'Overview', path: paths.dashboard.overview, icon: ICONS.analytics },
       { title: 'Project Management', path: paths.dashboard.projects, icon: ICONS.dashboard },
-      { title: 'Users', path: paths.dashboard.users, icon: ICONS.user },
+      // { title: 'Users', path: paths.dashboard.users, icon: ICONS.user },
       { title: 'Playground', path: paths.dashboard.playground, icon: ICONS.course },
       { title: 'Tracebility', path: 'https://www.google.com/', icon: ICONS.external, info: <Iconify width={18} icon="prime:external-link" /> },
-      { title: 'Services', path: paths.dashboard.services, icon: ICONS.job },
+      // { title: 'Services', path: paths.dashboard.services, icon: ICONS.job },
     ],
   },
   /**

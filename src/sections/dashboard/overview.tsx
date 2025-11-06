@@ -12,6 +12,11 @@ import {
   Tabs,
   Typography,
   useTheme,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  TextField,
 } from "@mui/material";
 import { useEffect, useMemo, useState } from "react";
 import { DashboardContent } from "src/layouts/dashboard";
@@ -66,13 +71,36 @@ type OverviewSectionProps = {
 const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
   const theme = useTheme();
 
-  // fallback to redux if prop not given
+  // selected (org + projects) from store
   const selectedFromStore = useSelector(
     (state: RootState) => state.orgProject.selectedOrganizationProject
   );
 
-  const effectiveProjectId = projectId || selectedFromStore?.projectId;
-  const effectiveProjectName = projectName || selectedFromStore?.projectName;
+  // all orgs (with their projects) from store — we need this for org filter
+  const allOrgProjects = useSelector(
+    (state: RootState) => state.orgProject.organizationProjects
+  );
+
+  // derive initial values
+  const initialOrgId = selectedFromStore?.organizationId || "";
+  const initialProjects =
+    selectedFromStore?.projects && selectedFromStore.projects.length
+      ? selectedFromStore.projects
+      : [];
+
+  const initialProjectId =
+    projectId || initialProjects[0]?.id || "";
+
+  const today = new Date().toISOString().slice(0, 10);
+  // default to last 30 days
+  const defaultStart = new Date();
+  defaultStart.setDate(defaultStart.getDate() - 30);
+  const defaultStartStr = defaultStart.toISOString().slice(0, 10);
+
+  const [selectedOrgId, setSelectedOrgId] = useState(initialOrgId);
+  const [selectedProjectId, setSelectedProjectId] = useState(initialProjectId);
+  const [startDate, setStartDate] = useState(defaultStartStr);
+  const [endDate, setEndDate] = useState(today);
 
   const [usage, setUsage] = useState<UsageData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -83,16 +111,62 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
   const [tab, setTab] = useState(0);
   const [pServices, setPServices] = useState({ page: 0, rowsPerPage: 5 });
 
-  // Fetch usage when project changes
+  // when selected store changes (like user changed org from header), sync local filters
+  useEffect(() => {
+    if (selectedFromStore?.organizationId) {
+      setSelectedOrgId(selectedFromStore.organizationId);
+    }
+    if (selectedFromStore?.projects?.length) {
+      // if current selected project is not part of new org, reset to first
+      const exists = selectedFromStore.projects.find(
+        (p: any) => p.id === selectedProjectId
+      );
+      if (!exists) {
+        setSelectedProjectId(selectedFromStore.projects[0].id);
+      }
+    }
+  }, [selectedFromStore]);
+
+  // figure out project options based on current org selection
+  const projectOptions = useMemo(() => {
+    // if we have all orgs, pick the current org's project list
+    if (allOrgProjects && allOrgProjects.length) {
+      const currOrg = allOrgProjects.find((o: any) => o.id === selectedOrgId);
+      if (currOrg) {
+        return currOrg.projects || [];
+      }
+    }
+    // fallback to what came with selectedFromStore
+    return initialProjects;
+  }, [allOrgProjects, selectedOrgId, initialProjects]);
+
+  // ensure selected project always valid when projectOptions change
+  useEffect(() => {
+    if (!projectOptions.length) {
+      setSelectedProjectId("");
+      return;
+    }
+    const exists = projectOptions.find((p: any) => p.id === selectedProjectId);
+    if (!exists) {
+      setSelectedProjectId(projectOptions[0].id);
+    }
+  }, [projectOptions, selectedProjectId]);
+
+  // Fetch usage when any of these change
   useEffect(() => {
     setErr(null);
     setUsage(null);
 
-    if (!effectiveProjectId) return;
+    if (!selectedProjectId) return;
 
     setLoading(true);
     projectService
-      .getUsage(effectiveProjectId)
+      .getUsage({
+        project_id: selectedProjectId,
+        organization_id: initialOrgId,
+        start_date: startDate,
+        end_date: endDate,
+      })
       .then((res: UsageResponse) => {
         if (res?.success && res?.data) {
           setUsage(res.data);
@@ -105,7 +179,7 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
         setErr("Failed to fetch usage. Please try again.");
       })
       .finally(() => setLoading(false));
-  }, [effectiveProjectId]);
+  }, [selectedProjectId, selectedOrgId, startDate, endDate]);
 
   const kpis = useMemo(() => {
     const sLen = usage?.services?.length ?? 0;
@@ -152,10 +226,16 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
       formatINR(s.month_to_date?.cost_used ?? 0),
     ]) ?? [];
 
+  // derive selected project name for chart header
+  const selectedProjectName =
+    projectOptions.find((p: any) => p.id === selectedProjectId)?.name ||
+    projectName ||
+    selectedProjectId;
+
   return (
     <DashboardContent maxWidth="xl">
       <Stack spacing={4}>
-        {!effectiveProjectId && (
+        {!selectedProjectId && (
           <Alert severity="info">
             Select a project to view usage.
           </Alert>
@@ -163,97 +243,138 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
 
         {err && <Alert severity="error">{err}</Alert>}
 
-        <FiltersBar
-          team={team}
-          setTeam={setTeam}
-          range={range}
-          setRange={setRange}
-        />
+        {/* New filter row: organization, project, start/end */}
+    <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="center" justifyContent="space-between">
+      <Typography variant="h4">Overview</Typography>
+                <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={2}
+          alignItems={{ xs: "flex-start", sm: "center" }}
+        >
 
-        {/* KPIs */}
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <InputLabel id="project-select-label">Project</InputLabel>
+            <Select
+              labelId="project-select-label"
+              label="Project"
+              value={selectedProjectId}
+              onChange={(e) => setSelectedProjectId(e.target.value)}
+            >
+              {projectOptions.length ? (
+                projectOptions.map((p: any) => (
+                  <MenuItem key={p.id} value={p.id}>
+                    {p.name}
+                  </MenuItem>
+                ))
+              ) : (
+                <MenuItem value="" disabled>
+                  No projects
+                </MenuItem>
+              )}
+            </Select>
+          </FormControl>
+
+          <TextField
+            size="small"
+            label="Start date"
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+          />
+          <TextField
+            size="small"
+            label="End date"
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+          />
+        </Stack>
+        </Stack>
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={3}>
-            <DataCard
-              title="Products Used"
-              value={kpis.productsUsed}
-              icon="/assets/icons/navbar/ic-job.svg"
-              loading={loading}
-              styles={{
-                background: bgGradient({
-                  direction: "90deg",
-                  startColor: "#D2FFE2",
-                  endColor: "#64D48C",
-                  imgUrl: "/assets/background/pattern.svg",
-                  backgroundSize: "contain",
-                }),
-                value: { color: theme.palette.success.main },
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <DataCard
-              title="Requests (30d)"
-              value={(kpis.totalReq || 0).toLocaleString("en-IN")}
-              icon="/assets/icons/navbar/ic-menu-item.svg"
-              loading={loading}
-              styles={{
-                background: bgGradient({
-                  direction: "90deg",
-                  startColor: "#E9E3FF",
-                  endColor: "#8C6BFF",
-                  imgUrl: "/assets/background/pattern.svg",
-                  backgroundSize: "contain",
-                }),
-                value: { color: theme.palette.primary.main },
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <DataCard
-              title="Cost (30d)"
-              value={formatINR(kpis.totalCost || 0)}
-              icon="/assets/icons/navbar/ic-invoice.svg"
-              loading={loading}
-              styles={{
-                background: bgGradient({
-                  direction: "90deg",
-                  startColor: "#FFE7D6",
-                  endColor: "#FFAF7A",
-                  imgUrl: "/assets/background/pattern.svg",
-                  backgroundSize: "contain",
-                }),
-                value: { color: theme.palette.warning.main },
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <DataCard
-              title="p95 Latency"
-              value={`— ms`}
-              icon="/assets/icons/navbar/ic-tour.svg"
-              loading={loading}
-              styles={{
-                background: bgGradient({
-                  direction: "90deg",
-                  startColor: "#F9E6FF",
-                  endColor: "#D682FF",
-                  imgUrl: "/assets/background/pattern.svg",
-                  backgroundSize: "contain",
-                }),
-                value: { color: theme.palette.secondary.main },
-              }}
-            />
-          </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <DataCard
+                title="Products Used"
+                value={kpis.productsUsed}
+                icon="/assets/icons/navbar/ic-job.svg"
+                loading={loading}
+                styles={{
+                  background: bgGradient({
+                    direction: "90deg",
+                    startColor: "#D2FFE2",
+                    endColor: "#64D48C",
+                    imgUrl: "/assets/background/pattern.svg",
+                    backgroundSize: "contain",
+                  }),
+                  value: { color: theme.palette.success.main },
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <DataCard
+                title="Requests (30d)"
+                value={(kpis.totalReq || 0).toLocaleString("en-IN")}
+                icon="/assets/icons/navbar/ic-menu-item.svg"
+                loading={loading}
+                styles={{
+                  background: bgGradient({
+                    direction: "90deg",
+                    startColor: "#E9E3FF",
+                    endColor: "#8C6BFF",
+                    imgUrl: "/assets/background/pattern.svg",
+                    backgroundSize: "contain",
+                  }),
+                  value: { color: theme.palette.primary.main },
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <DataCard
+                title="Cost (30d)"
+                value={formatINR(kpis.totalCost || 0)}
+                icon="/assets/icons/navbar/ic-invoice.svg"
+                loading={loading}
+                styles={{
+                  background: bgGradient({
+                    direction: "90deg",
+                    startColor: "#FFE7D6",
+                    endColor: "#FFAF7A",
+                    imgUrl: "/assets/background/pattern.svg",
+                    backgroundSize: "contain",
+                  }),
+                  value: { color: theme.palette.warning.main },
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <DataCard
+                title="p95 Latency"
+                value={`— ms`}
+                icon="/assets/icons/navbar/ic-tour.svg"
+                loading={loading}
+                styles={{
+                  background: bgGradient({
+                    direction: "90deg",
+                    startColor: "#F9E6FF",
+                    endColor: "#D682FF",
+                    imgUrl: "/assets/background/pattern.svg",
+                    backgroundSize: "contain",
+                  }),
+                  value: { color: theme.palette.secondary.main },
+                }}
+              />
+            </Grid>
         </Grid>
 
         {/* Charts */}
         <Grid container spacing={2}>
           <Grid item xs={12} md={8}>
             <AppRequestsCostArea
-              title="Usage & Cost by Service (MTD)"
+              title="Usage & Cost by Service"
               subheader={
-                usage?.project_id
-                  ? `Project: ${effectiveProjectName || usage.project_id}`
+                selectedProjectId
+                  ? `Project: ${selectedProjectName}`
                   : "No project loaded"
               }
               data={areaData}
@@ -261,7 +382,7 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
           </Grid>
           <Grid item xs={12} md={4}>
             <AppCostByServiceDonut
-              title="Cost by Service (MTD)"
+              title="Cost by Service"
               subheader={
                 usage?.services?.length
                   ? "Share of total cost"

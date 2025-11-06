@@ -1,4 +1,5 @@
-import { callPostApi } from "../callApi";
+import objectToQueryString from "src/utils/objectToGetParams";
+import { callGetApi, callPostApi } from "../callApi";
 
 type MemberRole = "admin" | "owner" | "member";
 type AccessType = "read" | "write" | "admin"; // adjust if your backend defines differently
@@ -26,7 +27,7 @@ interface AddProjectMember extends AddMemberBase {
 
 type AddMemberPayload = AddAdminMember | AddOwnerMember | AddProjectMember;
 
-const ENDPOINT = "api/v1/members/add";
+const ENDPOINT = "/api/v1/members/add";
 
 const userManagementService = {
   /**
@@ -36,6 +37,8 @@ const userManagementService = {
    * - owner → email + role + organization_id
    * - member → email + role + organization_id + project_id + access_type
    */
+
+  listUsers : (name:string | undefined) => callGetApi("/api/v1/users" + (name ? objectToQueryString({name}) : "")),
   addMember: (payload: AddMemberPayload) => {
     return callPostApi(ENDPOINT, payload);
   },

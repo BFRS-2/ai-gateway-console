@@ -9,8 +9,7 @@ interface OrganizationProjectState {
   selectedOrganizationProject: null | {
     organizationId: string;
     organizationName: string;
-    projectId: string;
-    projectName: string;
+    projects : Project[]
   };
   organizations: Organization[];
   projects: Project[];
@@ -46,8 +45,7 @@ export const organizationProjectSlice = createSlice({
       action: PayloadAction<{
         organizationId: string;
         organizationName: string;
-        projectId: string;
-        projectName: string;
+        projects : Project[];
       } | null>
     ) => {
       state.selectedOrganizationProject = action.payload;
