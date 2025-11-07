@@ -28,17 +28,19 @@ export const signInWithPassword = async ({ email, password }: SignInParams): Pro
   try {
     const params = { email, password };
     const res = await authService.login(params);
-    if(res.success !== true){
-      throw new Error(res.error.payload.message || 'Login failed');
+    console.log("🚀 ~ signInWithPassword ~ res:", res)
+    if(!res || res?.success !== true){
+      throw new Error('Login failed');
     }
     const { access_token, user } = res.data;
     if (!access_token) {
-    
       throw new Error('Access token not found in response');
     }
-    sessionStorage.setItem(STORAGE_KEY, access_token);
-    localStorage.setItem("_user", JSON.stringify(user));
-    setSession(access_token);
+    if(access_token && res && res.success){
+        sessionStorage.setItem(STORAGE_KEY, access_token);
+        localStorage.setItem("_user", JSON.stringify(user));
+        setSession(access_token);
+    }
   } catch (error) {
     console.error('Error during sign in:', error);
     throw error;

@@ -63,12 +63,12 @@ export function JwtSignInView() {
   const onSubmit = handleSubmit(async (data) => {
     try {
       await signInWithPassword({ email: data.email, password: data.password });
+      
       await checkUserSession?.();
-
-      router.refresh();
+      // router.refresh();
     } catch (error) {
       console.error(error);
-      setErrorMsg(error instanceof Error ? error.message : error);
+      setErrorMsg("Failed to login, check email and password");
     }
   });
 
