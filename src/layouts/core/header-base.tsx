@@ -446,7 +446,7 @@ const handleCreateOrgFromDialog = async () => {
               <AppSelector />
 
               {/* Create org button */}
-              <Button
+              {isAuthenticated && <Button
                 size="small"
                 variant="outlined"
                 color="primary"
@@ -455,7 +455,7 @@ const handleCreateOrgFromDialog = async () => {
 
               >
                 Create organization
-              </Button>
+              </Button>}
 
               {slots?.leftAreaEnd}
             </>
@@ -472,7 +472,7 @@ const handleCreateOrgFromDialog = async () => {
                   gap: { xs: 1, sm: 1.5 },
                 }}
               >
-                {helpLink && (
+                {helpLink && isAuthenticated  && (
                   <Link
                     data-slot="help-link"
                     href={paths.faqs}
@@ -488,7 +488,7 @@ const handleCreateOrgFromDialog = async () => {
                   <Searchbar data-slot="searchbar" data={data?.nav} />
                 )}
 
-                <AccountPopover />
+               { isAuthenticated  && <AccountPopover />}
 
                 {signIn && <SignInButton />}
               </Box>

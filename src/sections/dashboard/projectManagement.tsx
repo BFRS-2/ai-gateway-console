@@ -19,19 +19,7 @@ import {
   TextField,
   Tabs,
   Tab,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Tooltip,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  CircularProgress,
-  TablePagination,
 } from "@mui/material";
 import FolderIcon from "@mui/icons-material/Folder";
 import { useSelector } from "react-redux";
@@ -39,18 +27,10 @@ import { RootState } from "src/stores/store";
 import { useSnackbar } from "notistack";
 import projectService from "src/api/services/project.service";
 import { ProjectListDrawer } from "./projectManagementComponents/projectListDrawer";
-import userManagementService from "src/api/services/user.service";
-import { ServicesPage } from "./serviceComponents/ServicesPage";
+import { ProjectSettingsTab } from "./projectManagementComponents/projectSettingsTab";
+import { MembersTab } from "./projectManagementComponents/membersTabs";
+import { ServicesTab } from "./projectManagementComponents/servicesTab";
 
-type ApiUser = {
-  id: string;
-  email: string;
-  name: string;
-  is_admin: boolean;
-  organizations: Array<{ organization_id: string; role: string }>;
-  project_permissions: Array<{ project_id: string; access_type: string }>;
-  status: string;
-};
 
 export function ProjectManagementRoot() {
   const theme = useTheme();
@@ -76,27 +56,8 @@ export function ProjectManagementRoot() {
   const [projectName, setProjectName] = useState("");
   const [creating, setCreating] = useState(false);
 
-  // tabs
-  const [tab, setTab] = useState(0);
-
-  // invite
-  const [inviteOpen, setInviteOpen] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<"admin" | "owner" | "member">(
-    "member"
-  );
-  const [inviteAccess, setInviteAccess] = useState<"read" | "write" | "admin">(
-    "read"
-  );
-  const [inviting, setInviting] = useState(false);
-
-  // users + pagination
-  const [userSearch, setUserSearch] = useState("");
-  const [userLoading, setUserLoading] = useState(false);
-  const [users, setUsers] = useState<ApiUser[]>([]);
-  const [userPage, setUserPage] = useState(0); // 0-based for MUI
-  const [userRowsPerPage, setUserRowsPerPage] = useState(10);
-  const [userTotal, setUserTotal] = useState(0);
+  // tabs: I’ll keep your order: Project Settings | Members | Services
+  const [tab, setTab] = useState<0 | 1 | 2>(0);
 
   // pick first project whenever the list changes
   useEffect(() => {
@@ -148,6 +109,7 @@ export function ProjectManagementRoot() {
           setProjectId(created.id);
         }
         enqueueSnackbar("Project created", { variant: "success" });
+        // refresh org+projects across app
         window.dispatchEvent(new Event("fetch_org_project"));
         setCreateOpen(false);
       } else {
@@ -158,120 +120,6 @@ export function ProjectManagementRoot() {
       enqueueSnackbar("Project creation failed", { variant: "error" });
     } finally {
       setCreating(false);
-    }
-  };
-
-  // ----------------------------
-  // fetch users with pagination (now passing page & limit explicitly)
-  // ----------------------------
-  const fetchUsers = async (
-    name: string,
-    page: number,
-    limit: number
-  ): Promise<void> => {
-    try {
-      setUserLoading(true);
-      // API is 1-based, UI is 0-based
-      const res = await (userManagementService as any).listUsers({
-        name: name || undefined,
-        page: page + 1,
-        limit,
-      });
-
-      if (res?.success && res?.data) {
-        const items: ApiUser[] = res.data.items || [];
-        const pagination = res.data.pagination;
-        setUsers(items);
-        setUserTotal(pagination?.total_count ?? items.length);
-      } else {
-        setUsers([]);
-        setUserTotal(0);
-      }
-    } catch (err) {
-      console.error("listUsers failed", err);
-      setUsers([]);
-      setUserTotal(0);
-    } finally {
-      setUserLoading(false);
-    }
-  };
-
-  // initial load
-  useEffect(() => {
-    fetchUsers(userSearch, userPage, userRowsPerPage);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // refetch when search changes
-  useEffect(() => {
-    setUserPage(0);
-    fetchUsers(userSearch, 0, userRowsPerPage);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userSearch]);
-
-  // ----------------------------
-  // invite user flow
-  // ----------------------------
-  const handleInviteOpen = () => {
-    setInviteEmail("");
-    setInviteRole("member");
-    setInviteAccess("read");
-    setInviteOpen(true);
-  };
-
-  const handleInviteClose = () => {
-    if (inviting) return;
-    setInviteOpen(false);
-  };
-
-  const handleInviteSubmit = async () => {
-    if (!inviteEmail.trim()) {
-      enqueueSnackbar("Email is required", { variant: "warning" });
-      return;
-    }
-    if (!organizationId) {
-      enqueueSnackbar("No organization in context", { variant: "error" });
-      return;
-    }
-
-    let payload: any;
-    if (inviteRole === "admin") {
-      payload = {
-        email: inviteEmail.trim(),
-        role: "admin",
-      };
-    } else if (inviteRole === "owner") {
-      payload = {
-        email: inviteEmail.trim(),
-        role: "owner",
-        organization_id: organizationId,
-      };
-    } else {
-      if (!projectId) {
-        enqueueSnackbar("Select a project first", { variant: "warning" });
-        return;
-      }
-      payload = {
-        email: inviteEmail.trim(),
-        role: "member",
-        organization_id: organizationId,
-        project_id: projectId,
-        access_type: inviteAccess,
-      };
-    }
-
-    try {
-      setInviting(true);
-      await userManagementService.addMember(payload);
-      enqueueSnackbar("Invitation sent", { variant: "success" });
-      setInviteOpen(false);
-      // refetch with current paging
-      fetchUsers(userSearch, userPage, userRowsPerPage);
-    } catch (err) {
-      console.error("invite failed", err);
-      enqueueSnackbar("Failed to invite user", { variant: "error" });
-    } finally {
-      setInviting(false);
     }
   };
 
@@ -294,7 +142,10 @@ export function ProjectManagementRoot() {
         >
           <Toolbar variant="dense">
             <Tooltip title="Projects">
-              <IconButton edge="start" onClick={() => setProjectDrawerOpen(true)}>
+              <IconButton
+                edge="start"
+                onClick={() => setProjectDrawerOpen(true)}
+              >
                 <FolderIcon />
               </IconButton>
             </Tooltip>
@@ -313,114 +164,29 @@ export function ProjectManagementRoot() {
 
         <Box sx={{ flex: 1, overflow: "auto" }}>
           <Tabs value={tab} onChange={(_, v) => setTab(v)}>
-            <Tab label="User management" />
-            <Tab label="Service management" />
+            <Tab label="Project settings" value={0} />
+            <Tab label="Members" value={1} />
+            <Tab label="Services" value={2} />
           </Tabs>
 
           <Divider />
 
           {tab === 0 && (
-            <Box sx={{ p: 2 }}>
-              <Box
-                sx={{
-                  mb: 2,
-                  display: "flex",
-                  gap: 1,
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <Typography variant="h4" >
-                  Users for:{" "}
-                  {selectedProject?.name ||
-                    selectedOrgFromStore?.organizationName ||
-                    "Current context"}
-                </Typography>
-                <Button
-                  variant="contained"
-                  onClick={handleInviteOpen}
-                  disabled={!projectId}
-                >
-                  Invite user
-                </Button>
-              </Box>
-
-              <TextField
-                size="small"
-                fullWidth
-                label="Search Members"
-                value={userSearch}
-                onChange={(e) => setUserSearch(e.target.value)}
-                sx={{ mb: 2 }}
-              />
-
-              <Paper variant="outlined">
-                {userLoading ? (
-                  <Box sx={{ p: 2, display: "flex", justifyContent: "center" }}>
-                    <CircularProgress size={20} />
-                  </Box>
-                ) : (
-                  <>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Email</TableCell>
-                          <TableCell>Role</TableCell>
-                          <TableCell>Status</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {users.length ? (
-                          users.map((u) => (
-                            <TableRow key={u.id}>
-                              <TableCell>{u.email}</TableCell>
-                              <TableCell>
-                                {u.is_admin
-                                  ? "admin"
-                                  : u.organizations?.[0]?.role || "member"}
-                              </TableCell>
-                              <TableCell>{u.status}</TableCell>
-                            </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell colSpan={3}>
-                              <Typography variant="body2">
-                                No users found.
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                    <TablePagination
-                      component="div"
-                      count={userTotal}
-                      page={userPage}
-                      onPageChange={(_, newPage) => {
-                        setUserPage(newPage);
-                        fetchUsers(userSearch, newPage, userRowsPerPage);
-                      }}
-                      rowsPerPage={userRowsPerPage}
-                      onRowsPerPageChange={(e) => {
-                        const newRows = parseInt(e.target.value, 10);
-                        setUserRowsPerPage(newRows);
-                        setUserPage(0);
-                        fetchUsers(userSearch, 0, newRows);
-                      }}
-                      rowsPerPageOptions={[5, 10, 20, 50]}
-                    />
-                  </>
-                )}
-              </Paper>
-            </Box>
+            <ProjectSettingsTab
+              projectId={projectId}
+              selectedProject={selectedProject}
+            />
           )}
 
           {tab === 1 && (
-            <Box sx={{ p: 2 }}>
-              <ServicesPage  projectId={projectId}/>
-            </Box>
+            <MembersTab
+              organizationId={organizationId}
+              projectId={projectId}
+              selectedProject={selectedProject}
+            />
           )}
+
+          {tab === 2 && <ServicesTab projectId={projectId} />}
         </Box>
 
         {/* project drawer for mobile */}
@@ -472,75 +238,6 @@ export function ProjectManagementRoot() {
             </Button>
           </DialogActions>
         </Dialog>
-
-        {/* Invite user modal */}
-        <Dialog
-          open={inviteOpen}
-          onClose={handleInviteClose}
-          fullWidth
-          maxWidth="xs"
-        >
-          <DialogTitle>Invite user</DialogTitle>
-          <DialogContent
-            sx={{ pt: 1, display: "flex", flexDirection: "column", gap: 2 }}
-          >
-            <TextField
-              label="Email"
-              type="email"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              fullWidth
-            />
-
-            <FormControl fullWidth size="small">
-              <InputLabel id="invite-role-label">Role</InputLabel>
-              <Select
-                labelId="invite-role-label"
-                label="Role"
-                value={inviteRole}
-                onChange={(e) =>
-                  setInviteRole(e.target.value as "admin" | "owner" | "member")
-                }
-              >
-                <MenuItem value="admin">Admin (platform-wide)</MenuItem>
-                <MenuItem value="owner">Owner (organization)</MenuItem>
-                <MenuItem value="member">Member (project)</MenuItem>
-              </Select>
-            </FormControl>
-
-            {inviteRole === "member" && (
-              <FormControl fullWidth size="small">
-                <InputLabel id="invite-access-label">Access</InputLabel>
-                <Select
-                  labelId="invite-access-label"
-                  label="Access"
-                  value={inviteAccess}
-                  onChange={(e) =>
-                    setInviteAccess(
-                      e.target.value as "read" | "write" | "admin"
-                    )
-                  }
-                >
-                  <MenuItem value="read">Read</MenuItem>
-                  <MenuItem value="write">Write</MenuItem>
-                  <MenuItem value="admin">Admin</MenuItem>
-                </Select>
-              </FormControl>
-            )}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleInviteClose} disabled={inviting}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleInviteSubmit}
-              disabled={inviting}
-              variant="contained"
-            >
-              {inviting ? "Inviting..." : "Invite"}
-            </Button>
-          </DialogActions>
-        </Dialog>
       </Box>
     );
   }
@@ -569,16 +266,14 @@ export function ProjectManagementRoot() {
               alignItems: "center",
             }}
           >
-            <Typography variant="subtitle2">
-              Projects
-            </Typography>
+            <Typography variant="subtitle2">Projects</Typography>
             <Button
               size="small"
               variant="outlined"
               color="primary"
               onClick={handleOpenCreate}
             >
-              Create Project
+              Create
             </Button>
           </Box>
 
@@ -618,121 +313,35 @@ export function ProjectManagementRoot() {
             display: "flex",
             flexDirection: "column",
             p: 0,
-            pl:2,
-            pr : 2,
+            pl: 2,
+            pr: 2,
           }}
         >
           <Tabs value={tab} onChange={(_, v) => setTab(v)}>
-            <Tab label="Members" />
-            <Tab label="Services" />
+            <Tab label="Project settings" value={0} />
+            <Tab label="Members" value={1} />
+            <Tab label="Services" value={2} />
           </Tabs>
 
           <Divider />
 
           <Box sx={{ flex: 1, overflow: "auto" }}>
             {tab === 0 && (
-              <Box sx={{ p: 2 }}>
-                <Box
-                  sx={{
-                    mb: 2,
-                    display: "flex",
-                    gap: 1,
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <Typography variant="h4">
-                    Users for : {" "}
-                    {selectedProject?.name ||
-                      selectedOrgFromStore?.organizationName ||
-                      "Current context"}
-                  </Typography>
-                  <Button
-                    variant="contained"
-                    onClick={handleInviteOpen}
-                    disabled={!projectId}
-                  >
-                    Invite Member
-                  </Button>
-                </Box>
-
-                <TextField
-                  size="small"
-                  label="Search users"
-                  value={userSearch}
-                  onChange={(e) => setUserSearch(e.target.value)}
-                  sx={{ mb: 2, maxWidth: 280 }}
-                />
-
-                <Paper variant="outlined">
-                  {userLoading ? (
-                    <Box sx={{ p: 2, display: "flex", justifyContent: "center" }}>
-                      <CircularProgress size={20} />
-                    </Box>
-                  ) : (
-                    <>
-                      <Table size="small">
-                        <TableHead>
-                          <TableRow>
-                            <TableCell>Email</TableCell>
-                            <TableCell>Name</TableCell>
-                            <TableCell>Role</TableCell>
-                            <TableCell>Status</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {users.length ? (
-                            users.map((u) => (
-                              <TableRow key={u.id}>
-                                <TableCell>{u.email}</TableCell>
-                                <TableCell>{u.name}</TableCell>
-                                <TableCell>
-                                  {u.is_admin
-                                    ? "admin"
-                                    : u.organizations?.[0]?.role || "member"}
-                                </TableCell>
-                                <TableCell>{u.status}</TableCell>
-                              </TableRow>
-                            ))
-                          ) : (
-                            <TableRow>
-                              <TableCell colSpan={4}>
-                                <Typography variant="body2">
-                                  No users found.
-                                </Typography>
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
-                      <TablePagination
-                        component="div"
-                        count={userTotal}
-                        page={userPage}
-                        onPageChange={(_, newPage) => {
-                          setUserPage(newPage);
-                          fetchUsers(userSearch, newPage, userRowsPerPage);
-                        }}
-                        rowsPerPage={userRowsPerPage}
-                        onRowsPerPageChange={(e) => {
-                          const newRows = parseInt(e.target.value, 10);
-                          setUserRowsPerPage(newRows);
-                          setUserPage(0);
-                          fetchUsers(userSearch, 0, newRows);
-                        }}
-                        rowsPerPageOptions={[5, 10, 20, 50]}
-                      />
-                    </>
-                  )}
-                </Paper>
-              </Box>
+              <ProjectSettingsTab
+                projectId={projectId}
+                selectedProject={selectedProject}
+              />
             )}
 
             {tab === 1 && (
-              <Box sx={{ p: 2 }}>
-                <ServicesPage projectId={projectId}/>
-              </Box>
+              <MembersTab
+                organizationId={organizationId}
+                projectId={projectId}
+                selectedProject={selectedProject}
+              />
             )}
+
+            {tab === 2 && <ServicesTab projectId={projectId} />}
           </Box>
         </Box>
       </Stack>
@@ -765,75 +374,6 @@ export function ProjectManagementRoot() {
             disabled={creating}
           >
             {creating ? "Creating..." : "Create"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Invite user modal */}
-      <Dialog
-        open={inviteOpen}
-        onClose={handleInviteClose}
-        fullWidth
-        maxWidth="xs"
-      >
-        <DialogTitle>Invite user</DialogTitle>
-        <DialogContent
-          sx={{ pt: 1, display: "flex", flexDirection: "column", gap: 2 }}
-        >
-          <TextField
-            label="Email"
-            type="email"
-            value={inviteEmail}
-            onChange={(e) => setInviteEmail(e.target.value)}
-            fullWidth
-          />
-
-          <FormControl fullWidth size="small">
-            <InputLabel id="invite-role-label">Role</InputLabel>
-            <Select
-              labelId="invite-role-label"
-              label="Role"
-              value={inviteRole}
-              onChange={(e) =>
-                setInviteRole(e.target.value as "admin" | "owner" | "member")
-              }
-            >
-              <MenuItem value="admin">Admin (platform-wide)</MenuItem>
-              <MenuItem value="owner">Owner (organization)</MenuItem>
-              <MenuItem value="member">Member (project)</MenuItem>
-            </Select>
-          </FormControl>
-
-          {inviteRole === "member" && (
-            <FormControl fullWidth size="small">
-              <InputLabel id="invite-access-label">Access</InputLabel>
-              <Select
-                labelId="invite-access-label"
-                label="Access"
-                value={inviteAccess}
-                onChange={(e) =>
-                  setInviteAccess(
-                    e.target.value as "read" | "write" | "admin"
-                  )
-                }
-              >
-                <MenuItem value="read">Read</MenuItem>
-                <MenuItem value="write">Write</MenuItem>
-                <MenuItem value="admin">Admin</MenuItem>
-              </Select>
-            </FormControl>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleInviteClose} disabled={inviting}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleInviteSubmit}
-            disabled={inviting}
-            variant="contained"
-          >
-            {inviting ? "Inviting..." : "Invite"}
           </Button>
         </DialogActions>
       </Dialog>
