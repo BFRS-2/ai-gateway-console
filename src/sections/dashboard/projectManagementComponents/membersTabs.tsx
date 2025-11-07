@@ -3,7 +3,6 @@
 import {
   Box,
   Typography,
-  Button,
   TextField,
   Paper,
   Table,
@@ -13,6 +12,7 @@ import {
   TableBody,
   CircularProgress,
   TablePagination,
+  Button,
 } from "@mui/material";
 import { useEffect, useState } from "react";
 import { useSnackbar } from "notistack";
@@ -31,17 +31,17 @@ type MembersTabProps = {
   organizationId: string;
   projectId: string;
   selectedProject?: { id: string; name: string };
+  onInvite?: () => void; // <-- NEW
 };
 
 export function MembersTab({
   organizationId,
   projectId,
   selectedProject,
+  onInvite,
 }: MembersTabProps) {
   const { enqueueSnackbar } = useSnackbar();
 
-  // invite dialog moved out? you can keep using your old dialog inside root;
-  // here we just show table & search
   const [userSearch, setUserSearch] = useState("");
   const [userLoading, setUserLoading] = useState(false);
   const [users, setUsers] = useState<ApiUser[]>([]);
@@ -81,13 +81,11 @@ export function MembersTab({
     }
   };
 
-  // initial load
   useEffect(() => {
     fetchUsers(userSearch, userPage, userRowsPerPage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // refetch on search
   useEffect(() => {
     setUserPage(0);
     fetchUsers(userSearch, 0, userRowsPerPage);
@@ -108,8 +106,14 @@ export function MembersTab({
         <Typography variant="h4">
           Members for: {selectedProject?.name || "Current context"}
         </Typography>
-        {/* trigger invite in parent (you can lift this up if you prefer) */}
-        {/* <Button variant="contained" disabled={!projectId}>Invite</Button> */}
+
+        <Button
+          variant="contained"
+          onClick={onInvite}
+          disabled={!projectId}
+        >
+          Invite member
+        </Button>
       </Box>
 
       <TextField

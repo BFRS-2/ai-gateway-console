@@ -20,17 +20,21 @@ import {
   Tabs,
   Tab,
   Tooltip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from "@mui/material";
 import FolderIcon from "@mui/icons-material/Folder";
 import { useSelector } from "react-redux";
 import { RootState } from "src/stores/store";
 import { useSnackbar } from "notistack";
 import projectService from "src/api/services/project.service";
+import userManagementService from "src/api/services/user.service";
 import { ProjectListDrawer } from "./projectManagementComponents/projectListDrawer";
 import { ProjectSettingsTab } from "./projectManagementComponents/projectSettingsTab";
 import { MembersTab } from "./projectManagementComponents/membersTabs";
 import { ServicesTab } from "./projectManagementComponents/servicesTab";
-
 
 export function ProjectManagementRoot() {
   const theme = useTheme();
@@ -56,8 +60,17 @@ export function ProjectManagementRoot() {
   const [projectName, setProjectName] = useState("");
   const [creating, setCreating] = useState(false);
 
-  // tabs: I’ll keep your order: Project Settings | Members | Services
+  // tabs
   const [tab, setTab] = useState<0 | 1 | 2>(0);
+
+  // invite dialog state
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] =
+    useState<"admin" | "owner" | "member">("member");
+  const [inviteAccess, setInviteAccess] =
+    useState<"read" | "write" | "admin">("read");
+  const [inviting, setInviting] = useState(false);
 
   // pick first project whenever the list changes
   useEffect(() => {
@@ -72,6 +85,70 @@ export function ProjectManagementRoot() {
     () => projectList.find((p) => p.id === projectId),
     [projectList, projectId]
   );
+
+  // ----------------------------
+  // invite handlers (missing before)
+  // ----------------------------
+  const handleInviteOpen = () => {
+    setInviteEmail("");
+    setInviteRole("member");
+    setInviteAccess("read");
+    setInviteOpen(true);
+  };
+
+  const handleInviteClose = () => {
+    if (inviting) return;
+    setInviteOpen(false);
+  };
+
+  const handleInviteSubmit = async () => {
+    if (!inviteEmail.trim()) {
+      enqueueSnackbar("Email is required", { variant: "warning" });
+      return;
+    }
+    if (!organizationId) {
+      enqueueSnackbar("No organization in context", { variant: "error" });
+      return;
+    }
+
+    let payload: any;
+    if (inviteRole === "admin") {
+      payload = {
+        email: inviteEmail.trim(),
+        role: "admin",
+      };
+    } else if (inviteRole === "owner") {
+      payload = {
+        email: inviteEmail.trim(),
+        role: "owner",
+        organization_id: organizationId,
+      };
+    } else {
+      if (!projectId) {
+        enqueueSnackbar("Select a project first", { variant: "warning" });
+        return;
+      }
+      payload = {
+        email: inviteEmail.trim(),
+        role: "member",
+        organization_id: organizationId,
+        project_id: projectId,
+        access_type: inviteAccess,
+      };
+    }
+
+    try {
+      setInviting(true);
+      await userManagementService.addMember(payload);
+      enqueueSnackbar("Invitation sent", { variant: "success" });
+      setInviteOpen(false);
+    } catch (err) {
+      console.error("invite failed", err);
+      enqueueSnackbar("Failed to invite user", { variant: "error" });
+    } finally {
+      setInviting(false);
+    }
+  };
 
   // ----------------------------
   // create project flow
@@ -109,7 +186,6 @@ export function ProjectManagementRoot() {
           setProjectId(created.id);
         }
         enqueueSnackbar("Project created", { variant: "success" });
-        // refresh org+projects across app
         window.dispatchEvent(new Event("fetch_org_project"));
         setCreateOpen(false);
       } else {
@@ -183,13 +259,14 @@ export function ProjectManagementRoot() {
               organizationId={organizationId}
               projectId={projectId}
               selectedProject={selectedProject}
+              onInvite={handleInviteOpen}
             />
           )}
 
           {tab === 2 && <ServicesTab projectId={projectId} />}
         </Box>
 
-        {/* project drawer for mobile */}
+        {/* Project drawer for mobile */}
         <ProjectListDrawer
           open={projectDrawerOpen}
           onClose={() => setProjectDrawerOpen(false)}
@@ -235,6 +312,77 @@ export function ProjectManagementRoot() {
               disabled={creating}
             >
               {creating ? "Creating..." : "Create"}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* invite dialog (mobile too) */}
+        <Dialog
+          open={inviteOpen}
+          onClose={handleInviteClose}
+          fullWidth
+          maxWidth="xs"
+        >
+          <DialogTitle>Invite user</DialogTitle>
+          <DialogContent
+            sx={{ pt: 1, display: "flex", flexDirection: "column", gap: 2 }}
+          >
+            <TextField
+              label="Email"
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              fullWidth
+            />
+
+            <FormControl fullWidth size="small">
+              <InputLabel id="invite-role-label">Role</InputLabel>
+              <Select
+                labelId="invite-role-label"
+                label="Role"
+                value={inviteRole}
+                onChange={(e) =>
+                  setInviteRole(
+                    e.target.value as "admin" | "owner" | "member"
+                  )
+                }
+              >
+                <MenuItem value="admin">Admin (platform-wide)</MenuItem>
+                <MenuItem value="owner">Owner (organization)</MenuItem>
+                <MenuItem value="member">Member (project)</MenuItem>
+              </Select>
+            </FormControl>
+
+            {inviteRole === "member" && (
+              <FormControl fullWidth size="small">
+                <InputLabel id="invite-access-label">Access</InputLabel>
+                <Select
+                  labelId="invite-access-label"
+                  label="Access"
+                  value={inviteAccess}
+                  onChange={(e) =>
+                    setInviteAccess(
+                      e.target.value as "read" | "write" | "admin"
+                    )
+                  }
+                >
+                  <MenuItem value="read">Read</MenuItem>
+                  <MenuItem value="write">Write</MenuItem>
+                  <MenuItem value="admin">Admin</MenuItem>
+                </Select>
+              </FormControl>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleInviteClose} disabled={inviting}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleInviteSubmit}
+              disabled={inviting}
+              variant="contained"
+            >
+              {inviting ? "Inviting..." : "Invite"}
             </Button>
           </DialogActions>
         </Dialog>
@@ -338,6 +486,7 @@ export function ProjectManagementRoot() {
                 organizationId={organizationId}
                 projectId={projectId}
                 selectedProject={selectedProject}
+                onInvite={handleInviteOpen} 
               />
             )}
 
@@ -374,6 +523,73 @@ export function ProjectManagementRoot() {
             disabled={creating}
           >
             {creating ? "Creating..." : "Create"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Invite user modal (desktop) */}
+      <Dialog
+        open={inviteOpen}
+        onClose={handleInviteClose}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Invite user</DialogTitle>
+        <DialogContent
+          sx={{ pt: 1, display: "flex", flexDirection: "column", gap: 2 }}
+        >
+          <TextField
+            label="Email"
+            type="email"
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+            fullWidth
+          />
+
+          <FormControl fullWidth size="small">
+            <InputLabel id="invite-role-label">Role</InputLabel>
+            <Select
+              labelId="invite-role-label"
+              label="Role"
+              value={inviteRole}
+              onChange={(e) =>
+                setInviteRole(e.target.value as "admin" | "owner" | "member")
+              }
+            >
+              <MenuItem value="admin">Admin (platform-wide)</MenuItem>
+              <MenuItem value="owner">Owner (organization)</MenuItem>
+              <MenuItem value="member">Member (project)</MenuItem>
+            </Select>
+          </FormControl>
+
+          {inviteRole === "member" && (
+            <FormControl fullWidth size="small">
+              <InputLabel id="invite-access-label">Access</InputLabel>
+              <Select
+                labelId="invite-access-label"
+                label="Access"
+                value={inviteAccess}
+                onChange={(e) =>
+                  setInviteAccess(e.target.value as "read" | "write" | "admin")
+                }
+              >
+                <MenuItem value="read">Read</MenuItem>
+                <MenuItem value="write">Write</MenuItem>
+                <MenuItem value="admin">Admin</MenuItem>
+              </Select>
+            </FormControl>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleInviteClose} disabled={inviting}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleInviteSubmit}
+            disabled={inviting}
+            variant="contained"
+          >
+            {inviting ? "Inviting..." : "Invite"}
           </Button>
         </DialogActions>
       </Dialog>
