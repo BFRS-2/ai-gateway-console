@@ -14,7 +14,7 @@ import {
   TablePagination,
   Button,
 } from "@mui/material";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSnackbar } from "notistack";
 import userManagementService from "src/api/services/user.service";
 
@@ -31,7 +31,7 @@ type MembersTabProps = {
   organizationId: string;
   projectId: string;
   selectedProject?: { id: string; name: string };
-  onInvite?: () => void; // <-- NEW
+  onInvite?: () => void;
 };
 
 export function MembersTab({
@@ -49,6 +49,24 @@ export function MembersTab({
   const [userRowsPerPage, setUserRowsPerPage] = useState(10);
   const [userTotal, setUserTotal] = useState(0);
 
+  // keep latest values for the event listener
+  const searchRef = useRef(userSearch);
+  const pageRef = useRef(userPage);
+  const rowsRef = useRef(userRowsPerPage);
+
+  // keep refs in sync
+  useEffect(() => {
+    searchRef.current = userSearch;
+  }, [userSearch]);
+
+  useEffect(() => {
+    pageRef.current = userPage;
+  }, [userPage]);
+
+  useEffect(() => {
+    rowsRef.current = userRowsPerPage;
+  }, [userRowsPerPage]);
+
   const fetchUsers = async (
     name: string,
     page: number,
@@ -58,7 +76,7 @@ export function MembersTab({
       setUserLoading(true);
       const res = await (userManagementService as any).listUsers({
         name: name || undefined,
-        page: page + 1,
+        page: page + 1, // API 1-based
         limit,
       });
 
@@ -81,16 +99,35 @@ export function MembersTab({
     }
   };
 
+  // initial load
   useEffect(() => {
     fetchUsers(userSearch, userPage, userRowsPerPage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // refetch when search changes
   useEffect(() => {
     setUserPage(0);
     fetchUsers(userSearch, 0, userRowsPerPage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userSearch]);
+
+  // listen for custom event -> refetch
+  useEffect(() => {
+    const handler = () => {
+      // always use latest values from refs
+      fetchUsers(
+        searchRef.current,
+        pageRef.current,
+        rowsRef.current
+      );
+    };
+
+    window.addEventListener("refetch_members", handler);
+    return () => {
+      window.removeEventListener("refetch_members", handler);
+    };
+  }, []); // set up once
 
   return (
     <Box sx={{ p: 2 }}>
@@ -107,11 +144,7 @@ export function MembersTab({
           Members for: {selectedProject?.name || "Current context"}
         </Typography>
 
-        <Button
-          variant="contained"
-          onClick={onInvite}
-          disabled={!projectId}
-        >
+        <Button variant="contained" onClick={onInvite} disabled={!projectId}>
           Invite member
         </Button>
       </Box>

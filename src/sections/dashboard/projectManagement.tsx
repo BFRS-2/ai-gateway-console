@@ -142,6 +142,7 @@ export function ProjectManagementRoot() {
       await userManagementService.addMember(payload);
       enqueueSnackbar("Invitation sent", { variant: "success" });
       setInviteOpen(false);
+      window.dispatchEvent(new Event("refetch_members"));
     } catch (err) {
       console.error("invite failed", err);
       enqueueSnackbar("Failed to invite user", { variant: "error" });
