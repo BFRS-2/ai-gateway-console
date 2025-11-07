@@ -64,7 +64,9 @@ export function Section({
       }}
       {...other}
     >
-      <div>
+      <div style={{
+        marginTop : "-150px"
+      }}>
         <Typography variant="h3" sx={{ textAlign: 'center' }}>
           {title}
         </Typography>
@@ -79,8 +81,8 @@ export function Section({
       <Box
         component="img"
         alt="Dashboard illustration"
-        src={imgUrl}
-        sx={{ width: 1, aspectRatio: '4/3', objectFit: 'cover' }}
+        src={"/logo/logo-full.svg"}
+        sx={{ width: 1, objectFit: 'cover' }}
       />
 
       {!!methods?.length && method && (

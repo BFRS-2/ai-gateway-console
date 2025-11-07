@@ -100,7 +100,9 @@ export const Logo = forwardRef<HTMLDivElement, LogoProps>(
           }}
           {...other}
         >
-          {logo}
+          <img src="/logo/logo-single.svg" style={{
+            height : "40px"
+          }}/>
         </Box>
       </NoSsr>
     );

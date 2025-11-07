@@ -82,8 +82,9 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
   const defaultStartStr = defaultStart.toISOString().slice(0, 10);
 
   const [selectedOrgId, setSelectedOrgId] = useState(initialOrgId);
-  const [selectedProjectId, setSelectedProjectId] =
-    useState<string>(initialProjectId);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(
+    initialProjectId
+  );
   const [startDate, setStartDate] = useState(defaultStartStr);
   const [endDate, setEndDate] = useState(today);
 
@@ -176,24 +177,28 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
         limits: { daily: 0, monthly: 0 },
         daily: { cost_used: 0, requests: 0, tokens_used: 0 },
         month_to_date: {
-          cost_used: p.date_range?.cost_used ?? 0,
-          requests: p.date_range?.requests ?? 0,
-          tokens_used: p.date_range?.tokens_used ?? 0,
+          cost_used: p.usage?.cost_used ?? 0,
+          requests: p.usage?.requests ?? 0,
+          tokens_used: p.usage?.tokens_used ?? 0,
         },
       }));
     }
 
     // 2) single-project new shape: has `services: [...]` + each service has `date_range`
-    if ("services" in rawUsage && Array.isArray(rawUsage.services) && "date_range" in rawUsage) {
+    if (
+      "services" in rawUsage &&
+      Array.isArray(rawUsage.services) &&
+      "usage" in rawUsage
+    ) {
       return rawUsage.services.map((s: any) => ({
         service: s.service,
         service_id: s.service_id,
         limits: s.limits || { daily: 0, monthly: 0 },
         daily: { cost_used: 0, requests: 0, tokens_used: 0 }, // not available in this shape
         month_to_date: {
-          cost_used: s.date_range?.cost_used ?? 0,
-          requests: s.date_range?.requests ?? 0,
-          tokens_used: s.date_range?.tokens_used ?? 0,
+          cost_used: s.usage?.cost_used ?? 0,
+          requests: s.usage?.requests ?? 0,
+          tokens_used: s.usage?.tokens_used ?? 0,
         },
       }));
     }
@@ -209,11 +214,11 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
   // derive KPI from whichever shape we got
   const kpis = useMemo(() => {
     // org-level and new project-level both have date_range
-    if (rawUsage && "date_range" in rawUsage) {
+    if (rawUsage && "usage" in rawUsage) {
       return {
         productsUsed: normalizedServices.length,
-        totalReq: rawUsage.date_range?.requests ?? 0,
-        totalCost: rawUsage.date_range?.cost_used ?? 0,
+        totalReq: rawUsage.usage?.requests ?? 0,
+        totalCost: rawUsage.usage?.cost_used ?? 0,
       };
     }
 
@@ -323,6 +328,18 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
               InputLabelProps={{ shrink: true }}
+              sx={{
+                '& input[type="date"]::-webkit-calendar-picker-indicator': {
+                  filter: "invert(1)", // makes it white
+                  cursor: "pointer",
+                },
+                '& input[type="date"]::-webkit-inner-spin-button': {
+                  filter: "invert(1)",
+                },
+                '& input[type="date"]::-webkit-clear-button': {
+                  filter: "invert(1)",
+                },
+              }}
             />
             <TextField
               size="small"
@@ -331,6 +348,18 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
               InputLabelProps={{ shrink: true }}
+              sx={{
+                '& input[type="date"]::-webkit-calendar-picker-indicator': {
+                  filter: "invert(1)", // makes it white
+                  cursor: "pointer",
+                },
+                '& input[type="date"]::-webkit-inner-spin-button': {
+                  filter: "invert(1)",
+                },
+                '& input[type="date"]::-webkit-clear-button': {
+                  filter: "invert(1)",
+                },
+              }}
             />
           </Stack>
         </Stack>
@@ -413,7 +442,9 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
 
         <Grid container spacing={2} alignItems="stretch">
           <Grid item xs={12} md={8}>
-            <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+            <Box
+              sx={{ height: "100%", display: "flex", flexDirection: "column" }}
+            >
               <AppRequestsCostArea
                 title="Usage & Cost by Service"
                 subheader={`Project: ${selectedProjectName}`}
@@ -423,7 +454,9 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
             </Box>
           </Grid>
           <Grid item xs={12} md={4}>
-            <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+            <Box
+              sx={{ height: "100%", display: "flex", flexDirection: "column" }}
+            >
               <AppCostByServiceDonut
                 title="Cost by Service"
                 subheader={
@@ -471,9 +504,7 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
                   page: pServices.page,
                   rowsPerPage: pServices.rowsPerPage,
                 }}
-                onChangePage={(page) =>
-                  setPServices((s) => ({ ...s, page }))
-                }
+                onChangePage={(page) => setPServices((s) => ({ ...s, page }))}
                 onChangeRows={(rowsPerPage) =>
                   setPServices((s) => ({ ...s, rowsPerPage, page: 0 }))
                 }
