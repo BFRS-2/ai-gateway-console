@@ -330,7 +330,7 @@ export function ProjectManagementRoot() {
                   justifyContent: "space-between",
                 }}
               >
-                <Typography variant="subtitle1">
+                <Typography variant="h4" >
                   Users for:{" "}
                   {selectedProject?.name ||
                     selectedOrgFromStore?.organizationName ||
@@ -348,7 +348,7 @@ export function ProjectManagementRoot() {
               <TextField
                 size="small"
                 fullWidth
-                label="Search users"
+                label="Search Members"
                 value={userSearch}
                 onChange={(e) => setUserSearch(e.target.value)}
                 sx={{ mb: 2 }}
@@ -570,15 +570,15 @@ export function ProjectManagementRoot() {
             }}
           >
             <Typography variant="subtitle2">
-              {selectedOrgFromStore?.organizationName || "Projects"}
+              Projects
             </Typography>
             <Button
               size="small"
-              variant="contained"
+              variant="outlined"
               color="primary"
               onClick={handleOpenCreate}
             >
-              New
+              Create Project
             </Button>
           </Box>
 
@@ -617,12 +617,14 @@ export function ProjectManagementRoot() {
             minWidth: 0,
             display: "flex",
             flexDirection: "column",
-            p: 1,
+            p: 0,
+            pl:2,
+            pr : 2,
           }}
         >
           <Tabs value={tab} onChange={(_, v) => setTab(v)}>
-            <Tab label="User management" />
-            <Tab label="Service management" />
+            <Tab label="Members" />
+            <Tab label="Services" />
           </Tabs>
 
           <Divider />
@@ -639,8 +641,8 @@ export function ProjectManagementRoot() {
                     justifyContent: "space-between",
                   }}
                 >
-                  <Typography variant="subtitle1">
-                    Users for:{" "}
+                  <Typography variant="h4">
+                    Users for : {" "}
                     {selectedProject?.name ||
                       selectedOrgFromStore?.organizationName ||
                       "Current context"}
@@ -650,7 +652,7 @@ export function ProjectManagementRoot() {
                     onClick={handleInviteOpen}
                     disabled={!projectId}
                   >
-                    Invite user
+                    Invite Member
                   </Button>
                 </Box>
 

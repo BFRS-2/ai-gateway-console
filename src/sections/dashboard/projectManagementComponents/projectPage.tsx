@@ -40,7 +40,7 @@ export function ProjectPage({
           bgcolor: 'background.paper',
         }}
       >
-        <Tab label="Overview" />
+        <Tab label="Usage" />
         <Tab label="Services" />
         <Tab label="Members" />
         <Tab label="Activity" />

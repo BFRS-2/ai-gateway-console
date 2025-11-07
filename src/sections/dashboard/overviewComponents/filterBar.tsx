@@ -13,7 +13,7 @@ export default function FiltersBar({
 }) {
   return (
     <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="center" justifyContent="space-between">
-      <Typography variant="h4">Overview</Typography>
+      <Typography variant="h4">Usage</Typography>
       <Stack direction="row" spacing={2} sx={{ width: { xs: "100%", md: "auto" } }}>
         <TextField
           select
