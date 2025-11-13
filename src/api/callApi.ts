@@ -112,8 +112,8 @@ export async function callGithubApi(path: string = "RP/docs.md") {
 export function callGetApi(url: string) {
   return callAPI(url, undefined, "GET");
 }
-export function callDeleteApi(url: string) {
-  return callAPI(url, undefined, "DELETE");
+export function callDeleteApi(url: string, body : any = undefined) {
+  return callAPI(url, body, "DELETE");
 }
 
 

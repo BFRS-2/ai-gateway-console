@@ -298,88 +298,76 @@ export function ProjectSettingsTab({
       </Box>
 
       {/* Two-column layout */}
-      <Grid container spacing={2} alignItems="stretch">
-        {/* LEFT: Details */}
-        <Grid item xs={12} md={6}>
-          <Paper variant="outlined" sx={gradientCard}>
-            <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700 }}>
-              Project details
-            </Typography>
-
-            {loading ? (
-              <Stack spacing={1.2}>
-                <Skeleton height={40} />
-                <Skeleton height={40} />
-                <Skeleton height={90} />
-                <Skeleton height={40} />
-              </Stack>
-            ) : (
-              <Stack spacing={1.5}>
-                <TextField
-                  label="Project name"
-                  size="small"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-                <FormControl size="small">
-                  <InputLabel id="status-label">Status</InputLabel>
-                  <Select
-                    labelId="status-label"
-                    label="Status"
-                    value={status}
-                    onChange={(e) =>
-                      setStatus(e.target.value as "active" | "inactive")
-                    }
-                  >
-                    <MenuItem value="active">
-                      <Chip
-                        size="small"
-                        color="success"
-                        label="Active"
-                        variant="filled"
-                      />
-                    </MenuItem>
-                    <MenuItem value="inactive">
-                      <Chip
-                        size="small"
-                        color="default"
-                        label="Inactive"
-                        variant="outlined"
-                      />
-                    </MenuItem>
-                  </Select>
-                </FormControl>
-
-                <TextField
-                  label="Description"
-                  size="small"
-                  multiline
-                  minRows={4}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-
-                <TextField
-                  label="Log Index"
-                  size="small"
-                  value={langfuseProjectName}
-                  onChange={(e) => setLangfuseProjectName(e.target.value)}
-                  placeholder="optional"
-                />
-
-                <Divider sx={{ my: 1.5 }} />
-                <Typography variant="caption" color="text.secondary">
-                  Changes are saved to your organization’s workspace.
-                </Typography>
-              </Stack>
-            )}
-          </Paper>
-        </Grid>
-
-        {/* RIGHT: Limits + API Keys */}
+     <Grid container spacing={2} alignItems="stretch">
+        {/* LEFT: Details + Limits (both cards stacked) */}
         <Grid item xs={12} md={6}>
           <Stack spacing={2} sx={{ height: "100%" }}>
-            {/* Usage & cost limits */}
+            {/* Project details */}
+            <Paper variant="outlined" sx={gradientCard}>
+              <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700 }}>
+                Project details
+              </Typography>
+
+              {loading ? (
+                <Stack spacing={1.2}>
+                  <Skeleton height={40} />
+                  <Skeleton height={40} />
+                  <Skeleton height={90} />
+                  <Skeleton height={40} />
+                </Stack>
+              ) : (
+                <Stack spacing={1.5}>
+                  <TextField
+                    label="Project name"
+                    size="small"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                  <FormControl size="small">
+                    <InputLabel id="status-label">Status</InputLabel>
+                    <Select
+                      labelId="status-label"
+                      label="Status"
+                      value={status}
+                      onChange={(e) =>
+                        setStatus(e.target.value as "active" | "inactive")
+                      }
+                    >
+                      <MenuItem value="active">
+                        <Chip size="small" color="success" label="Active" variant="filled" />
+                      </MenuItem>
+                      <MenuItem value="inactive">
+                        <Chip size="small" color="default" label="Inactive" variant="outlined" />
+                      </MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  <TextField
+                    label="Description"
+                    size="small"
+                    multiline
+                    minRows={4}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+
+                  <TextField
+                    label="Log Index"
+                    size="small"
+                    value={langfuseProjectName}
+                    onChange={(e) => setLangfuseProjectName(e.target.value)}
+                    placeholder="optional"
+                  />
+
+                  <Divider sx={{ my: 1.5 }} />
+                  <Typography variant="caption" color="text.secondary">
+                    Changes are saved to your organization’s workspace.
+                  </Typography>
+                </Stack>
+              )}
+            </Paper>
+
+            {/* Usage & cost limits — now on LEFT as a separate card */}
             <Paper variant="outlined" sx={gradientCard}>
               <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700 }}>
                 Usage & cost limits
@@ -391,109 +379,92 @@ export function ProjectSettingsTab({
                   <Skeleton height={40} />
                 </Stack>
               ) : (
-                <>
-                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ mb: 1.5 }}>
-                    <TextField
-                      label="Daily budget"
-                      size="small"
-                      type="number"
-                      inputProps={{ min: 0 }}
-                      value={daily}
-                      onChange={(e) => setDaily(e.target.value)}
-                      fullWidth
-                    />
-                    <TextField
-                      label="Monthly budget"
-                      size="small"
-                      type="number"
-                      inputProps={{ min: 0 }}
-                      value={monthly}
-                      onChange={(e) => setMonthly(e.target.value)}
-                      fullWidth
-                    />
-                  </Stack>
-
-
-                  {/* <Button
-                    variant="contained"
-                    startIcon={<CheckCircleRoundedIcon />}
-                    onClick={handleSaveAll}
-                    disabled={saving || loading}
-                    sx={{ alignSelf: "flex-start" }}
-                  >
-                    Save limits
-                  </Button> */}
-                </>
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
+                  <TextField
+                    label="Daily budget"
+                    size="small"
+                    type="number"
+                    inputProps={{ min: 0 }}
+                    value={daily}
+                    onChange={(e) => setDaily(e.target.value)}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Monthly budget"
+                    size="small"
+                    type="number"
+                    inputProps={{ min: 0 }}
+                    value={monthly}
+                    onChange={(e) => setMonthly(e.target.value)}
+                    fullWidth
+                  />
+                </Stack>
               )}
             </Paper>
+          </Stack>
+        </Grid>
 
-            {/* API credentials */}
-            <Paper variant="outlined" sx={{ ...gradientCard, flex: 1 }}>
-             
-
-              {/* Name removed: just a Generate button */}
-              <Stack direction="row" justifyContent="space-between" sx={{ mb: 1.5 }}>
-                 <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700 }}>
+        {/* RIGHT: API credentials only */}
+        <Grid item xs={12} md={6}>
+          <Paper variant="outlined" sx={{ ...gradientCard, height: "100%" }}>
+            <Stack direction="row" justifyContent="space-between" sx={{ mb: 1.5 }}>
+              <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700 }}>
                 API credentials
               </Typography>
-                <Button
-                  size="small"
-                  variant="contained"
-                  startIcon={<AddRoundedIcon />}
-                  onClick={handleCreateKey}
-                >
-                  Generate new key
-                </Button>
-              </Stack>
+              <Button
+                size="small"
+                variant="contained"
+                startIcon={<AddRoundedIcon />}
+                onClick={handleCreateKey}
+              >
+                Generate new key
+              </Button>
+            </Stack>
 
-              <Divider sx={{ mb: 1 }} />
+            <Divider sx={{ mb: 1 }} />
 
-              <Box sx={{ flex: 1, overflow: "auto" }}>
-                {loading ? (
-                  <Stack spacing={1.2}>
-                    <Skeleton height={36} />
-                    <Skeleton height={36} />
-                    <Skeleton height={36} />
-                  </Stack>
-                ) : (
-                  <List dense>
-                    {apiKeys.length ? (
-                      apiKeys.map((key) => (
-                        <ListItem
-                          key={key}
-                          secondaryAction={
-                            <Tooltip title="Revoke key">
-                              <IconButton
-                                edge="end"
-                                onClick={() => confirmRevoke(key)}
-                                size="small"
-                                color="error"
-                              >
-                                <DeleteIcon fontSize="inherit" />
-                              </IconButton>
-                            </Tooltip>
-                          }
-                        >
-                          <ListItemText
-                            primaryTypographyProps={{
-                              fontFamily: "monospace",
-                              fontSize: 13,
-                            }}
-                            primary={maskKey(key)}
-                            secondary="Secret not retrievable. You can only revoke."
-                          />
-                        </ListItem>
-                      ))
-                    ) : (
-                      <ListItem>
-                        <ListItemText primary="No keys yet" />
+            <Box sx={{ flex: 1, overflow: "auto" }}>
+              {loading ? (
+                <Stack spacing={1.2}>
+                  <Skeleton height={36} />
+                  <Skeleton height={36} />
+                  <Skeleton height={36} />
+                </Stack>
+              ) : (
+                <List dense>
+                  {apiKeys.length ? (
+                    apiKeys.map((key) => (
+                      <ListItem
+                        key={key}
+                        secondaryAction={
+                          <Tooltip title="Revoke key">
+                            <IconButton
+                              edge="end"
+                              onClick={() => confirmRevoke(key)}
+                              size="small"
+                              color="error"
+                            >
+                              <DeleteIcon fontSize="inherit" />
+                            </IconButton>
+                          </Tooltip>
+                        }
+                      >
+                        <ListItemText
+                          primaryTypographyProps={{ fontFamily: "monospace", fontSize: 13 }}
+                          primary={maskKey(key)}
+                          secondary="Secret not retrievable. You can only revoke."
+                        />
                       </ListItem>
-                    )}
-                  </List>
-                )}
-              </Box>
-            </Paper>
-          </Stack>
+                    ))
+                  ) : (
+                    <ListItem>
+                      <ListItemText primary="No keys yet" />
+                    </ListItem>
+                  )}
+                </List>
+              )}
+            </Box>
+          </Paper>
         </Grid>
       </Grid>
 

@@ -1,6 +1,6 @@
 // src/api/services/project.service.ts
 import urls from "../urls";
-import { callGetApi, callPostApi, callPutApi } from "../callApi";
+import { callDeleteApi, callGetApi, callPostApi, callPutApi } from "../callApi";
 import objectToQueryString from "src/utils/objectToGetParams";
 
 export type ProviderName = "openai" | "gemini" | "pytesseract" | string;
@@ -247,7 +247,7 @@ const projectService = {
 
   /** POST /api/v1/projects/{{project_id}}/api-key/delete  (expects { api_key }) */
   deleteApiKey: (project_id: string, api_key: string) =>
-    callPostApi(
+    callDeleteApi(
       `/api/v1/projects/${encodeURIComponent(project_id)}/api-key/delete`,
       { api_key }
     ) as Promise<ApiKeyDeleteResponse>,
