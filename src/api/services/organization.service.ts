@@ -25,7 +25,7 @@ export interface Organization {
 const organizationService = {
   getAll: () =>
     callGetApi(urls.GET_ORGANIZATIONS) as Promise<{
-      data: { organizations: Organization[]; total_count: number };
+      data:Organization[];
       success: boolean;
       status_code: number;
       message?: string;

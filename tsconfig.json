@@ -5,7 +5,7 @@
     "lib": [
       "dom",
       "esnext",
-      "dom.iterable",
+      "dom.iterable"
     ],
     "strict": true,
     "noEmit": true,
@@ -35,7 +35,8 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    "dist/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

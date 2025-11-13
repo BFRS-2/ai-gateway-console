@@ -2,8 +2,18 @@
 "use client";
 
 import {
-  Box, Stack, TextField, Typography, Switch, FormControlLabel,
-  Slider, Button, MenuItem, Select, Chip, OutlinedInput
+  Box,
+  Stack,
+  TextField,
+  Typography,
+  Switch,
+  FormControlLabel,
+  Slider,
+  Button,
+  MenuItem,
+  Select,
+  Chip,
+  OutlinedInput,
 } from "@mui/material";
 import { useEffect, useMemo, useState } from "react";
 import { FieldSchema, Path, ServiceSchema } from "./serviceschema";
@@ -38,15 +48,15 @@ export interface ModelRow {
 
 export interface ProviderRow {
   id: string;
-  name: string;   // "openai" | "gemini" | ...
+  name: string;
   status: "active" | string;
 }
 
 export default function DynamicServiceForm({
   schema,
-  serviceKey,             // "inference" | "embedding" | ...
+  serviceKey,
   models,
-  providers,              // <-- NEW: providers from API
+  providers,
   value,
   onChange,
   onSubmit,
@@ -55,7 +65,7 @@ export default function DynamicServiceForm({
   schema: ServiceSchema;
   serviceKey: string;
   models: ModelRow[];
-  providers: ProviderRow[];    // <-- NEW
+  providers: ProviderRow[];
   value: JsonObj;
   onChange: (next: JsonObj) => void;
   onSubmit: () => void;
@@ -63,7 +73,7 @@ export default function DynamicServiceForm({
 }) {
   const [errors, setErrors] = useState<Record<Path, string>>({});
 
-  // Active models filtered by service
+  // models filtered by service
   const allowedModels = useMemo(
     () =>
       (models || [])
@@ -73,11 +83,11 @@ export default function DynamicServiceForm({
             Array.isArray(m.allowed_services) &&
             m.allowed_services.includes(serviceKey)
         )
-        .map((m) => ({ label: m.name, value: m.name, provider: m.provider })), // using model "name" as value
+        .map((m) => ({ label: m.name, value: m.name, provider: m.provider })),
     [models, serviceKey]
   );
 
-  // Active providers straight from API
+  // providers active
   const providerOptions = useMemo(
     () =>
       (providers || [])
@@ -86,13 +96,12 @@ export default function DynamicServiceForm({
     [providers]
   );
 
-  // Auto-fill provider when a model is picked and provider is empty
+  // auto sync provider
   useEffect(() => {
     const syncProvider = (modelPath: Path, providerPath: Path) => {
       const modelName: any = getByPath(value, modelPath);
       const providerName = getByPath(value, providerPath);
       if (!modelName) return;
-
       const model = allowedModels.find((m) => m.value === modelName);
       if (model && !providerName) {
         onChange(setByPath(value, providerPath, model.provider));
@@ -102,21 +111,24 @@ export default function DynamicServiceForm({
     syncProvider("config.default_model", "config.default_provider");
     syncProvider("config.backup_model", "config.backup_provider");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value?.config?.default_model, value?.config?.backup_model, allowedModels]);
+  }, [
+    value?.config?.default_model,
+    value?.config?.backup_model,
+    allowedModels,
+  ]);
 
-  // Resolve field options
   const fieldOptions = (f: FieldSchema) => {
-    if (f.options?.length) return f.options; // static override
-    if (f.dynamic === "models") return allowedModels.map(({ label, value }) => ({ label, value }));
+    if (f.options?.length) return f.options;
+    if (f.dynamic === "models")
+      return allowedModels.map(({ label, value }) => ({ label, value }));
     if (f.dynamic === "providers") return providerOptions;
     return [];
   };
 
-  // Validation (limits required + your other required fields)
   const validate = () => {
     const e: Record<Path, string> = {};
     Object.entries(schema.fields).forEach(([path, f]) => {
-      const v :any = getByPath(value, path);
+      const v: any = getByPath(value, path);
 
       if (f.required) {
         const isEmpty =
@@ -128,13 +140,17 @@ export default function DynamicServiceForm({
       }
 
       if (f.type === "number" && v != null) {
-        if (f.min != null && v < f.min) e[path] = `${f.label || path} must be ≥ ${f.min}`;
-        if (f.max != null && v > f.max) e[path] = `${f.label || path} must be ≤ ${f.max}`;
+        if (f.min != null && v < f.min)
+          e[path] = `${f.label || path} must be ≥ ${f.min}`;
+        if (f.max != null && v > f.max)
+          e[path] = `${f.label || path} must be ≤ ${f.max}`;
       }
 
       if (f.type === "slider" && v != null) {
-        if (f.min != null && v < f.min) e[path] = `${f.label || path} must be ≥ ${f.min}`;
-        if (f.max != null && v > f.max) e[path] = `${f.label || path} must be ≤ ${f.max}`;
+        if (f.min != null && v < f.min)
+          e[path] = `${f.label || path} must be ≥ ${f.min}`;
+        if (f.max != null && v > f.max)
+          e[path] = `${f.label || path} must be ≤ ${f.max}`;
       }
     });
     setErrors(e);
@@ -154,25 +170,50 @@ export default function DynamicServiceForm({
     switch (f.type) {
       case "text":
         return (
-          <TextField fullWidth size="small" label={label} placeholder={f.placeholder}
-            value={v ?? f.default ?? ""} onChange={(e) => onChange(setByPath(value, path, e.target.value))}
-            error={!!errors[path]} helperText={errors[path]}
+          <TextField
+            fullWidth
+            size="small"
+            label={label}
+            placeholder={f.placeholder}
+            value={v ?? f.default ?? ""}
+            onChange={(e) => onChange(setByPath(value, path, e.target.value))}
+            error={!!errors[path]}
+            helperText={errors[path]}
           />
         );
       case "textarea":
         return (
-          <TextField fullWidth size="small" label={label} placeholder={f.placeholder}
-            value={v ?? f.default ?? ""} onChange={(e) => onChange(setByPath(value, path, e.target.value))}
-            error={!!errors[path]} helperText={errors[path]}
-            multiline minRows={3}
-          />
+          <Box sx={{ gridColumn: "1 / -1" }}>
+            {" "}
+            {/* <-- spans full width in grid */}
+            <TextField
+              fullWidth
+              size="small"
+              label={label}
+              placeholder={f.placeholder}
+              value={v ?? f.default ?? ""}
+              onChange={(e) => onChange(setByPath(value, path, e.target.value))}
+              error={!!errors[path]}
+              helperText={errors[path]}
+              multiline
+              minRows={3}
+            />
+          </Box>
         );
       case "number":
         return (
-          <TextField fullWidth size="small" label={label} type="number"
+          <TextField
+            fullWidth
+            size="small"
+            label={label}
+            type="number"
             inputProps={{ min: f.min, max: f.max, step: f.step ?? 1 }}
-            value={v ?? f.default ?? ""} onChange={(e) => onChange(setByPath(value, path, Number(e.target.value)))}
-            error={!!errors[path]} helperText={errors[path]}
+            value={v ?? f.default ?? ""}
+            onChange={(e) =>
+              onChange(setByPath(value, path, Number(e.target.value)))
+            }
+            error={!!errors[path]}
+            helperText={errors[path]}
           />
         );
       case "switch":
@@ -181,130 +222,286 @@ export default function DynamicServiceForm({
             control={
               <Switch
                 checked={Boolean(v ?? f.default ?? false)}
-                onChange={(_, checked) => onChange(setByPath(value, path, checked))}
+                onChange={(_, checked) =>
+                  onChange(setByPath(value, path, checked))
+                }
               />
             }
             label={label}
           />
         );
       case "slider":
+        // force 0→1 for temperature
+        const isTemperature = path.includes("temperature");
+        const min = isTemperature ? 0 : f.min ?? 0;
+        const max = isTemperature ? 1 : f.max ?? 1;
+        const step = f.step ?? (isTemperature ? 0.01 : 0.1);
+
         return (
           <Box>
             <Typography variant="caption" sx={{ fontWeight: 600 }}>
-              {label}: <b>{v  as any ?? f.default ?? 0}</b>
+              {label}: <b>{(v as any) ?? f.default ?? 0}</b>
             </Typography>
-            <Slider size="small"
+            <Slider
+              size="small"
               value={Number(v ?? f.default ?? 0)}
-              min={f.min ?? 0} max={f.max ?? 1} step={f.step ?? 0.1}
-              onChange={(_, val) => onChange(setByPath(value, path, val as number))}
+              min={min}
+              max={max}
+              step={step}
+              onChange={(_, val) =>
+                onChange(setByPath(value, path, val as number))
+              }
             />
-            {errors[path] && <Typography variant="caption" color="error">{errors[path]}</Typography>}
+            {errors[path] && (
+              <Typography variant="caption" color="error">
+                {errors[path]}
+              </Typography>
+            )}
+          </Box>
+        );
+        return (
+          <Box>
+            <Typography variant="caption" sx={{ fontWeight: 600 }}>
+              {label}: <b>{(v as any) ?? f.default ?? 0}</b>
+            </Typography>
+            <Slider
+              size="small"
+              value={Number(v ?? f.default ?? 0)}
+              min={f.min ?? 0}
+              max={f.max ?? 1}
+              step={f.step ?? 0.1}
+              onChange={(_, val) =>
+                onChange(setByPath(value, path, val as number))
+              }
+            />
+            {errors[path] && (
+              <Typography variant="caption" color="error">
+                {errors[path]}
+              </Typography>
+            )}
           </Box>
         );
       case "dropdown":
         return (
-          <TextField select fullWidth size="small" label={label}
-            value={v ?? f.default ?? ""} onChange={(e) => onChange(setByPath(value, path, e.target.value))}
-            error={!!errors[path]} helperText={errors[path]}
+          <TextField
+            select
+            fullWidth
+            size="small"
+            label={label}
+            value={v ?? f.default ?? ""}
+            onChange={(e) => onChange(setByPath(value, path, e.target.value))}
+            error={!!errors[path]}
+            helperText={errors[path]}
           >
             {opts.map((opt) => (
-              <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+              <MenuItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </MenuItem>
             ))}
           </TextField>
         );
       case "multiselect":
         return (
-          <Select multiple fullWidth displayEmpty
+          <Select
+            multiple
+            fullWidth
+            displayEmpty
             value={(v as string[]) ?? (f.default as string[]) ?? []}
             input={<OutlinedInput size="small" />}
             onChange={(e) => onChange(setByPath(value, path, e.target.value))}
             renderValue={(selected) =>
               (selected as string[]).length === 0 ? (
-                <Typography variant="body2" color="text.secondary">{label}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {label}
+                </Typography>
               ) : (
                 <Stack direction="row" gap={1} flexWrap="wrap">
-                  {(selected as string[]).map((s) => <Chip key={s} label={s} size="small" />)}
+                  {(selected as string[]).map((s) => (
+                    <Chip key={s} label={s} size="small" />
+                  ))}
                 </Stack>
               )
             }
             size="small"
           >
             {opts.map((opt) => (
-              <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+              <MenuItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </MenuItem>
             ))}
           </Select>
         );
       case "chips":
         return (
           <Box>
-            <Typography variant="caption" sx={{ fontWeight: 600 }}>{label}</Typography>
+            <Typography variant="caption" sx={{ fontWeight: 600 }}>
+              {label}
+            </Typography>
             <Stack direction="row" gap={1} flexWrap="wrap" sx={{ my: 1 }}>
-              {(Array.isArray(v) ? v : (f.default as string[]) ?? []).map((s: string, i: number) => (
-                <Chip key={`${s}-${i}`} label={s} onDelete={() => {
-                  const next = (Array.isArray(v) ? v : []).filter((x) => x !== s);
-                  onChange(setByPath(value, path, next));
-                }} size="small" />
-              ))}
+              {(Array.isArray(v) ? v : (f.default as string[]) ?? []).map(
+                (s: string, i: number) => (
+                  <Chip
+                    key={`${s}-${i}`}
+                    label={s}
+                    onDelete={() => {
+                      const next = (Array.isArray(v) ? v : []).filter(
+                        (x) => x !== s
+                      );
+                      onChange(setByPath(value, path, next));
+                    }}
+                    size="small"
+                  />
+                )
+              )}
             </Stack>
             <TextField
-              size="small" placeholder="Type & press Enter"
+              size="small"
+              placeholder="Type & press Enter"
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
                   const val = (e.target as HTMLInputElement).value.trim();
                   if (!val) return;
-                  const next = [...((Array.isArray(v) ? v : []) as string[]), val];
+                  const next = [
+                    ...((Array.isArray(v) ? v : []) as string[]),
+                    val,
+                  ];
                   onChange(setByPath(value, path, next));
                   (e.target as HTMLInputElement).value = "";
                 }
               }}
               fullWidth
             />
-            {errors[path] && <Typography variant="caption" color="error">{errors[path]}</Typography>}
+            {errors[path] && (
+              <Typography variant="caption" color="error">
+                {errors[path]}
+              </Typography>
+            )}
           </Box>
         );
       default:
         return (
-          <TextField fullWidth size="small" label={label}
-            value={v ?? f.default ?? ""} onChange={(e) => onChange(setByPath(value, path, e.target.value))}
+          <TextField
+            fullWidth
+            size="small"
+            label={label}
+            value={v ?? f.default ?? ""}
+            onChange={(e) => onChange(setByPath(value, path, e.target.value))}
           />
         );
     }
   };
 
-  // group panels
-  const groups = useMemo(() => {
-    const g: Record<string, { path: Path; schema: FieldSchema }[]> = {};
-    Object.entries(schema.fields).forEach(([path, fs]) => {
-      const top = path.split(".")[0];
-      g[top] ||= [];
-      g[top].push({ path, schema: fs });
-    });
-    return g;
-  }, [schema.fields]);
+  // groups from schema.ui
+  const uiGroups = schema.ui?.groups ?? [];
+  const groupedFieldPaths = new Set<string>();
+  uiGroups.forEach((g) => g.fields.forEach((p) => groupedFieldPaths.add(p)));
+
+  const leftoverFields = Object.entries(schema.fields).filter(
+    ([path]) => !groupedFieldPaths.has(path)
+  );
+
+  const containerStyle = schema.ui?.containerStyle ?? {
+    width: "70vw",
+    maxWidth: "1100px",
+    margin: "0 auto",
+    padding: "16px 0 32px",
+  };
 
   return (
     <Scrollbar>
-    <Stack spacing={3} sx={{ maxWidth: "100%" }}>
-      {/* <Typography variant="h6">{schema.title}</Typography> */}
+      <Box sx={containerStyle}>
+        <Stack spacing={3}>
+          <Box>
+            <Typography variant="h6">{schema.title}</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Update configuration for this service.
+            </Typography>
+          </Box>
 
-      {Object.entries(groups).map(([group, fields]) => (
-        <Box key={group} sx={{ p: 2, border: "1px solid", borderColor: "divider", borderRadius: 2 }}>
-          <Typography variant="subtitle2" sx={{ mb: 2, textTransform: "capitalize" }}>
-            {group}
-          </Typography>
-          <Stack spacing={2}>
-            {fields.map(({ path, schema }) => (
-              <Box key={path}>{renderField(path, schema)}</Box>
+          {/* groups */}
+          {uiGroups.length > 0 &&
+            uiGroups.map((group) => (
+              <Box
+                key={group.id}
+                sx={{
+                  p: 2.5,
+                  borderRadius: 2,
+                  bgcolor: "background.paper",
+                  boxShadow: "0 6px 18px rgba(0,0,0,0.03)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2,
+                }}
+              >
+                <Box>
+                  {group.title && (
+                    <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
+                      {group.title}
+                    </Typography>
+                  )}
+                  {group.description && (
+                    <Typography variant="body2" color="text.secondary">
+                      {group.description}
+                    </Typography>
+                  )}
+                </Box>
+
+                <Box
+                  sx={{
+                    display: "grid",
+                    gap: 2,
+                    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                    ...(group.style || {}),
+                  }}
+                >
+                  {group.fields.map((path) => {
+                    const fs = schema.fields[path];
+                    if (!fs) return null;
+                    return (
+                      <Box key={path} sx={{ minWidth: 0 }}>
+                        {renderField(path, fs)}
+                      </Box>
+                    );
+                  })}
+                </Box>
+              </Box>
             ))}
-          </Stack>
-        </Box>
-      ))}
 
-      <Stack direction="row" gap={1} justifyContent="flex-end">
-        <Button variant="contained" onClick={handleSubmit}>{submitLabel}</Button>
-      </Stack>
-    </Stack>
+          {/* leftovers */}
+          {leftoverFields.length > 0 && (
+            <Box
+              sx={{
+                p: 2.5,
+                borderRadius: 2,
+                bgcolor: "background.paper",
+                boxShadow: "0 6px 18px rgba(0,0,0,0.03)",
+              }}
+            >
+              <Typography variant="subtitle1" sx={{ mb: 1.5 }}>
+                Other settings
+              </Typography>
+              <Box
+                sx={{
+                  display: "grid",
+                  gap: 2,
+                  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                }}
+              >
+                {leftoverFields.map(([path, fs]) => (
+                  <Box key={path}>{renderField(path, fs)}</Box>
+                ))}
+              </Box>
+            </Box>
+          )}
+
+          <Stack direction="row" justifyContent="flex-end">
+            <Button variant="contained" onClick={handleSubmit}>
+              {submitLabel}
+            </Button>
+          </Stack>
+        </Stack>
+      </Box>
     </Scrollbar>
   );
 }

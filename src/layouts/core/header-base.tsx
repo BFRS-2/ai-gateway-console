@@ -259,17 +259,17 @@ export function HeaderBase({
   async function bootstrapOrgsAndProjects() {
     try {
       const orgsResp = await organizationService.getAll();
+      if(orgsResp.status_code === 401){
+        return
+      }
       const organizations: Organization[] =
-        orgsResp?.data?.organizations || [];
-
+        orgsResp?.data || [];
       if (!organizations.length) {
         await createDefaultSetup();
         return await bootstrapOrgsAndProjects();
       }
-
       const projsResp = await projectService.getAll();
-      const projects: Project[] = projsResp?.data?.projects || [];
-
+      const projects: Project[] = projsResp?.data || [];
       if (!projects.length) {
         await createProject(organizations[0].id);
         return await bootstrapOrgsAndProjects();
@@ -377,8 +377,8 @@ const handleCreateOrgFromDialog = async () => {
       const projsResp = await projectService.getAll();
 
       const organizations: Organization[] =
-        orgsResp?.data?.organizations || [];
-      const projects: Project[] = projsResp?.data?.projects || [];
+        orgsResp?.data || [];
+      const projects: Project[] = projsResp?.data || [];
 
       const orgWithProjects = mergeOrgsWithProjects(organizations, projects);
       dispatch(setOrganizationProjectMapping(orgWithProjects));
