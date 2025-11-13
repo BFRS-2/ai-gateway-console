@@ -38,11 +38,15 @@ const userManagementService = {
    * - member → email + role + organization_id + project_id + access_type
    */
 
-  listUsers : (body?: { name?: string; page?: number; limit?: number }) => {
+  listUsers : (body?: { name?: string; page?: number; limit?: number, organization_id, project_id }) => {
     const params: { [key: string]: string | number | boolean } = {};
     if (body?.name !== undefined && body.name !== null && body.name !== "") params.name = body.name;
     if (body?.page !== undefined) params.page = body.page;
     if (body?.limit !== undefined) params.limit = body.limit;
+    if (body?.organization_id !== undefined && body.organization_id !== null && body.organization_id !== "")
+      params.organization_id = body.organization_id;
+    if (body?.project_id !== undefined && body.project_id !== null && body.project_id !== "")
+      params.project_id = body.project_id;
 
     const query = Object.keys(params).length ? objectToQueryString(params) : "";
     return callGetApi("/api/v1/users" + query);

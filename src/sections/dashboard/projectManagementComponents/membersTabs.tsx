@@ -14,7 +14,7 @@ import {
   TablePagination,
   Button,
 } from "@mui/material";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSnackbar } from "notistack";
 import userManagementService from "src/api/services/user.service";
 
@@ -34,6 +34,16 @@ type MembersTabProps = {
   onInvite?: () => void;
 };
 
+// small debounce hook
+function useDebouncedValue<T>(value: T, delay = 300) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
+}
+
 export function MembersTab({
   organizationId,
   projectId,
@@ -43,91 +53,100 @@ export function MembersTab({
   const { enqueueSnackbar } = useSnackbar();
 
   const [userSearch, setUserSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(userSearch, 350);
+
   const [userLoading, setUserLoading] = useState(false);
   const [users, setUsers] = useState<ApiUser[]>([]);
   const [userPage, setUserPage] = useState(0);
   const [userRowsPerPage, setUserRowsPerPage] = useState(10);
   const [userTotal, setUserTotal] = useState(0);
 
-  // keep latest values for the event listener
-  const searchRef = useRef(userSearch);
-  const pageRef = useRef(userPage);
-  const rowsRef = useRef(userRowsPerPage);
+  // external refetch trigger
+  const [refreshTick, setRefreshTick] = useState(0);
 
-  // keep refs in sync
-  useEffect(() => {
-    searchRef.current = userSearch;
-  }, [userSearch]);
+  // Abort/collision guards
+  const abortRef = useRef<AbortController | null>(null);
+  const reqIdRef = useRef(0);
 
-  useEffect(() => {
-    pageRef.current = userPage;
-  }, [userPage]);
+  const fetchUsers = useCallback(
+    async (name: string, page: number, limit: number) => {
+      if (!organizationId || !projectId) return;
+      // cancel previous request (Strict Mode renders/effects included)
+      if (abortRef.current) abortRef.current.abort();
+      const aborter = new AbortController();
+      abortRef.current = aborter;
 
-  useEffect(() => {
-    rowsRef.current = userRowsPerPage;
-  }, [userRowsPerPage]);
+      const myReqId = ++reqIdRef.current;
 
-  const fetchUsers = async (
-    name: string,
-    page: number,
-    limit: number
-  ): Promise<void> => {
-    try {
-      setUserLoading(true);
-      const res = await (userManagementService as any).listUsers({
-        name: name || undefined,
-        page: page + 1, // API 1-based
-        limit,
-      });
+      try {
+        setUserLoading(true);
+        const res = await (userManagementService as any).listUsers(
+          {
+            name: name || undefined,
+            page: page + 1, // API 1-based
+            limit,
+            organization_id: organizationId,
+            project_id: projectId,
+          },
+          { signal: aborter.signal }
+        );
 
-      if (res?.success && res?.data) {
-        const items: ApiUser[] = res.data.items || [];
-        const pagination = res.data.pagination;
-        setUsers(items);
-        setUserTotal(pagination?.total_count ?? items.length);
-      } else {
-        setUsers([]);
-        setUserTotal(0);
+        // ignore stale responses
+        if (myReqId !== reqIdRef.current) return;
+
+        if (res?.success && res?.data) {
+          const items: ApiUser[] = res.data.items || [];
+          const total = res.data.pagination?.total_count ?? items.length;
+          setUsers(items);
+          setUserTotal(total);
+        } else {
+          setUsers([]);
+          setUserTotal(0);
+        }
+      } catch (err) {
+        if (err?.name !== "AbortError") {
+          console.error("listUsers failed", err);
+          setUsers([]);
+          setUserTotal(0);
+          enqueueSnackbar("Failed to load members", { variant: "error" });
+        }
+      } finally {
+        if (myReqId === reqIdRef.current) setUserLoading(false);
       }
-    } catch (err) {
-      console.error("listUsers failed", err);
-      setUsers([]);
-      setUserTotal(0);
-      enqueueSnackbar("Failed to load members", { variant: "error" });
-    } finally {
-      setUserLoading(false);
-    }
-  };
+    },
+    [organizationId, projectId, enqueueSnackbar]
+  );
 
-  // initial load
+  // Single source of truth for fetching:
+  // Fires on mount, on debounced search, page/rows changes, project/org changes, or external refresh tick
   useEffect(() => {
-    fetchUsers(userSearch, userPage, userRowsPerPage);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    fetchUsers(debouncedSearch, userPage, userRowsPerPage);
+  }, [
+    debouncedSearch,
+    userPage,
+    userRowsPerPage,
+    organizationId,
+    projectId,
+    refreshTick,
+    fetchUsers,
+  ]);
 
-  // refetch when search changes
+  // reset page when search changes (state only; fetching is driven by effect above)
   useEffect(() => {
     setUserPage(0);
-    fetchUsers(userSearch, 0, userRowsPerPage);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userSearch]);
+  }, [debouncedSearch]);
 
-  // listen for custom event -> refetch
+  // external refetch event -> nudge refreshTick; no direct fetch here
   useEffect(() => {
-    const handler = () => {
-      // always use latest values from refs
-      fetchUsers(
-        searchRef.current,
-        pageRef.current,
-        rowsRef.current
-      );
-    };
-
+    const handler = () => setRefreshTick((x) => x + 1);
     window.addEventListener("refetch_members", handler);
-    return () => {
-      window.removeEventListener("refetch_members", handler);
-    };
-  }, []); // set up once
+    return () => window.removeEventListener("refetch_members", handler);
+  }, []);
+
+  // clean up in-flight on unmount
+  useEffect(() => {
+    return () => abortRef.current?.abort();
+  }, []);
 
   return (
     <Box sx={{ p: 2 }}>
@@ -141,7 +160,7 @@ export function MembersTab({
         }}
       >
         <Typography variant="h4">
-          Members for: {selectedProject?.name || "Current context"}
+          Members for : {selectedProject?.name || "Current context"}
         </Typography>
 
         <Button variant="contained" onClick={onInvite} disabled={!projectId}>
@@ -190,28 +209,25 @@ export function MembersTab({
                 ) : (
                   <TableRow>
                     <TableCell colSpan={4}>
-                      <Typography variant="body2">
-                        No users found.
-                      </Typography>
+                      <Typography variant="body2">No users found.</Typography>
                     </TableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
+
             <TablePagination
               component="div"
               count={userTotal}
               page={userPage}
               onPageChange={(_, newPage) => {
-                setUserPage(newPage);
-                fetchUsers(userSearch, newPage, userRowsPerPage);
+                setUserPage(newPage); // effect will fetch
               }}
               rowsPerPage={userRowsPerPage}
               onRowsPerPageChange={(e) => {
                 const newRows = parseInt(e.target.value, 10);
                 setUserRowsPerPage(newRows);
-                setUserPage(0);
-                fetchUsers(userSearch, 0, newRows);
+                setUserPage(0); // effect will fetch with page 0
               }}
               rowsPerPageOptions={[5, 10, 20, 50]}
             />
