@@ -13,14 +13,23 @@ import {
   IconButton,
   useMediaQuery,
   useTheme,
+  Skeleton,
+  CircularProgress,
+  alpha,
+  InputAdornment,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import SearchIcon from "@mui/icons-material/Search";
+import DescriptionRoundedIcon from "@mui/icons-material/DescriptionRounded";
+
 import { Service } from "./types";
 import { ServiceCard } from "./ServiceCard";
 import serviceManagementService from "src/api/services/serviceManagement.service";
 import projectService from "src/api/services/project.service";
 import { SavedServiceConfig } from "src/api/services/addService.service";
+import Markdown from "src/components/markdown";
+
+/* --------------------------------- Consts --------------------------------- */
 
 const STATUS_FILTER: ("All" | "enabled" | "disabled")[] = [
   "All",
@@ -31,6 +40,161 @@ const STATUS_FILTER: ("All" | "enabled" | "disabled")[] = [
 type ServicesPageProps = {
   projectId?: string;
 };
+
+/* ------------------------------ Helper: debounce --------------------------- */
+
+function useDebounced<T>(value: T, delay = 250) {
+  const [v, setV] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setV(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return v;
+}
+
+/* ----------------------------- Hook: useMarkdown --------------------------- */
+
+function useMarkdown(path?: string) {
+  const [content, setContent] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(!!path);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      if (!path) {
+        setContent(null);
+        setLoading(false);
+        setError(null);
+        return;
+      }
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(path, { cache: "no-store" });
+        if (!res.ok) throw new Error("Failed to load documentation");
+        const text = await res.text();
+        if (!cancelled) {
+          setContent(text);
+          setLoading(false);
+        }
+      } catch (e: any) {
+        if (!cancelled) {
+          setError(e?.message || "Unable to load documentation");
+          setLoading(false);
+        }
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [path]);
+
+  return { content, loading, error };
+}
+
+/* ---------------------------- Component: MDViewer -------------------------- */
+
+function MDViewer({
+  path,
+  fallback,
+}: {
+  path?: string;
+  fallback?: string;
+}) {
+  const { content, loading, error } = useMarkdown(path);
+
+  if (!path) {
+    return (
+      <Typography variant="body2" color="text.secondary">
+        {fallback || "No documentation path provided."}
+      </Typography>
+    );
+  }
+
+  if (loading) {
+    // Fancy loader: gradient banner + icon + subtle skeleton lines
+    return (
+      <Stack spacing={2} sx={{ width: "100%" }}>
+        <Box
+          sx={{
+            p: 2,
+            borderRadius: 2,
+            background: (theme) =>
+              `linear-gradient(135deg, ${alpha(
+                theme.palette.primary.light,
+                0.2
+              )} 0%, ${alpha(theme.palette.primary.main, 0.15)} 100%)`,
+            display: "flex",
+            alignItems: "center",
+            gap: 2,
+            border: (t) => `1px dashed ${alpha(t.palette.primary.main, 0.3)}`,
+          }}
+        >
+          <Box
+            sx={{
+              width: 48,
+              height: 48,
+              borderRadius: "50%",
+              bgcolor: (t) => alpha(t.palette.primary.main, 0.1),
+              display: "grid",
+              placeItems: "center",
+            }}
+          >
+            <DescriptionRoundedIcon fontSize="medium" />
+          </Box>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="subtitle1">Fetching documentation…</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Loading Markdown content for this service.
+            </Typography>
+          </Box>
+          <CircularProgress size={24} />
+        </Box>
+
+        <Stack spacing={1}>
+          <Skeleton variant="text" height={24} />
+          <Skeleton variant="text" height={24} width="92%" />
+          <Skeleton variant="text" height={24} width="88%" />
+          <Skeleton variant="rectangular" height={140} sx={{ borderRadius: 1 }} />
+          <Skeleton variant="text" height={24} width="76%" />
+          <Skeleton variant="text" height={24} width="70%" />
+        </Stack>
+      </Stack>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box
+        sx={{
+          p: 2,
+          borderRadius: 2,
+          bgcolor: (t) => alpha(t.palette.error.main, 0.06),
+          border: (t) => `1px solid ${alpha(t.palette.error.main, 0.2)}`,
+        }}
+      >
+        <Typography variant="subtitle2" color="error.main">
+          Failed to load documentation
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {error}
+        </Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ "& *": { wordBreak: "break-word" } }}>
+      <Markdown>{content || ""}</Markdown>
+    </Box>
+  );
+}
+
+/* ------------------------------- Main Screen ------------------------------- */
 
 export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
   const theme = useTheme();
@@ -44,6 +208,7 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
   const [activeServices, setActiveServices] = useState<SavedServiceConfig[]>([]);
 
   const effectiveProjectId = projectIdProp || "";
+  const debouncedSearch = useDebounced(search, 250);
 
   const getServices = () => {
     if (!effectiveProjectId) return;
@@ -56,7 +221,6 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
   const getProjectServices = () => {
     if (!effectiveProjectId) return;
     projectService.getProjectServices(effectiveProjectId).then((res) => {
-      console.log("🚀 ~ getProjectServices ~ res.data:", res);
       if (res.success) setActiveServices(res.data);
       else setActiveServices([]);
     });
@@ -74,7 +238,7 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
   }, [effectiveProjectId]);
 
   const filtered = useMemo(() => {
-    const s = search.trim().toLowerCase();
+    const s = debouncedSearch.trim().toLowerCase();
     return services.filter((svc) => {
       const textOk =
         !s ||
@@ -85,15 +249,22 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
         (status === "enabled" ? svc.is_active : !svc.is_active);
       return textOk && statusOk;
     });
-  }, [services, search, status]);
+  }, [services, debouncedSearch, status]);
 
   const onToggle = (svc: Service, enabled: boolean) => {
     setServices((prev) =>
-      prev.map((s) =>
-        s.id === svc.id ? { ...s, is_active: enabled } : s
-      )
+      prev.map((s) => (s.id === svc.id ? { ...s, is_active: enabled } : s))
     );
   };
+
+  // Build safe doc path: /docs/<normalized-name>.md
+  const docPath =
+    drawerService?.name
+      ? `/docs/${drawerService.name
+          .toLowerCase()
+          .replace(/\s+/g, "-")
+          .replace(/[^a-z0-9-_]/g, "")}.md`
+      : undefined;
 
   return (
     <Stack spacing={2}>
@@ -113,10 +284,13 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
             size="small"
             InputProps={{
               startAdornment: (
-                <SearchIcon fontSize="small" sx={{ mr: 1, opacity: 0.6 }} />
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" sx={{ opacity: 0.7 }} />
+                </InputAdornment>
               ),
             }}
           />
+
           <TextField
             select
             size="small"
@@ -152,14 +326,28 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
             />
           </Grid>
         ))}
+
         {filtered.length === 0 && (
-          <Box sx={{ p: 4 }}>
-            <Typography variant="body2" color="text.secondary">
-              {effectiveProjectId
-                ? "No services found"
-                : "Select a project to view services"}
-            </Typography>
-          </Box>
+          <Grid item xs={12}>
+            <Box
+              sx={{
+                p: 4,
+                textAlign: "center",
+                borderRadius: 2,
+                border: (t) => `1px dashed ${alpha(t.palette.divider, 0.8)}`,
+                bgcolor: (t) => alpha(t.palette.background.paper, 0.4),
+              }}
+            >
+              <Typography variant="subtitle1" gutterBottom>
+                {effectiveProjectId ? "No services found" : "No project selected"}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {effectiveProjectId
+                  ? "Try changing filters or search keywords."
+                  : "Select a project to view its available services."}
+              </Typography>
+            </Box>
+          </Grid>
         )}
       </Grid>
 
@@ -195,12 +383,13 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
 
         <Box sx={{ p: 2, height: "100%", overflowY: "auto" }}>
           {drawerService ? (
-            <>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                {drawerService.description}
-              </Typography>
-              {/* Your config form / tabs can go here */}
-            </>
+            <Stack spacing={2}>
+              <MDViewer
+                path={docPath}
+                fallback={drawerService?.description}
+              />
+              {/* Additional tabs/config forms can be added here */}
+            </Stack>
           ) : null}
         </Box>
       </Drawer>
