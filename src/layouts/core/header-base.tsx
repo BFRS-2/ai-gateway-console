@@ -265,14 +265,14 @@ export function HeaderBase({
       const organizations: Organization[] =
         orgsResp?.data || [];
       if (!organizations.length) {
-        await createDefaultSetup();
-        return await bootstrapOrgsAndProjects();
+        // await createDefaultSetup();
+        // return await bootstrapOrgsAndProjects();
       }
       const projsResp = await projectService.getAll();
       const projects: Project[] = projsResp?.data || [];
       if (!projects.length) {
-        await createProject(organizations[0].id);
-        return await bootstrapOrgsAndProjects();
+        // await createProject(organizations[0].id);
+        // return await bootstrapOrgsAndProjects();
       }
 
       saveOrgProject(organizations, projects);
@@ -368,7 +368,6 @@ const handleCreateOrgFromDialog = async () => {
     const res = await organizationService.create({
       name: orgName.trim(),
     });
-    console.log("🚀 ~ handleCreateOrgFromDialog ~ res:", res)
     if (res?.success) {
       const newOrg = res.data.organization as Organization;
 
