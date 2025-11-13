@@ -431,6 +431,7 @@ export function ProjectManagementRoot() {
           <Box sx={{ flex: 1, overflowY: "auto" }}>
             {projectList.length ? (
               projectList.map((p) => (
+                <Tooltip title={p.name}>
                 <Box
                   key={p.id}
                   onClick={() => setProjectId(p.id)}
@@ -443,8 +444,19 @@ export function ProjectManagementRoot() {
                     "&:hover": { bgcolor: "action.hover" },
                   }}
                 >
-                  <Typography variant="body2">{p.name}</Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      maxWidth: "100%",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {p.name}
+                  </Typography>
                 </Box>
+                </Tooltip>
               ))
             ) : (
               <Typography sx={{ p: 2 }} variant="body2">

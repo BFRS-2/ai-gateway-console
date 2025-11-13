@@ -360,7 +360,7 @@ export function ProjectSettingsTab({
                 />
 
                 <TextField
-                  label="Langfuse project name"
+                  label="Log Index"
                   size="small"
                   value={langfuseProjectName}
                   onChange={(e) => setLangfuseProjectName(e.target.value)}

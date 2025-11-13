@@ -14,7 +14,10 @@ import {
   Select,
   Chip,
   OutlinedInput,
+  Tooltip,
+  IconButton,
 } from "@mui/material";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { useEffect, useMemo, useState } from "react";
 import { FieldSchema, Path, ServiceSchema } from "./serviceschema";
 import { Scrollbar } from "src/components/scrollbar";
@@ -50,6 +53,32 @@ export interface ProviderRow {
   id: string;
   name: string;
   status: "active" | string;
+}
+
+/** Inline label with optional help tooltip */
+function LabelWithHelp({
+  label,
+  helpText,
+  variant = "caption",
+}: {
+  label: string;
+  helpText?: string;
+  variant?: "body2" | "caption" | "subtitle2";
+}) {
+  return (
+    <Stack direction="row" alignItems="center" gap={0.5}>
+      <Typography variant={variant} sx={{ fontWeight: 600 }}>
+        {label}
+      </Typography>
+      {helpText ? (
+        <Tooltip title={helpText} placement="top" arrow>
+          <IconButton size="small" sx={{ p: 0.25 }}>
+            <InfoOutlinedIcon fontSize="inherit" />
+          </IconButton>
+        </Tooltip>
+      ) : null}
+    </Stack>
+  );
 }
 
 export default function DynamicServiceForm({
@@ -139,14 +168,7 @@ export default function DynamicServiceForm({
         if (isEmpty) e[path] = `${f.label || path} is required`;
       }
 
-      if (f.type === "number" && v != null) {
-        if (f.min != null && v < f.min)
-          e[path] = `${f.label || path} must be ≥ ${f.min}`;
-        if (f.max != null && v > f.max)
-          e[path] = `${f.label || path} must be ≤ ${f.max}`;
-      }
-
-      if (f.type === "slider" && v != null) {
+      if ((f.type === "number" || f.type === "slider") && v != null) {
         if (f.min != null && v < f.min)
           e[path] = `${f.label || path} must be ≥ ${f.min}`;
         if (f.max != null && v > f.max)
@@ -162,6 +184,8 @@ export default function DynamicServiceForm({
     onSubmit();
   };
 
+  const helper = (path: Path, f: FieldSchema) => errors[path] ?? f.helpText ?? "";
+
   const renderField = (path: Path, f: FieldSchema) => {
     const v = getByPath(value, path);
     const label = f.label || path.split(".").slice(-1)[0];
@@ -173,39 +197,39 @@ export default function DynamicServiceForm({
           <TextField
             fullWidth
             size="small"
-            label={label}
+            label={<LabelWithHelp label={label} helpText={f.helpText} variant="body2" />}
             placeholder={f.placeholder}
             value={v ?? f.default ?? ""}
             onChange={(e) => onChange(setByPath(value, path, e.target.value))}
             error={!!errors[path]}
-            helperText={errors[path]}
+            helperText={helper(path, f)}
           />
         );
+
       case "textarea":
         return (
           <Box sx={{ gridColumn: "1 / -1" }}>
-            {" "}
-            {/* <-- spans full width in grid */}
             <TextField
               fullWidth
               size="small"
-              label={label}
+              label={<LabelWithHelp label={label} helpText={f.helpText} variant="body2" />}
               placeholder={f.placeholder}
               value={v ?? f.default ?? ""}
               onChange={(e) => onChange(setByPath(value, path, e.target.value))}
               error={!!errors[path]}
-              helperText={errors[path]}
+              helperText={helper(path, f)}
               multiline
               minRows={3}
             />
           </Box>
         );
+
       case "number":
         return (
           <TextField
             fullWidth
             size="small"
-            label={label}
+            label={<LabelWithHelp label={label} helpText={f.helpText} variant="body2" />}
             type="number"
             inputProps={{ min: f.min, max: f.max, step: f.step ?? 1 }}
             value={v ?? f.default ?? ""}
@@ -213,9 +237,10 @@ export default function DynamicServiceForm({
               onChange(setByPath(value, path, Number(e.target.value)))
             }
             error={!!errors[path]}
-            helperText={errors[path]}
+            helperText={helper(path, f)}
           />
         );
+
       case "switch":
         return (
           <FormControlLabel
@@ -227,24 +252,24 @@ export default function DynamicServiceForm({
                 }
               />
             }
-            label={label}
+            label={<LabelWithHelp label={label} helpText={f.helpText} variant="body2" />}
           />
         );
-      case "slider":
-        // force 0→1 for temperature
+
+      case "slider": {
+        // force 0–1 for temperature (even if schema forgets)
         const isTemperature = path.includes("temperature");
         const min = isTemperature ? 0 : f.min ?? 0;
         const max = isTemperature ? 1 : f.max ?? 1;
         const step = f.step ?? (isTemperature ? 0.01 : 0.1);
+        const current = Number(v ?? f.default ?? 0);
 
         return (
           <Box>
-            <Typography variant="caption" sx={{ fontWeight: 600 }}>
-              {label}: <b>{(v as any) ?? f.default ?? 0}</b>
-            </Typography>
+            <LabelWithHelp label={`${label}: ${current}`} helpText={f.helpText} />
             <Slider
               size="small"
-              value={Number(v ?? f.default ?? 0)}
+              value={current}
               min={min}
               max={max}
               step={step}
@@ -252,6 +277,11 @@ export default function DynamicServiceForm({
                 onChange(setByPath(value, path, val as number))
               }
             />
+            {helper(path, f) && !errors[path] && (
+              <Typography variant="caption" color="text.secondary">
+                {f.helpText}
+              </Typography>
+            )}
             {errors[path] && (
               <Typography variant="caption" color="error">
                 {errors[path]}
@@ -259,39 +289,19 @@ export default function DynamicServiceForm({
             )}
           </Box>
         );
-        return (
-          <Box>
-            <Typography variant="caption" sx={{ fontWeight: 600 }}>
-              {label}: <b>{(v as any) ?? f.default ?? 0}</b>
-            </Typography>
-            <Slider
-              size="small"
-              value={Number(v ?? f.default ?? 0)}
-              min={f.min ?? 0}
-              max={f.max ?? 1}
-              step={f.step ?? 0.1}
-              onChange={(_, val) =>
-                onChange(setByPath(value, path, val as number))
-              }
-            />
-            {errors[path] && (
-              <Typography variant="caption" color="error">
-                {errors[path]}
-              </Typography>
-            )}
-          </Box>
-        );
+      }
+
       case "dropdown":
         return (
           <TextField
             select
             fullWidth
             size="small"
-            label={label}
+            label={<LabelWithHelp label={label} helpText={f.helpText} variant="body2" />}
             value={v ?? f.default ?? ""}
             onChange={(e) => onChange(setByPath(value, path, e.target.value))}
             error={!!errors[path]}
-            helperText={errors[path]}
+            helperText={helper(path, f)}
           >
             {opts.map((opt) => (
               <MenuItem key={opt.value} value={opt.value}>
@@ -300,43 +310,51 @@ export default function DynamicServiceForm({
             ))}
           </TextField>
         );
+
       case "multiselect":
         return (
-          <Select
-            multiple
-            fullWidth
-            displayEmpty
-            value={(v as string[]) ?? (f.default as string[]) ?? []}
-            input={<OutlinedInput size="small" />}
-            onChange={(e) => onChange(setByPath(value, path, e.target.value))}
-            renderValue={(selected) =>
-              (selected as string[]).length === 0 ? (
-                <Typography variant="body2" color="text.secondary">
-                  {label}
-                </Typography>
-              ) : (
-                <Stack direction="row" gap={1} flexWrap="wrap">
-                  {(selected as string[]).map((s) => (
-                    <Chip key={s} label={s} size="small" />
-                  ))}
-                </Stack>
-              )
-            }
-            size="small"
-          >
-            {opts.map((opt) => (
-              <MenuItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </MenuItem>
-            ))}
-          </Select>
+          <Box>
+            <LabelWithHelp label={label} helpText={f.helpText} />
+            <Select
+              multiple
+              fullWidth
+              displayEmpty
+              value={(v as string[]) ?? (f.default as string[]) ?? []}
+              input={<OutlinedInput size="small" />}
+              onChange={(e) => onChange(setByPath(value, path, e.target.value))}
+              renderValue={(selected) =>
+                (selected as string[]).length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    Select…
+                  </Typography>
+                ) : (
+                  <Stack direction="row" gap={1} flexWrap="wrap">
+                    {(selected as string[]).map((s) => (
+                      <Chip key={s} label={s} size="small" />
+                    ))}
+                  </Stack>
+                )
+              }
+              size="small"
+            >
+              {opts.map((opt) => (
+                <MenuItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </MenuItem>
+              ))}
+            </Select>
+            {helper(path, f) && (
+              <Typography variant="caption" color={errors[path] ? "error" : "text.secondary"}>
+                {helper(path, f)}
+              </Typography>
+            )}
+          </Box>
         );
+
       case "chips":
         return (
           <Box>
-            <Typography variant="caption" sx={{ fontWeight: 600 }}>
-              {label}
-            </Typography>
+            <LabelWithHelp label={label} helpText={f.helpText} />
             <Stack direction="row" gap={1} flexWrap="wrap" sx={{ my: 1 }}>
               {(Array.isArray(v) ? v : (f.default as string[]) ?? []).map(
                 (s: string, i: number) => (
@@ -372,21 +390,24 @@ export default function DynamicServiceForm({
               }}
               fullWidth
             />
-            {errors[path] && (
-              <Typography variant="caption" color="error">
-                {errors[path]}
+            {helper(path, f) && (
+              <Typography variant="caption" color={errors[path] ? "error" : "text.secondary"}>
+                {helper(path, f)}
               </Typography>
             )}
           </Box>
         );
+
       default:
         return (
           <TextField
             fullWidth
             size="small"
-            label={label}
+            label={<LabelWithHelp label={label} helpText={f.helpText} variant="body2" />}
             value={v ?? f.default ?? ""}
             onChange={(e) => onChange(setByPath(value, path, e.target.value))}
+            error={!!errors[path]}
+            helperText={helper(path, f)}
           />
         );
     }
@@ -412,13 +433,6 @@ export default function DynamicServiceForm({
     <Scrollbar>
       <Box sx={containerStyle}>
         <Stack spacing={3}>
-          <Box>
-            <Typography variant="h6">{schema.title}</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Update configuration for this service.
-            </Typography>
-          </Box>
-
           {/* groups */}
           {uiGroups.length > 0 &&
             uiGroups.map((group) => (
@@ -434,18 +448,30 @@ export default function DynamicServiceForm({
                   gap: 2,
                 }}
               >
-                <Box>
-                  {group.title && (
-                    <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
-                      {group.title}
-                    </Typography>
-                  )}
-                  {group.description && (
-                    <Typography variant="body2" color="text.secondary">
-                      {group.description}
-                    </Typography>
-                  )}
-                </Box>
+                {/* Group header with tooltip from description */}
+                {(group.title || group.description) && (
+                  <Stack direction="row" alignItems="center" gap={1}>
+                    {group.title ? (
+                      <Typography variant="subtitle1" sx={{ mb: 0.25 }}>
+                        {group.title}
+                      </Typography>
+                    ) : null}
+                    {group.description ? (
+                      <Tooltip title={group.description} arrow placement="top">
+                        <IconButton size="small" sx={{ p: 0.25 }}>
+                          <InfoOutlinedIcon fontSize="inherit" />
+                        </IconButton>
+                      </Tooltip>
+                    ) : null}
+                  </Stack>
+                )}
+
+                {/* Optional visible subtext */}
+                {group.description ? (
+                  <Typography variant="body2" color="text.secondary">
+                    {group.description}
+                  </Typography>
+                ) : null}
 
                 <Box
                   sx={{
@@ -478,9 +504,9 @@ export default function DynamicServiceForm({
                 boxShadow: "0 6px 18px rgba(0,0,0,0.03)",
               }}
             >
-              <Typography variant="subtitle1" sx={{ mb: 1.5 }}>
-                Other settings
-              </Typography>
+              <Stack direction="row" alignItems="center" gap={1} sx={{ mb: 1 }}>
+                <Typography variant="subtitle1">Other settings</Typography>
+              </Stack>
               <Box
                 sx={{
                   display: "grid",
