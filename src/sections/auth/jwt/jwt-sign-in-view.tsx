@@ -76,15 +76,14 @@ export function JwtSignInView() {
     <Stack spacing={1.5} sx={{ mb: 5 }}>
       <Typography variant="h5">Sign in to your account</Typography>
 
-      {/* <Stack direction="row" spacing={0.5}>
+       <Stack direction="row" spacing={0.5}>
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          {`Don't have an account?`}
+          Got an invite?
         </Typography>
-
-        <Link component={RouterLink} href={"/register"} variant="subtitle2">
-          Get started
+        <Link component={RouterLink} href="/set-password" variant="subtitle2">
+          Set your password
         </Link>
-      </Stack> */}
+      </Stack>
     </Stack>
   );
 

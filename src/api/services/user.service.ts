@@ -1,5 +1,5 @@
 import objectToQueryString from "src/utils/objectToGetParams";
-import { callGetApi, callPostApi } from "../callApi";
+import { callGetApi, callPostApi, callPutApi } from "../callApi";
 
 type MemberRole = "admin" | "owner" | "member";
 type AccessType = "read" | "write" | "admin"; // adjust if your backend defines differently
@@ -87,6 +87,11 @@ const userManagementService = {
       access_type: accessType,
     });
   },
+
+   updatePassword: (oldPassword: string, newPassword: string) =>
+    callPutApi("/api/v1/users/update", {
+      update_password: { old: oldPassword, new: newPassword },
+    }),
 };
 
 export default userManagementService;

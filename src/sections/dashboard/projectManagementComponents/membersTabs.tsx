@@ -13,6 +13,7 @@ import {
   CircularProgress,
   TablePagination,
   Button,
+  Chip,
 } from "@mui/material";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSnackbar } from "notistack";
@@ -203,7 +204,7 @@ export function MembersTab({
                           ? "admin"
                           : u.organizations?.[0]?.role || "member"}
                       </TableCell>
-                      <TableCell>{u.status}</TableCell>
+                      <TableCell><Chip label={u.status.toUpperCase()} color={u.status === "active" ? "success" : "error"}></Chip></TableCell>
                     </TableRow>
                   ))
                 ) : (
