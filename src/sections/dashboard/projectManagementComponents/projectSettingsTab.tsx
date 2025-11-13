@@ -24,6 +24,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  InputAdornment,
 } from "@mui/material";
 import Box from "@mui/material/Box";
 import { SxProps, Theme } from "@mui/material/styles";
@@ -32,7 +33,7 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
-import ShieldRoundedIcon from "@mui/icons-material/ShieldRounded";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { useEffect, useMemo, useState } from "react";
 import { useSnackbar } from "notistack";
 import projectService from "src/api/services/project.service";
@@ -49,7 +50,7 @@ type ProjectDetails = {
   description?: string;
   cost_limits?: { daily?: number; monthly?: number };
   status?: "active" | "inactive";
-  api_keys?: string[]; // masked keys
+  api_keys?: { name: string; key: string }[];
   langfuse_project_name?: string;
 };
 
@@ -70,11 +71,13 @@ export function ProjectSettingsTab({
   const [monthly, setMonthly] = useState<string>("");
   const [langfuseProjectName, setLangfuseProjectName] = useState<string>("");
 
-  const [apiKeys, setApiKeys] = useState<string[]>([]);
+  const [apiKeys, setApiKeys] = useState<{ name: string; key: string }[]>([]);
 
   // Revoke dialog
   const [revokeOpen, setRevokeOpen] = useState(false);
-  const [pendingRevokeKey, setPendingRevokeKey] = useState<string | null>(null);
+  const [pendingRevokeKey, setPendingRevokeKey] = useState<
+    { name: string; key: string } | null
+  >(null);
 
   // New key (one-time reveal) modal
   const [showKeyModal, setShowKeyModal] = useState(false);
@@ -101,12 +104,38 @@ export function ProjectSettingsTab({
     []
   );
 
+  // ---------- Tooltips copy ----------
+  const T = {
+    sections: {
+      details: "Edit basic properties of your project.",
+      limits:
+        "Hard caps to prevent unexpected spend; leave blank to keep unlimited.",
+      creds:
+        "API keys authenticate your requests. You can only view a key once at creation.",
+    },
+    fields: {
+      name: "Human-friendly name used across the dashboard.",
+      status:
+        "Inactive projects are hidden from selection and cannot make API calls.",
+      description: "Optional notes for teammates and future you.",
+      logIndex:
+        "Optional identifier to correlate logs/metrics (e.g., Langfuse project).",
+      daily: "Maximum spend or request budget allowed per day.",
+      monthly: "Maximum spend or request budget allowed per month.",
+    },
+    actions: {
+      refresh: "Reload the latest project details and keys.",
+      genKey: "Create a new API key. You’ll see the secret only once.",
+      revoke: "Immediately disable this key. This cannot be undone.",
+    },
+  };
+
   // ---------- Utilities ----------
-  const maskKey = (k: string) => {
-    if (!k) return "";
-    if (k.length <= 8) return k;
-    const start = k.slice(0, 4);
-    const end = k.slice(-4);
+  const maskKey = (raw: string) => {
+    if (!raw) return "";
+    if (raw.length <= 8) return raw;
+    const start = raw.slice(0, 4);
+    const end = raw.slice(-4);
     return `${start}••••••••••••••••${end}`;
   };
 
@@ -209,19 +238,14 @@ export function ProjectSettingsTab({
   const handleCreateKey = async () => {
     if (!projectId) return;
     try {
-      // If your service accepts no body at all:
-      // const res = await (projectService as any).addNewApiKey?.(projectId);
-      // If it expects an object body (even empty), keep {}:
       const res = await (projectService as any).addNewApiKey?.(projectId);
       if (res?.success) {
-        // Extract plain key (defensive)
         const plain =
           res?.data?.api_key ||
           res?.data?.key ||
           (typeof res?.data === "string" ? res.data : "") ||
           res?.api_key ||
           "";
-
         if (plain) {
           setPlainNewKey(plain);
           setShowKeyModal(true);
@@ -231,7 +255,6 @@ export function ProjectSettingsTab({
             { variant: "info" }
           );
         }
-
         await fetchDetails();
       } else {
         enqueueSnackbar("Failed to create API key", { variant: "error" });
@@ -241,18 +264,21 @@ export function ProjectSettingsTab({
     }
   };
 
-  const confirmRevoke = (apiKey: string) => {
-    setPendingRevokeKey(apiKey);
+  const confirmRevoke = (apiKeyObj: { name: string; key: string }) => {
+    setPendingRevokeKey(apiKeyObj);
     setRevokeOpen(true);
   };
 
   const handleRevoke = async () => {
     if (!pendingRevokeKey) return;
     try {
-      const res = await (projectService as any).deleteApiKey?.(pendingRevokeKey);
+      // Assuming backend revokes by key NAME
+      const res = await (projectService as any).deleteApiKey?.(
+        pendingRevokeKey.name
+      );
       if (res?.success) {
         enqueueSnackbar("API key revoked", { variant: "success" });
-        setApiKeys((prev) => prev.filter((k) => k !== pendingRevokeKey));
+        setApiKeys((prev) => prev.filter((k) => k.name !== pendingRevokeKey.name));
       } else {
         enqueueSnackbar("Failed to revoke API key", { variant: "error" });
       }
@@ -273,6 +299,23 @@ export function ProjectSettingsTab({
     );
   }
 
+  const TitleWithInfo = ({
+    children,
+    info,
+  }: {
+    children: React.ReactNode;
+    info: string;
+  }) => (
+    <Stack direction="row" alignItems="center" spacing={0.75} sx={{ mb: 1 }}>
+      <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+        {children}
+      </Typography>
+      <Tooltip title={info}>
+        <InfoOutlinedIcon fontSize="small" sx={{ color: "text.secondary" }} />
+      </Tooltip>
+    </Stack>
+  );
+
   return (
     <Box sx={{ mt: 2 }}>
       {/* Header */}
@@ -281,7 +324,7 @@ export function ProjectSettingsTab({
           Project settings
         </Typography>
         <Box sx={{ flex: 1 }} />
-        <Tooltip title="Refresh">
+        <Tooltip title={T.actions.refresh}>
           <IconButton onClick={fetchDetails} size="small">
             <RefreshRoundedIcon fontSize="small" />
           </IconButton>
@@ -298,15 +341,13 @@ export function ProjectSettingsTab({
       </Box>
 
       {/* Two-column layout */}
-     <Grid container spacing={2} alignItems="stretch">
-        {/* LEFT: Details + Limits (both cards stacked) */}
+      <Grid container spacing={2} alignItems="stretch">
+        {/* LEFT: Details + Limits (stacked) */}
         <Grid item xs={12} md={6}>
           <Stack spacing={2} sx={{ height: "100%" }}>
             {/* Project details */}
             <Paper variant="outlined" sx={gradientCard}>
-              <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700 }}>
-                Project details
-              </Typography>
+              <TitleWithInfo info={T.sections.details}>Project details</TitleWithInfo>
 
               {loading ? (
                 <Stack spacing={1.2}>
@@ -322,25 +363,47 @@ export function ProjectSettingsTab({
                     size="small"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <Tooltip title={T.fields.name}>
+                            <InfoOutlinedIcon
+                              fontSize="small"
+                              sx={{ color: "text.secondary", cursor: "help" }}
+                            />
+                          </Tooltip>
+                        </InputAdornment>
+                      ),
+                    }}
                   />
-                  <FormControl size="small">
-                    <InputLabel id="status-label">Status</InputLabel>
-                    <Select
-                      labelId="status-label"
-                      label="Status"
-                      value={status}
-                      onChange={(e) =>
-                        setStatus(e.target.value as "active" | "inactive")
-                      }
-                    >
-                      <MenuItem value="active">
-                        <Chip size="small" color="success" label="Active" variant="filled" />
-                      </MenuItem>
-                      <MenuItem value="inactive">
-                        <Chip size="small" color="default" label="Inactive" variant="outlined" />
-                      </MenuItem>
-                    </Select>
-                  </FormControl>
+
+                  {/* Status with adjacent info icon */}
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <FormControl size="small" sx={{ flex: 1 }}>
+                      <InputLabel id="status-label">Status</InputLabel>
+                      <Select
+                        labelId="status-label"
+                        label="Status"
+                        value={status}
+                        onChange={(e) =>
+                          setStatus(e.target.value as "active" | "inactive")
+                        }
+                      >
+                        <MenuItem value="active">
+                          <Chip size="small" color="success" label="Active" variant="filled" />
+                        </MenuItem>
+                        <MenuItem value="inactive">
+                          <Chip size="small" color="default" label="Inactive" variant="outlined" />
+                        </MenuItem>
+                      </Select>
+                    </FormControl>
+                    <Tooltip title={T.fields.status}>
+                      <InfoOutlinedIcon
+                        fontSize="small"
+                        sx={{ color: "text.secondary", cursor: "help" }}
+                      />
+                    </Tooltip>
+                  </Stack>
 
                   <TextField
                     label="Description"
@@ -349,6 +412,18 @@ export function ProjectSettingsTab({
                     minRows={4}
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end" sx={{ alignSelf: "flex-start" }}>
+                          <Tooltip title={T.fields.description}>
+                            <InfoOutlinedIcon
+                              fontSize="small"
+                              sx={{ color: "text.secondary", cursor: "help", mt: 0.5 }}
+                            />
+                          </Tooltip>
+                        </InputAdornment>
+                      ),
+                    }}
                   />
 
                   <TextField
@@ -357,6 +432,18 @@ export function ProjectSettingsTab({
                     value={langfuseProjectName}
                     onChange={(e) => setLangfuseProjectName(e.target.value)}
                     placeholder="optional"
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <Tooltip title={T.fields.logIndex}>
+                            <InfoOutlinedIcon
+                              fontSize="small"
+                              sx={{ color: "text.secondary", cursor: "help" }}
+                            />
+                          </Tooltip>
+                        </InputAdornment>
+                      ),
+                    }}
                   />
 
                   <Divider sx={{ my: 1.5 }} />
@@ -367,11 +454,9 @@ export function ProjectSettingsTab({
               )}
             </Paper>
 
-            {/* Usage & cost limits — now on LEFT as a separate card */}
+            {/* Usage & cost limits — LEFT column */}
             <Paper variant="outlined" sx={gradientCard}>
-              <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700 }}>
-                Usage & cost limits
-              </Typography>
+              <TitleWithInfo info={T.sections.limits}>Usage & cost limits</TitleWithInfo>
 
               {loading ? (
                 <Stack spacing={1.2}>
@@ -388,6 +473,18 @@ export function ProjectSettingsTab({
                     value={daily}
                     onChange={(e) => setDaily(e.target.value)}
                     fullWidth
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <Tooltip title={T.fields.daily}>
+                            <InfoOutlinedIcon
+                              fontSize="small"
+                              sx={{ color: "text.secondary", cursor: "help" }}
+                            />
+                          </Tooltip>
+                        </InputAdornment>
+                      ),
+                    }}
                   />
                   <TextField
                     label="Monthly budget"
@@ -397,6 +494,18 @@ export function ProjectSettingsTab({
                     value={monthly}
                     onChange={(e) => setMonthly(e.target.value)}
                     fullWidth
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <Tooltip title={T.fields.monthly}>
+                            <InfoOutlinedIcon
+                              fontSize="small"
+                              sx={{ color: "text.secondary", cursor: "help" }}
+                            />
+                          </Tooltip>
+                        </InputAdornment>
+                      ),
+                    }}
                   />
                 </Stack>
               )}
@@ -404,21 +513,32 @@ export function ProjectSettingsTab({
           </Stack>
         </Grid>
 
-        {/* RIGHT: API credentials only */}
+        {/* RIGHT: API credentials */}
         <Grid item xs={12} md={6}>
           <Paper variant="outlined" sx={{ ...gradientCard, height: "100%" }}>
-            <Stack direction="row" justifyContent="space-between" sx={{ mb: 1.5 }}>
-              <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700 }}>
-                API credentials
-              </Typography>
-              <Button
-                size="small"
-                variant="contained"
-                startIcon={<AddRoundedIcon />}
-                onClick={handleCreateKey}
-              >
-                Generate new key
-              </Button>
+            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
+              <Stack direction="row" alignItems="center" spacing={0.75}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                  API credentials
+                </Typography>
+                <Tooltip title={T.sections.creds}>
+                  <InfoOutlinedIcon fontSize="small" sx={{ color: "text.secondary" }} />
+                </Tooltip>
+              </Stack>
+
+              <Tooltip title={T.actions.genKey}>
+                <span>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    startIcon={<AddRoundedIcon />}
+                    onClick={handleCreateKey}
+                    disabled={loading}
+                  >
+                    Generate new key
+                  </Button>
+                </span>
+              </Tooltip>
             </Stack>
 
             <Divider sx={{ mb: 1 }} />
@@ -433,14 +553,14 @@ export function ProjectSettingsTab({
               ) : (
                 <List dense>
                   {apiKeys.length ? (
-                    apiKeys.map((key) => (
+                    apiKeys.map((item) => (
                       <ListItem
-                        key={key}
+                        key={item.name}
                         secondaryAction={
                           <Tooltip title="Revoke key">
                             <IconButton
                               edge="end"
-                              onClick={() => confirmRevoke(key)}
+                              onClick={() => confirmRevoke(item)}
                               size="small"
                               color="error"
                             >
@@ -450,9 +570,12 @@ export function ProjectSettingsTab({
                         }
                       >
                         <ListItemText
-                          primaryTypographyProps={{ fontFamily: "monospace", fontSize: 13 }}
-                          primary={maskKey(key)}
-                          secondary="Secret not retrievable. You can only revoke."
+                          primary={item.name}
+                          secondaryTypographyProps={{
+                            fontFamily: "monospace",
+                            fontSize: 13,
+                          }}
+                          secondary={maskKey(item.key)}
                         />
                       </ListItem>
                     ))
@@ -488,7 +611,9 @@ export function ProjectSettingsTab({
                 fontSize: 13,
               }}
             >
-              {maskKey(pendingRevokeKey)}
+              <b style={{ fontFamily: "inherit" }}>{pendingRevokeKey.name}</b>
+              <br />
+              {maskKey(pendingRevokeKey.key)}
             </Box>
           )}
         </DialogContent>
