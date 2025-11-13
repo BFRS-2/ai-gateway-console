@@ -38,7 +38,7 @@ const userManagementService = {
    * - member → email + role + organization_id + project_id + access_type
    */
 
-  listUsers : (body?: { name?: string; page?: number; limit?: number, organization_id, project_id }) => {
+  listUsers : (body?: { name?: string; page?: number; limit?: number, organization_id : string, project_id: string }) => {
     const params: { [key: string]: string | number | boolean } = {};
     if (body?.name !== undefined && body.name !== null && body.name !== "") params.name = body.name;
     if (body?.page !== undefined) params.page = body.page;

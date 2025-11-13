@@ -27,7 +27,7 @@ const nextConfig = {
     return config;
   },
   output: 'export',
-  distDir : 'dist'
+  // distDir : 'dist'
 };
 
 export default nextConfig;
