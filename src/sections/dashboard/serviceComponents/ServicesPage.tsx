@@ -16,22 +16,11 @@ import {
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import SearchIcon from "@mui/icons-material/Search";
-import { Service, ServiceKind } from "./types";
+import { Service } from "./types";
 import { ServiceCard } from "./ServiceCard";
-// if your existing details component is very dialog-specific, you can inline its JSX here.
-// import ServiceDetailsDialog from "./ServiceDetailsDrawer";
 import serviceManagementService from "src/api/services/serviceManagement.service";
 import projectService from "src/api/services/project.service";
 import { SavedServiceConfig } from "src/api/services/addService.service";
-
-const KIND_FILTER: ("All" | ServiceKind)[] = [
-  "All",
-  "ocr",
-  "summarization",
-  "embeddings",
-  "voice",
-  "chatbot",
-];
 
 const STATUS_FILTER: ("All" | "enabled" | "disabled")[] = [
   "All",
@@ -40,7 +29,7 @@ const STATUS_FILTER: ("All" | "enabled" | "disabled")[] = [
 ];
 
 type ServicesPageProps = {
-  projectId?: string; // optional override
+  projectId?: string;
 };
 
 export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
@@ -48,10 +37,7 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
   const downMd = useMediaQuery(theme.breakpoints.down("md"));
 
   const [search, setSearch] = useState("");
-  const [kind, setKind] = useState<"All" | ServiceKind>("All");
   const [status, setStatus] = useState<"All" | "enabled" | "disabled">("All");
-
-  // this is the selected service to show in the drawer
   const [drawerService, setDrawerService] = useState<Service | null>(null);
 
   const [services, setServices] = useState<Service[]>([]);
@@ -62,22 +48,17 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
   const getServices = () => {
     if (!effectiveProjectId) return;
     serviceManagementService.getAllServices(effectiveProjectId).then((data) => {
-      if (data.success) {
-        setServices(data.data.services);
-      } else {
-        setServices([]);
-      }
+      if (data.success) setServices(data.data.services);
+      else setServices([]);
     });
   };
 
   const getProjectServices = () => {
     if (!effectiveProjectId) return;
-    projectService.getProjectServices(effectiveProjectId).then((data) => {
-      if (data.success) {
-        setActiveServices(data.data.services);
-      } else {
-        setActiveServices([]);
-      }
+    projectService.getProjectServices(effectiveProjectId).then((res) => {
+      console.log("🚀 ~ getProjectServices ~ res.data:", res);
+      if (res.success) setActiveServices(res.data);
+      else setActiveServices([]);
     });
   };
 
@@ -99,13 +80,12 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
         !s ||
         svc.name.toLowerCase().includes(s) ||
         svc.description.toLowerCase().includes(s);
-      // const kindOk = kind === "All" || svc.kind === kind;
       const statusOk =
         status === "All" ||
         (status === "enabled" ? svc.is_active : !svc.is_active);
       return textOk && statusOk;
     });
-  }, [services, search, kind, status]);
+  }, [services, search, status]);
 
   const onToggle = (svc: Service, enabled: boolean) => {
     setServices((prev) =>
@@ -137,20 +117,6 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
               ),
             }}
           />
-          <TextField
-            select
-            size="small"
-            label="Kind"
-            value={kind}
-            onChange={(e) => setKind(e.target.value as any)}
-            sx={{ minWidth: 200 }}
-          >
-            {KIND_FILTER.map((k) => (
-              <MenuItem key={k} value={k}>
-                {k}
-              </MenuItem>
-            ))}
-          </TextField>
           <TextField
             select
             size="small"
@@ -197,7 +163,7 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
         )}
       </Grid>
 
-      {/* Right drawer instead of modal */}
+      {/* Right drawer for details */}
       <Drawer
         anchor="right"
         open={!!drawerService}
@@ -228,16 +194,12 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
         </Box>
 
         <Box sx={{ p: 2, height: "100%", overflowY: "auto" }}>
-          {/* 
-            You can drop the internals of your old ServiceDetailsDialog here.
-            For now, a placeholder:
-          */}
           {drawerService ? (
             <>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                 {drawerService.description}
               </Typography>
-              {/* put your config form / docs / tabs here */}
+              {/* Your config form / tabs can go here */}
             </>
           ) : null}
         </Box>

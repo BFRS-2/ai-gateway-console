@@ -21,7 +21,7 @@ import {
 import LaunchIcon from "@mui/icons-material/Launch";
 import SettingsIcon from "@mui/icons-material/Settings";
 import CloseIcon from "@mui/icons-material/Close";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import serviceManagementService from "src/api/services/serviceManagement.service";
 import { serviceSchemas } from "./serviceschema";
@@ -41,9 +41,9 @@ export function ServiceCard({
   service,
   onOpen,
   onToggle,
-  onSaveConfig, // typically triggers a refetch above this card
-  savedConfig, // <-- pass the saved config object (or undefined)
-  projectId, // <-- new optional prop
+  onSaveConfig,
+  savedConfig,
+  projectId,
 }: {
   service: {
     id: string;
@@ -66,7 +66,6 @@ export function ServiceCard({
   const svcKey = (service.name || "").toLowerCase().trim();
   const schema = serviceSchemas[svcKey];
 
-  // drawer open/close for Configure
   const [open, setOpen] = useState(false);
   const [formVal, setFormVal] = useState<any>(() =>
     schema ? structuredClone(schema.initial) : {}
@@ -76,19 +75,15 @@ export function ServiceCard({
   const [providers, setProviders] = useState<ProviderRow[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // optional fallback to store if projectId not passed
   const selectedOrganizationProject = useSelector(
     (state: RootState) => state.orgProject.selectedOrganizationProject
   );
-  const effectiveProjectId =
-    projectId || "";
+  const effectiveProjectId = projectId || "";
 
   const { enqueueSnackbar } = useSnackbar();
 
-  // --------- helpers ----------
   const computeInitialForm = () => {
     if (!schema) return {};
-    // If we already have a saved configuration for this service, merge it
     if (savedConfig && savedConfig.service?.toLowerCase?.() === svcKey) {
       return mergeWithSchemaInitial(schema.initial, {
         service: savedConfig.service,
@@ -111,15 +106,12 @@ export function ServiceCard({
         console.error(`No schema for service "${svcKey}"`);
         return;
       }
-      // open config drawer, then save -> activate
       openConfigDrawer();
       return;
     }
-    // disabling is straightforward
     onToggle(service, false);
   };
 
-  // --------- fetch models + providers on open ----------
   useEffect(() => {
     if (!open) return;
     setLoading(true);
@@ -138,14 +130,12 @@ export function ServiceCard({
       .finally(() => setLoading(false));
   }, [open]);
 
-  // --------- save handler ----------
   const handleSubmit = async () => {
     if (!effectiveProjectId) {
       enqueueSnackbar("No project selected", { variant: "warning" });
       return;
     }
 
-    // if it was already active, update; otherwise add
     const fn = service.is_active
       ? addService.updateService
       : addService.addToProject;
@@ -169,15 +159,12 @@ export function ServiceCard({
               enabled: true,
             } as any);
 
-          // normalize the form with schema initial
           if (schema) {
             setFormVal(mergeWithSchemaInitial(schema.initial, latestSaved));
           }
 
-          // Let parent refresh the cards list / savedConfig
           await onSaveConfig();
-
-          onToggle(service, true); // activate now
+          onToggle(service, true);
           setOpen(false);
         } else {
           const errors = Object.keys(res?.error?.payload?.errors || {});
@@ -209,11 +196,13 @@ export function ServiceCard({
   if (!schema) {
     return (
       <Card variant="outlined">
-        <CardHeader title={service.name} subheader={service.description} />
+        <CardHeader title={service.name} />
         <CardContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, whiteSpace: "pre-wrap" }}>
+            {service.description || "No description"}
+          </Typography>
           <Typography variant="body2" color="error">
-            Missing schema for “{service.name}”. Ensure serviceSchemas has a “
-            {svcKey}” key.
+            Missing schema for “{service.name}”. Ensure serviceSchemas has a “{svcKey}” key.
           </Typography>
         </CardContent>
       </Card>
@@ -225,7 +214,7 @@ export function ServiceCard({
       <Card variant="outlined" sx={{ height: "100%" }}>
         <CardHeader
           title={service.name}
-          subheader={service.description}
+          // ⬇️ removed subheader to allow full-width description below
           action={
             <FormControlLabel
               control={
@@ -239,6 +228,17 @@ export function ServiceCard({
           }
         />
         <CardContent>
+          {/* Full-width description */}
+          {service.description && (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ mb: 2, whiteSpace: "pre-wrap" }}
+            >
+              {service.description}
+            </Typography>
+          )}
+
           <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 2 }}>
             {service?.models?.slice(0, 3).map((m) => (
               <Chip
@@ -248,17 +248,19 @@ export function ServiceCard({
                 variant="outlined"
               />
             ))}
-            {service?.models?.length! > 3 && (
+            {service?.models && service.models.length > 3 && (
               <Chip
                 size="small"
-                label={`+${(service?.models?.length || 0) - 3} models`}
+                label={`+${service.models.length - 3} models`}
               />
             )}
           </Stack>
 
-          <Typography variant="caption" color="text.secondary">
-            Use cases: {service?.useCases?.join(" • ")}
-          </Typography>
+          {!!service?.useCases?.length && (
+            <Typography variant="caption" color="text.secondary">
+              Use cases: {service.useCases.join(" • ")}
+            </Typography>
+          )}
 
           <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
             <Button
@@ -304,9 +306,7 @@ export function ServiceCard({
             gap: 1,
           }}
         >
-          <Typography variant="h6">
-            Configure: {service.name}
-          </Typography>
+          <Typography variant="h6">Configure: {service.name}</Typography>
           <IconButton onClick={() => setOpen(false)}>
             <CloseIcon />
           </IconButton>

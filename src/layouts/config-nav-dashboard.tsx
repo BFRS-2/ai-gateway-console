@@ -52,7 +52,7 @@ export const navData = [
       { title: 'Usage', path: paths.dashboard.overview, icon: ICONS.analytics },
       { title: 'Projects', path: paths.dashboard.projects, icon: ICONS.dashboard },
       // { title: 'Users', path: paths.dashboard.users, icon: ICONS.user },
-      { title: 'Playground', path: paths.dashboard.playground, icon: ICONS.course },
+      // { title: 'Playground', path: paths.dashboard.playground, icon: ICONS.course },
       { title: 'Tracebility', path: 'http://192.168.22.193:3000/', icon: ICONS.external, info: <Iconify width={18} icon="prime:external-link" /> },
       // { title: 'Services', path: paths.dashboard.services, icon: ICONS.job },
     ],
