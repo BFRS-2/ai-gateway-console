@@ -79,7 +79,7 @@ function useMarkdown(path?: string) {
           setContent(text);
           setLoading(false);
         }
-      } catch (e: any) {
+      } catch (e) {
         if (!cancelled) {
           setError(e?.message || "Unable to load documentation");
           setLoading(false);
@@ -98,13 +98,7 @@ function useMarkdown(path?: string) {
 
 /* ---------------------------- Component: MDViewer -------------------------- */
 
-function MDViewer({
-  path,
-  fallback,
-}: {
-  path?: string;
-  fallback?: string;
-}) {
+function MDViewer({ path, fallback }: { path?: string; fallback?: string }) {
   const { content, loading, error } = useMarkdown(path);
 
   if (!path) {
@@ -131,7 +125,7 @@ function MDViewer({
             display: "flex",
             alignItems: "center",
             gap: 2,
-            border: (t) => `1px dashed ${alpha(t.palette.primary.main, 0.3)}`,
+           
           }}
         >
           <Box
@@ -159,7 +153,11 @@ function MDViewer({
           <Skeleton variant="text" height={24} />
           <Skeleton variant="text" height={24} width="92%" />
           <Skeleton variant="text" height={24} width="88%" />
-          <Skeleton variant="rectangular" height={140} sx={{ borderRadius: 1 }} />
+          <Skeleton
+            variant="rectangular"
+            height={140}
+            sx={{ borderRadius: 1 }}
+          />
           <Skeleton variant="text" height={24} width="76%" />
           <Skeleton variant="text" height={24} width="70%" />
         </Stack>
@@ -205,7 +203,9 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
   const [drawerService, setDrawerService] = useState<Service | null>(null);
 
   const [services, setServices] = useState<Service[]>([]);
-  const [activeServices, setActiveServices] = useState<SavedServiceConfig[]>([]);
+  const [activeServices, setActiveServices] = useState<SavedServiceConfig[]>(
+    []
+  );
 
   const effectiveProjectId = projectIdProp || "";
   const debouncedSearch = useDebounced(search, 250);
@@ -258,13 +258,12 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
   };
 
   // Build safe doc path: /docs/<normalized-name>.md
-  const docPath =
-    drawerService?.name
-      ? `/docs/${drawerService.name
-          .toLowerCase()
-          .replace(/\s+/g, "-")
-          .replace(/[^a-z0-9-_]/g, "")}.md`
-      : undefined;
+  const docPath = drawerService?.name
+    ? `/docs/${drawerService.name
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9-_]/g, "")}.md`
+    : undefined;
 
   return (
     <Stack spacing={2}>
@@ -339,7 +338,9 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
               }}
             >
               <Typography variant="subtitle1" gutterBottom>
-                {effectiveProjectId ? "No services found" : "No project selected"}
+                {effectiveProjectId
+                  ? "No services found"
+                  : "No project selected"}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 {effectiveProjectId
@@ -356,11 +357,48 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
         anchor="right"
         open={!!drawerService}
         onClose={() => setDrawerService(null)}
-        PaperProps={{
-          sx: {
-            width: downMd ? "100%" : "70vw",
-            maxWidth: "100%",
+        ModalProps={{ keepMounted: true }}
+        slotProps={{
+          backdrop: {
+            sx: {
+              // darker scrim + slight blur to separate background app
+              backgroundColor: "rgba(0,0,0,0.44)",
+              backdropFilter: "blur(2px)",
+            },
           },
+        }}
+        PaperProps={{
+          sx: (t) => ({
+            width: downMd ? "100%" : "77vw",
+            maxWidth: "100%",
+            height: "100dvh",
+            display: "flex",
+            flexDirection: "column",
+            // position: "relative",
+
+            // make drawer surface slightly brighter than page bg in dark mode
+            // bgcolor:
+            //   t.palette.mode === "dark"
+            //     ? "rgba(22,22,24,0.98)" // a hair brighter than typical dark bg
+            //     : "background.paper",
+
+            // crisp separation line against the app
+            borderLeft: "1px solid",
+            borderColor:
+              t.palette.mode === "dark" ? "rgba(255,255,255,0.10)" : "divider",
+
+            // strong edge shadow so the drawer reads as a sheet
+            boxShadow:
+              t.palette.mode === "dark"
+                ? "-28px 0 56px rgba(0,0,0,0.6), -1px 0 0 rgba(255,255,255,0.06)"
+                : "-24px 0 48px rgba(0,0,0,0.25)",
+
+            // subtle textured surface to avoid flat black blending
+            backgroundImage:
+              t.palette.mode === "dark"
+                ? "linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.00))"
+                : "none",
+          }),
         }}
       >
         <Box
@@ -371,6 +409,7 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
             p: 2,
             borderBottom: 1,
             borderColor: "divider",
+            
           }}
         >
           <Typography variant="h6">
@@ -384,10 +423,7 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
         <Box sx={{ p: 2, height: "100%", overflowY: "auto" }}>
           {drawerService ? (
             <Stack spacing={2}>
-              <MDViewer
-                path={docPath}
-                fallback={drawerService?.description}
-              />
+              <MDViewer path={docPath} fallback={drawerService?.description} />
               {/* Additional tabs/config forms can be added here */}
             </Stack>
           ) : null}

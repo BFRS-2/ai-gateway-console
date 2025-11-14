@@ -122,8 +122,7 @@ export function ServiceCard({
     ])
       .then(([modelsRes, providersRes]) => {
         const modelList: ModelRow[] = modelsRes?.data?.models ?? [];
-        const providerList: ProviderRow[] =
-          providersRes?.data?.providers ?? [];
+        const providerList: ProviderRow[] = providersRes?.data?.providers ?? [];
         setModels(Array.isArray(modelList) ? modelList : []);
         setProviders(Array.isArray(providerList) ? providerList : []);
       })
@@ -198,11 +197,16 @@ export function ServiceCard({
       <Card variant="outlined">
         <CardHeader title={service.name} />
         <CardContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, whiteSpace: "pre-wrap" }}>
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ mb: 1.5, whiteSpace: "pre-wrap" }}
+          >
             {service.description || "No description"}
           </Typography>
           <Typography variant="body2" color="error">
-            Missing schema for “{service.name}”. Ensure serviceSchemas has a “{svcKey}” key.
+            Missing schema for “{service.name}”. Ensure serviceSchemas has a “
+            {svcKey}” key.
           </Typography>
         </CardContent>
       </Card>
@@ -288,31 +292,84 @@ export function ServiceCard({
         anchor="right"
         open={open}
         onClose={() => setOpen(false)}
+        ModalProps={{ keepMounted: true }}
+        slotProps={{
+          backdrop: {
+            sx: {
+              // darker scrim + slight blur to separate background app
+              backgroundColor: "rgba(0,0,0,0.4)",
+              backdropFilter: "blur(2px)",
+            },
+          },
+        }}
         PaperProps={{
-          sx: {
+          sx: (t) => ({
             width: downMd ? "100%" : "77vw",
             maxWidth: "100%",
-          },
+            height: "100dvh",
+            display: "flex",
+            flexDirection: "column",
+            borderLeft: "1px solid",
+            borderColor:
+              t.palette.mode === "dark" ? "rgba(255,255,255,0.10)" : "divider",
+            boxShadow:
+              t.palette.mode === "dark"
+                ? "-28px 0 56px rgba(0,0,0,0.6), -1px 0 0 rgba(255,255,255,0.06)"
+                : "-24px 0 48px rgba(0,0,0,0.25)",
+
+            backgroundImage:
+              t.palette.mode === "dark"
+                ? "linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.00))"
+                : "none",
+          }),
         }}
       >
         <Box
+          aria-hidden
           sx={{
+            position: "absolute",
+            left: -16,
+            top: 0,
+            bottom: 0,
+            width: 16,
+            pointerEvents: "none",
+          }}
+        />
+        <Box
+          sx={{
+            position: "sticky",
+            top: 0,
+            zIndex: 2,
             p: 2,
-            borderBottom: 1,
-            borderColor: "divider",
             display: "flex",
-            justifyContent: "space-between",
             alignItems: "center",
+            justifyContent: "space-between",
             gap: 1,
+            borderBottom: "1px solid",
+            borderColor: "divider",
           }}
         >
-          <Typography variant="h6">Configure: {service.name}</Typography>
-          <IconButton onClick={() => setOpen(false)}>
+          <Typography variant="h6" noWrap>
+            Configure: {service.name}
+          </Typography>
+          <IconButton onClick={() => setOpen(false)} aria-label="Close">
             <CloseIcon />
           </IconButton>
         </Box>
 
-        <Box sx={{ p: 2, overflowY: "auto" }}>
+        {/* Scrollable content */}
+        <Box
+          sx={{
+            flex: 1,
+            overflowY: "auto",
+            p: 2,
+            pb: 10,
+            "&::-webkit-scrollbar": { width: 8 },
+            "&::-webkit-scrollbar-thumb": {
+              borderRadius: 8,
+            },
+          }}
+        >
           {loading ? (
             <Stack alignItems="center" justifyContent="center" sx={{ py: 6 }}>
               <CircularProgress />

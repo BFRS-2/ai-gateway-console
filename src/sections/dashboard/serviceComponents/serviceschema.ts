@@ -68,9 +68,10 @@ const COMMON_DEFAULTS = {
 };
 
 export const serviceSchemas: ServiceSchemas = {
+  // === CHAT COMPLETION (kept key as "inference" to avoid breaking callers) ===
   inference: {
     service: "inference",
-    title: "Configure Inference",
+    title: "Configure Chat Completion",
     ui: {
       containerStyle: { width: "70vw", maxWidth: "1100px", margin: "0 auto", padding: "16px 0 32px" },
       formStyle: { display: "flex", flexDirection: "column", gap: "20px" },
@@ -99,8 +100,8 @@ export const serviceSchemas: ServiceSchemas = {
         },
         {
           id: "generation_prompt",
-          title: "Generation Settings",
-          description: "System Prompt is sent on every request and defines assistant behavior.",
+          title: "System Prompt",
+          description: "Instruction injected on every request.",
           fields: ["config.system_prompt"],
           style: { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: "16px" },
         },
@@ -118,6 +119,13 @@ export const serviceSchemas: ServiceSchemas = {
           fields: ["limits.daily", "limits.monthly", "enabled"],
           style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "16px" },
         },
+        {
+          id: "alerts",
+          title: "Usage Alerts",
+          description: "Send alerts when usage crosses a threshold.",
+          fields: ["alerts.daily", "alerts.monthly"],
+          style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "16px" },
+        },
       ],
     },
     initial: {
@@ -125,11 +133,12 @@ export const serviceSchemas: ServiceSchemas = {
       config: {
         ...COMMON_DEFAULTS,
         allowed_models: [],
-        system_prompt: "You are a helpful assistant that provides accurate and helpful responses.",
+        system_prompt: "You are a helpful assistant.",
         temperature: 0.7,
         max_tokens: 1000,
       },
       limits: { daily: 100, monthly: 300 },
+      alerts: { daily: 80, monthly: 80 }, // percentage thresholds
       enabled: true,
     },
     fields: {
@@ -138,15 +147,18 @@ export const serviceSchemas: ServiceSchemas = {
       "config.default_provider": { label: "Default Provider", type: "dropdown", required: true, dynamic: "providers", helpText: "Provider for the default model (e.g., OpenAI, Google)." },
       "config.backup_provider": { label: "Backup Provider", type: "dropdown", required: true, dynamic: "providers", helpText: "Provider for the backup model." },
       "config.allowed_models": { label: "Allowed Models", type: "multiselect", dynamic: "models", helpText: "Whitelist of models users can choose at runtime." },
-      "config.system_prompt": { label: "System Prompt", type: "textarea", helpText: "High-level instruction injected before user input." },
+      "config.system_prompt": { label: "System Prompt", type: "textarea", required: true, helpText: "High-level instruction injected before user input." },
       "config.temperature": { label: "Temperature", type: "slider", min: 0, max: 1, step: 0.1, required: true, helpText: "Lower = deterministic, higher = creative. Range 0–1." },
       "config.max_tokens": { label: "Max Tokens", type: "number", min: 1, max: 200000, required: true, helpText: "Upper bound for generated tokens (response length)." },
       "limits.daily": { label: "Daily Limit", type: "number", min: 0, required: true, helpText: "Maximum requests/cost per day for this service." },
       "limits.monthly": { label: "Monthly Limit", type: "number", min: 0, required: true, helpText: "Maximum requests/cost per month for this service." },
+      "alerts.daily": { label: "Daily Alert %", type: "number", min: 0, max: 100, step: 1, helpText: "Alert when daily usage crosses this percentage of the limit." },
+      "alerts.monthly": { label: "Monthly Alert %", type: "number", min: 0, max: 100, step: 1, helpText: "Alert when monthly usage crosses this percentage of the limit." },
       enabled: { label: "Enabled", type: "switch", helpText: "Toggle this service on or off." },
     },
   },
 
+  // === SUMMARIZATION ===
   summarization: {
     service: "summarization",
     title: "Configure Summarization",
@@ -176,17 +188,10 @@ export const serviceSchemas: ServiceSchemas = {
           style: { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: "16px" },
         },
         {
-          id: "generation",
-          title: "Summarization Prompt",
-          description: "Define tone and constraints for summaries.",
-          fields: ["config.system_prompt"],
-          style: { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: "16px" },
-        },
-        {
-          id: "generation_variables",
-          title: "Controls",
-          description: "Randomness and output length settings.",
-          fields: ["config.temperature", "config.max_tokens"],
+          id: "length_controls",
+          title: "Length Controls",
+          description: "Limit summary length by words or tokens.",
+          fields: ["config.word_limit", "config.max_tokens"],
           style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "16px" },
         },
         {
@@ -196,6 +201,13 @@ export const serviceSchemas: ServiceSchemas = {
           fields: ["limits.daily", "limits.monthly", "enabled"],
           style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "16px" },
         },
+        {
+          id: "alerts",
+          title: "Usage Alerts",
+          description: "Send alerts when usage crosses a threshold.",
+          fields: ["alerts.daily", "alerts.monthly"],
+          style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "16px" },
+        },
       ],
     },
     initial: {
@@ -203,11 +215,12 @@ export const serviceSchemas: ServiceSchemas = {
       config: {
         ...COMMON_DEFAULTS,
         allowed_models: [],
-        system_prompt: "You are a helpful assistant that creates concise summaries.",
-        temperature: 0.7,
+        // No system_prompt / temperature by matrix
+        word_limit: 300,       // NEW: present only for summarization
         max_tokens: 1000,
       },
       limits: { daily: 100, monthly: 300 },
+      alerts: { daily: 80, monthly: 80 },
       enabled: true,
     },
     fields: {
@@ -216,15 +229,17 @@ export const serviceSchemas: ServiceSchemas = {
       "config.default_provider": { label: "Default Provider", type: "dropdown", required: true, dynamic: "providers", helpText: "Provider for the default model." },
       "config.backup_provider": { label: "Backup Provider", type: "dropdown", required: true, dynamic: "providers", helpText: "Provider for the backup model." },
       "config.allowed_models": { label: "Allowed Models", type: "multiselect", dynamic: "models", helpText: "Runtime model allow-list." },
-      "config.system_prompt": { label: "System Prompt", type: "textarea", helpText: "Guidance for style/format/length of summaries." },
-      "config.temperature": { label: "Temperature", type: "slider", min: 0, max: 1, step: 0.1, helpText: "Creativity vs determinism (0–1)." },
-      "config.max_tokens": { label: "Max Tokens", type: "number", min: 1, max: 200000, helpText: "Maximum tokens to generate per summary." },
+      "config.word_limit": { label: "Word Limit", type: "number", min: 1, max: 200000, required: true, helpText: "Maximum words allowed in the summary." },
+      "config.max_tokens": { label: "Max Tokens", type: "number", min: 1, max: 200000, required: true, helpText: "Token cap for generated summary." },
       "limits.daily": { label: "Daily Limit", type: "number", min: 0, required: true, helpText: "Daily quota for this service." },
       "limits.monthly": { label: "Monthly Limit", type: "number", min: 0, required: true, helpText: "Monthly quota for this service." },
+      "alerts.daily": { label: "Daily Alert %", type: "number", min: 0, max: 100, step: 1, helpText: "Alert when daily usage crosses this percentage." },
+      "alerts.monthly": { label: "Monthly Alert %", type: "number", min: 0, max: 100, step: 1, helpText: "Alert when monthly usage crosses this percentage." },
       enabled: { label: "Enabled", type: "switch", helpText: "Enable/disable summarization service." },
     },
   },
 
+  // === EMBEDDING ===
   embedding: {
     service: "embedding",
     title: "Configure Embedding",
@@ -256,9 +271,9 @@ export const serviceSchemas: ServiceSchemas = {
         {
           id: "embedding",
           title: "Embedding Settings",
-          description: "Tune token constraints for embedding requests.",
+          description: "Token cap per request.",
           fields: ["config.max_tokens"],
-          style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "16px" },
+          style: { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: "16px" },
         },
         {
           id: "limits",
@@ -266,6 +281,13 @@ export const serviceSchemas: ServiceSchemas = {
           description: "Daily/monthly quotas and availability.",
           fields: ["limits.daily", "limits.monthly", "enabled"],
           style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "16px" },
+        },
+        {
+          id: "alerts",
+          title: "Usage Alerts",
+          description: "Send alerts when usage crosses a threshold.",
+          fields: ["alerts.daily", "alerts.monthly"],
+          style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "16px" },
         },
       ],
     },
@@ -277,6 +299,7 @@ export const serviceSchemas: ServiceSchemas = {
         max_tokens: 8191,
       },
       limits: { daily: 1000, monthly: 10000 },
+      alerts: { daily: 80, monthly: 80 },
       enabled: true,
     },
     fields: {
@@ -285,13 +308,16 @@ export const serviceSchemas: ServiceSchemas = {
       "config.default_provider": { label: "Default Provider", type: "dropdown", required: true, dynamic: "providers", helpText: "Provider for the default model." },
       "config.backup_provider": { label: "Backup Provider", type: "dropdown", required: true, dynamic: "providers", helpText: "Provider for the backup model." },
       "config.allowed_models": { label: "Allowed Models", type: "multiselect", dynamic: "models", helpText: "Limit which models can be requested." },
-      "config.max_tokens": { label: "Max Tokens", type: "number", min: 1, max: 200000, helpText: "Maximum tokens processed per embedding call." },
+      "config.max_tokens": { label: "Max Tokens", type: "number", min: 1, max: 200000, required: true, helpText: "Maximum tokens processed per call." },
       "limits.daily": { label: "Daily Limit", type: "number", min: 0, required: true, helpText: "Daily quota for embedding calls." },
       "limits.monthly": { label: "Monthly Limit", type: "number", min: 0, required: true, helpText: "Monthly quota for embedding calls." },
+      "alerts.daily": { label: "Daily Alert %", type: "number", min: 0, max: 100, step: 1, helpText: "Alert when daily usage crosses this percentage." },
+      "alerts.monthly": { label: "Monthly Alert %", type: "number", min: 0, max: 100, step: 1, helpText: "Alert when monthly usage crosses this percentage." },
       enabled: { label: "Enabled", type: "switch", helpText: "Enable/disable embedding service." },
     },
   },
 
+  // === OCR ===
   ocr: {
     service: "ocr",
     title: "Configure OCR",
@@ -334,6 +360,13 @@ export const serviceSchemas: ServiceSchemas = {
           fields: ["limits.daily", "limits.monthly", "enabled"],
           style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "16px" },
         },
+        {
+          id: "alerts",
+          title: "Usage Alerts",
+          description: "Send alerts when usage crosses a threshold.",
+          fields: ["alerts.daily", "alerts.monthly"],
+          style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "16px" },
+        },
       ],
     },
     initial: {
@@ -345,6 +378,7 @@ export const serviceSchemas: ServiceSchemas = {
         supported_formats: ["image/jpeg", "image/png", "application/pdf"],
       },
       limits: { daily: 50, monthly: 1000 },
+      alerts: { daily: 80, monthly: 80 },
       enabled: true,
     },
     fields: {
@@ -353,14 +387,17 @@ export const serviceSchemas: ServiceSchemas = {
       "config.default_provider": { label: "Default Provider", type: "dropdown", required: true, dynamic: "providers", helpText: "Provider for the default OCR model." },
       "config.backup_provider": { label: "Backup Provider", type: "dropdown", required: true, dynamic: "providers", helpText: "Provider for the backup OCR model." },
       "config.allowed_models": { label: "Allowed Models", type: "multiselect", dynamic: "models", helpText: "Restrict selectable OCR models." },
-      "config.max_tokens": { label: "Max Tokens", type: "number", min: 1, max: 200000, helpText: "Token cap per OCR request." },
+      "config.max_tokens": { label: "Max Tokens", type: "number", min: 1, max: 200000, required: true, helpText: "Token cap per OCR request." },
       "config.supported_formats": { label: "Supported Formats", type: "chips", helpText: "Acceptable MIME types for OCR input." },
       "limits.daily": { label: "Daily Limit", type: "number", min: 0, required: true, helpText: "Daily OCR quota." },
       "limits.monthly": { label: "Monthly Limit", type: "number", min: 0, required: true, helpText: "Monthly OCR quota." },
+      "alerts.daily": { label: "Daily Alert %", type: "number", min: 0, max: 100, step: 1, helpText: "Alert when daily usage crosses this percentage." },
+      "alerts.monthly": { label: "Monthly Alert %", type: "number", min: 0, max: 100, step: 1, helpText: "Alert when monthly usage crosses this percentage." },
       enabled: { label: "Enabled", type: "switch", helpText: "Enable/disable OCR service." },
     },
   },
 
+  // === CHATBOT ===
   chatbot: {
     service: "chatbot",
     title: "Configure Chatbot",
@@ -398,9 +435,9 @@ export const serviceSchemas: ServiceSchemas = {
         },
         {
           id: "bot_behaviour",
-          title: "Bot Behaviour",
-          description: "Adjust randomness for responses.",
-          fields: ["config.temperature"],
+          title: "Behaviour & Length",
+          description: "Adjust randomness and cap output length.",
+          fields: ["config.temperature", "config.max_tokens"],
           style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "16px" },
         },
         {
@@ -410,6 +447,13 @@ export const serviceSchemas: ServiceSchemas = {
           fields: ["limits.daily", "limits.monthly", "enabled"],
           style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "16px" },
         },
+        {
+          id: "alerts",
+          title: "Usage Alerts",
+          description: "Send alerts when usage crosses a threshold.",
+          fields: ["alerts.daily", "alerts.monthly"],
+          style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "16px" },
+        },
       ],
     },
     initial: {
@@ -417,11 +461,12 @@ export const serviceSchemas: ServiceSchemas = {
       config: {
         ...COMMON_DEFAULTS,
         allowed_models: [],
-        system_prompt:
-          "You are a helpful AI assistant that provides accurate and helpful responses based on the knowledge base.",
+        system_prompt: "You are a helpful AI assistant for this application.",
         temperature: 0.7,
+        max_tokens: 1000,
       },
       limits: { daily: 100, monthly: 300 },
+      alerts: { daily: 80, monthly: 80 },
       enabled: true,
     },
     fields: {
@@ -430,13 +475,14 @@ export const serviceSchemas: ServiceSchemas = {
       "config.default_provider": { label: "Default Provider", type: "dropdown", required: true, dynamic: "providers", helpText: "Provider for default chat model." },
       "config.backup_provider": { label: "Backup Provider", type: "dropdown", required: true, dynamic: "providers", helpText: "Provider for backup chat model." },
       "config.allowed_models": { label: "Allowed Models", type: "multiselect", dynamic: "models", helpText: "Limit which chat models are selectable." },
-      "config.system_prompt": { label: "System Prompt", type: "textarea", helpText: "Persona & guardrails for the chatbot." },
-      "config.temperature": { label: "Temperature", type: "slider", min: 0, max: 1, step: 0.1, helpText: "Lower is focused; higher is creative. Range 0–1." },
+      "config.system_prompt": { label: "System Prompt", type: "textarea", required: true, helpText: "Persona & guardrails for the chatbot." },
+      "config.temperature": { label: "Temperature", type: "slider", min: 0, max: 1, step: 0.1, required: true, helpText: "Lower is focused; higher is creative. Range 0–1." },
+      "config.max_tokens": { label: "Max Tokens", type: "number", min: 1, max: 200000, required: true, helpText: "Upper bound for generated tokens (response length)." },
       "limits.daily": { label: "Daily Limit", type: "number", min: 0, required: true, helpText: "Daily chat quota." },
       "limits.monthly": { label: "Monthly Limit", type: "number", min: 0, required: true, helpText: "Monthly chat quota." },
+      "alerts.daily": { label: "Daily Alert %", type: "number", min: 0, max: 100, step: 1, helpText: "Alert when daily usage crosses this percentage." },
+      "alerts.monthly": { label: "Monthly Alert %", type: "number", min: 0, max: 100, step: 1, helpText: "Alert when monthly usage crosses this percentage." },
       enabled: { label: "Enabled", type: "switch", helpText: "Enable/disable chatbot service." },
     },
   },
 };
-
-

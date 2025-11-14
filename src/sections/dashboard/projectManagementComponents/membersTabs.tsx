@@ -161,7 +161,10 @@ export function MembersTab({
         }}
       >
         <Typography variant="h4">
-          Members for : {selectedProject?.name || "Current context"}
+          Members for : {(() => {
+            const name = selectedProject?.name ?? "";
+            return name ? (name.length > 20 ? `${name.slice(0, 20)}...` : name) : "Current context";
+          })()}
         </Typography>
 
         <Button variant="contained" onClick={onInvite} disabled={!projectId}>
