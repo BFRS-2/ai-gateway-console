@@ -79,7 +79,7 @@ function useMarkdown(path?: string) {
           setContent(text);
           setLoading(false);
         }
-      } catch (e) {
+      } catch (e: any) {
         if (!cancelled) {
           setError(e?.message || "Unable to load documentation");
           setLoading(false);
@@ -110,7 +110,7 @@ function MDViewer({ path, fallback }: { path?: string; fallback?: string }) {
   }
 
   if (loading) {
-    // Fancy loader: gradient banner + icon + subtle skeleton lines
+    // Loader: gradient banner + icon + skeleton lines
     return (
       <Stack spacing={2} sx={{ width: "100%" }}>
         <Box
@@ -125,7 +125,6 @@ function MDViewer({ path, fallback }: { path?: string; fallback?: string }) {
             display: "flex",
             alignItems: "center",
             gap: 2,
-           
           }}
         >
           <Box
@@ -153,11 +152,7 @@ function MDViewer({ path, fallback }: { path?: string; fallback?: string }) {
           <Skeleton variant="text" height={24} />
           <Skeleton variant="text" height={24} width="92%" />
           <Skeleton variant="text" height={24} width="88%" />
-          <Skeleton
-            variant="rectangular"
-            height={140}
-            sx={{ borderRadius: 1 }}
-          />
+          <Skeleton variant="rectangular" height={140} sx={{ borderRadius: 1 }} />
           <Skeleton variant="text" height={24} width="76%" />
           <Skeleton variant="text" height={24} width="70%" />
         </Stack>
@@ -203,27 +198,39 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
   const [drawerService, setDrawerService] = useState<Service | null>(null);
 
   const [services, setServices] = useState<Service[]>([]);
-  const [activeServices, setActiveServices] = useState<SavedServiceConfig[]>(
-    []
-  );
+  const [activeServices, setActiveServices] = useState<SavedServiceConfig[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(false); // ← loader flag
+  const [projectServicesLoading, setProjectServicesLoading] = useState(false); // (optional) separate flag
 
   const effectiveProjectId = projectIdProp || "";
   const debouncedSearch = useDebounced(search, 250);
 
-  const getServices = () => {
+  const getServices = async () => {
     if (!effectiveProjectId) return;
-    serviceManagementService.getAllServices(effectiveProjectId).then((data) => {
-      if (data.success) setServices(data.data.services);
+    setServicesLoading(true);
+    try {
+      const data = await serviceManagementService.getAllServices(effectiveProjectId);
+      if (data?.success) setServices(data.data.services || []);
       else setServices([]);
-    });
+    } catch {
+      setServices([]);
+    } finally {
+      setServicesLoading(false);
+    }
   };
 
-  const getProjectServices = () => {
+  const getProjectServices = async () => {
     if (!effectiveProjectId) return;
-    projectService.getProjectServices(effectiveProjectId).then((res) => {
-      if (res.success) setActiveServices(res.data);
+    setProjectServicesLoading(true);
+    try {
+      const res = await projectService.getProjectServices(effectiveProjectId);
+      if (res?.success) setActiveServices(res.data || []);
       else setActiveServices([]);
-    });
+    } catch {
+      setActiveServices([]);
+    } finally {
+      setProjectServicesLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -290,43 +297,73 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
             }}
           />
 
-          <TextField
-            select
-            size="small"
-            label="Status"
-            value={status}
-            onChange={(e) => setStatus(e.target.value as any)}
-            sx={{ minWidth: 200 }}
-          >
-            {STATUS_FILTER.map((s) => (
-              <MenuItem key={s} value={s}>
-                {s}
-              </MenuItem>
-            ))}
-          </TextField>
+            <TextField
+              select
+              size="small"
+              label="Status"
+              value={status}
+              onChange={(e) => setStatus(e.target.value as any)}
+              sx={{ minWidth: 200 }}
+              disabled={servicesLoading}
+            >
+              {STATUS_FILTER.map((s) => (
+                <MenuItem key={s} value={s}>
+                  {s}
+                </MenuItem>
+              ))}
+            </TextField>
         </Stack>
       </Paper>
 
+      {/* ---------- Grid: Loader / Data / Empty ---------- */}
       <Grid container spacing={2}>
-        {filtered.map((svc) => (
-          <Grid item xs={12} sm={6} lg={4} key={svc.id}>
-            <ServiceCard
-              projectId={projectIdProp}
-              service={svc}
-              onOpen={(s) => setDrawerService(s)}
-              onToggle={onToggle}
-              onSaveConfig={() => {
-                getServices();
-                getProjectServices();
-              }}
-              savedConfig={activeServices.find(
-                (as) => as.service_id === svc.id
-              )}
-            />
-          </Grid>
-        ))}
+        {/* Loader state with skeleton cards */}
+        {servicesLoading && (
+          <>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Grid item xs={12} sm={6} lg={4} key={`skeleton-${i}`}>
+                <Paper
+                  variant="outlined"
+                  sx={{ p: 2, borderRadius: 2, height: 180 }}
+                >
+                  <Stack spacing={1}>
+                    <Skeleton variant="text" height={28} width="70%" />
+                    <Skeleton variant="text" height={20} width="90%" />
+                    <Skeleton variant="text" height={20} width="85%" />
+                    <Skeleton
+                      variant="rectangular"
+                      height={72}
+                      sx={{ borderRadius: 1 }}
+                    />
+                  </Stack>
+                </Paper>
+              </Grid>
+            ))}
+          </>
+        )}
 
-        {filtered.length === 0 && (
+        {/* Data state */}
+        {!servicesLoading &&
+          filtered.map((svc) => (
+            <Grid item xs={12} sm={6} lg={4} key={svc.id}>
+              <ServiceCard
+                projectId={projectIdProp}
+                service={svc}
+                onOpen={(s) => setDrawerService(s)}
+                onToggle={onToggle}
+                onSaveConfig={() => {
+                  getServices();
+                  getProjectServices();
+                }}
+                savedConfig={activeServices.find(
+                  (as) => as.service_id === svc.id
+                )}
+              />
+            </Grid>
+          ))}
+
+        {/* Empty state (only when not loading) */}
+        {!servicesLoading && filtered.length === 0 && (
           <Grid item xs={12}>
             <Box
               sx={{
@@ -361,7 +398,6 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
         slotProps={{
           backdrop: {
             sx: {
-              // darker scrim + slight blur to separate background app
               backgroundColor: "rgba(0,0,0,0.44)",
               backdropFilter: "blur(2px)",
             },
@@ -374,26 +410,13 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
             height: "100dvh",
             display: "flex",
             flexDirection: "column",
-            // position: "relative",
-
-            // make drawer surface slightly brighter than page bg in dark mode
-            // bgcolor:
-            //   t.palette.mode === "dark"
-            //     ? "rgba(22,22,24,0.98)" // a hair brighter than typical dark bg
-            //     : "background.paper",
-
-            // crisp separation line against the app
             borderLeft: "1px solid",
             borderColor:
               t.palette.mode === "dark" ? "rgba(255,255,255,0.10)" : "divider",
-
-            // strong edge shadow so the drawer reads as a sheet
             boxShadow:
               t.palette.mode === "dark"
                 ? "-28px 0 56px rgba(0,0,0,0.6), -1px 0 0 rgba(255,255,255,0.06)"
                 : "-24px 0 48px rgba(0,0,0,0.25)",
-
-            // subtle textured surface to avoid flat black blending
             backgroundImage:
               t.palette.mode === "dark"
                 ? "linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.00))"
@@ -409,7 +432,6 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
             p: 2,
             borderBottom: 1,
             borderColor: "divider",
-            
           }}
         >
           <Typography variant="h6">
@@ -423,7 +445,17 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
         <Box sx={{ p: 2, height: "100%", overflowY: "auto" }}>
           {drawerService ? (
             <Stack spacing={2}>
-              <MDViewer path={docPath} fallback={drawerService?.description} />
+              <MDViewer
+                path={
+                  drawerService?.name
+                    ? `/docs/${drawerService.name
+                        .toLowerCase()
+                        .replace(/\s+/g, "-")
+                        .replace(/[^a-z0-9-_]/g, "")}.md`
+                    : undefined
+                }
+                fallback={drawerService?.description}
+              />
               {/* Additional tabs/config forms can be added here */}
             </Stack>
           ) : null}
