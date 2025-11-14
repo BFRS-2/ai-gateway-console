@@ -559,8 +559,8 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
           <Grid item xs={12} md={8}>
             <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
               <AppRequestsCostArea
-                title="Cost (Daywise)"
-                subheader={`${isAll ? "Organization" : "Project"} • ${startDate} → ${endDate}`}
+                title="Total Spend"
+                subheader={`For date • ${startDate} → ${endDate}`}
                 data={daywiseSeries.map((d) => ({ x: d.x, req: 0, cost: d.cost }))}
                 series={[
                   { name: "Cost ($)", type: "column" as const, data: daywiseSeries.map((d) => d.cost) },
@@ -572,8 +572,8 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
           <Grid item xs={12} md={4}>
             <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
               <AppCostByServiceDonut
-                title="Cost by Service"
-                subheader={isAll ? "Share of total org cost" : `Project: ${selectedProjectName}`}
+                title="Service Wise Cost"
+                subheader={"Share of total cost" }
                 chart={{ series: donutCostByService }}
                 sx={{ flexGrow: 1 }}
               />
@@ -583,25 +583,27 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
 
         {/* Row 2 */}
         <Grid container spacing={2} alignItems="stretch">
-          <Grid item xs={12} md={8}>
+          
+          <Grid item xs={12} md={4}>
             <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-              <AppRequestsCostArea
-                title="Requests (Daywise)"
-                subheader={`${isAll ? "Organization" : "Project"} • ${startDate} → ${endDate}`}
-                data={daywiseSeries.map((d) => ({ x: d.x, req: d.req, cost: 0 }))}
-                series={[
-                  { name: "Requests", type: "bar" as const, data: daywiseSeries.map((d) => d.req) },
-                ]}
+              <AppCostByServiceDonut
+                title="Preoject Wise Cost"
+                subheader={`Project: ${selectedProjectName}`}
+                chart={{ series: donutCostByProject }}
                 sx={{ flexGrow: 1 }}
               />
             </Box>
           </Grid>
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} md={8}>
             <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-              <AppCostByServiceDonut
-                title="Cost by Project"
-                subheader={isAll ? "Share of total org cost" : `Project: ${selectedProjectName}`}
-                chart={{ series: donutCostByProject }}
+              <AppRequestsCostArea
+                title="Total Requests"
+                subheader={`${isAll ? "Organization" : "Project"} • ${startDate} → ${endDate}`}
+                data={daywiseSeries.map((d) => ({ x: d.x, req: d.req, cost: 0 }))}
+                series={[
+                  { name: "Requests", type: "bar" as const, data: daywiseSeries.map((d) => d.req) },
+                  //  { name: "Token", type: "bar" as const, data: daywiseSeries.map((d) => d.tokens) },
+                ]}
                 sx={{ flexGrow: 1 }}
               />
             </Box>
