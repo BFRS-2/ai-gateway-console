@@ -590,7 +590,7 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
                 subheader={`${isAll ? "Organization" : "Project"} • ${startDate} → ${endDate}`}
                 data={daywiseSeries.map((d) => ({ x: d.x, req: d.req, cost: 0 }))}
                 series={[
-                  { name: "Requests", type: "area" as const, data: daywiseSeries.map((d) => d.req) },
+                  { name: "Requests", type: "bar" as const, data: daywiseSeries.map((d) => d.req) },
                 ]}
                 sx={{ flexGrow: 1 }}
               />

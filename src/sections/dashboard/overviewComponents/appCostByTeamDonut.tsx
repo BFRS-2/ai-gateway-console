@@ -26,10 +26,10 @@ export function AppCostByTeamDonut({ title, subheader, chart, ...other }: Props)
   const theme = useTheme();
 
   const chartColors = chart.colors ?? [
-    theme.palette.primary.lighter,
-    theme.palette.primary.light,
-    theme.palette.primary.dark,
-    theme.palette.primary.darker,
+    theme.palette.success.lighter,
+    theme.palette.success.light,
+    theme.palette.success.dark,
+    theme.palette.success.darker,
   ];
 
   const chartSeries = chart.series.map((i) => i.value);
