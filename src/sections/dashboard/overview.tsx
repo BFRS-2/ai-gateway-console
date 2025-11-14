@@ -28,11 +28,10 @@ import { AppCostByTeamDonut as AppCostByServiceDonut } from "./overviewComponent
 import { useSelector } from "react-redux";
 import { RootState } from "src/stores/store";
 import projectService from "src/api/services/project.service";
+import { callGetApi } from "src/api/callApi"; // uses same auth/baseURL layer
 
-// ---------- Types ----------
 type MetricBlock = { cost_used: number; requests: number; tokens_used: number };
 
-// helpers
 const formatINR = (n: number) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -40,10 +39,7 @@ const formatINR = (n: number) =>
     maximumFractionDigits: 2,
   }).format(Number.isFinite(n) ? n : 0);
 
-type OverviewSectionProps = {
-  projectId?: string;
-  projectName?: string;
-};
+type OverviewSectionProps = { projectId?: string; projectName?: string };
 
 const dateToStr = (d: Date) => d.toISOString().slice(0, 10);
 const addDays = (d: Date, delta: number) => {
@@ -55,7 +51,6 @@ const addDays = (d: Date, delta: number) => {
 const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
   const theme = useTheme();
 
-  // org/project state from store
   const selectedFromStore = useSelector(
     (state: RootState) => state.orgProject.selectedOrganizationProject
   );
@@ -71,7 +66,6 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
 
   const initialProjectId = projectId || "all";
 
-  // ----- Range preset -----
   type RangePreset = "1" | "7" | "15" | "30" | "custom";
   const [rangePreset, setRangePreset] = useState<RangePreset>("7");
 
@@ -81,40 +75,40 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
     if (preset === "7") return dateToStr(addDays(new Date(), -7));
     if (preset === "15") return dateToStr(addDays(new Date(), -15));
     if (preset === "30") return dateToStr(addDays(new Date(), -30));
-    return dateToStr(addDays(new Date(), -7)); // default
-    // NOTE: if you want org "MTD" literally month-to-date, drive dates from month start.
+    return dateToStr(addDays(new Date(), -7));
   };
 
   const [startDate, setStartDate] = useState(startByPreset("7"));
   const [endDate, setEndDate] = useState(todayStr);
 
-  // selection
   const [selectedOrgId, setSelectedOrgId] = useState(initialOrgId);
-  const [selectedProjectId, setSelectedProjectId] = useState<string>(
-    initialProjectId
+  const [selectedProjectId, setSelectedProjectId] =
+    useState<string>(initialProjectId);
+
+  // org scope data
+  const [orgByProject, setOrgByProject] = useState<any[] | null>(null);
+  const [orgByService, setOrgByService] = useState<any[] | null>(null);
+  const [orgDaywise, setOrgDaywise] = useState<any[] | null>(null);
+
+  // project scope data
+  const [projectRangeTotals, setProjectRangeTotals] =
+    useState<MetricBlock | null>(null);
+  const [projectDaywise, setProjectDaywise] = useState<any[] | null>(null);
+  const [projectSvcBreakdown, setProjectSvcBreakdown] = useState<any[] | null>(
+    null
+  );
+  const [projectProjBreakdown, setProjectProjBreakdown] = useState<any[] | null>(
+    null
   );
 
-  // data (raw)
-  const [orgByProject, setOrgByProject] = useState<any[] | null>(null); // data.projects
-  const [orgByService, setOrgByService] = useState<any[] | null>(null); // data.services
-  const [orgDaywise, setOrgDaywise] = useState<any[] | null>(null); // existing daywise
-
-  const [
-    projectRangeTotals,
-    setProjectRangeTotals,
-  ] = useState<MetricBlock | null>(null);
-  const [projectDaywise, setProjectDaywise] = useState<any[] | null>(null);
-
-  // top KPI block (org MTD usage)
   const [orgMTD, setOrgMTD] = useState<MetricBlock | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const [tab, setTab] = useState<0 | 1>(0); // 0=Project, 1=Services
+  const [tab, setTab] = useState<0 | 1>(0);
   const [tableState, setTableState] = useState({ page: 0, rowsPerPage: 5 });
 
-  // sync org from store
   useEffect(() => {
     if (selectedFromStore?.organizationId) {
       setSelectedOrgId(selectedFromStore.organizationId);
@@ -127,7 +121,6 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
     }
   }, [selectedFromStore, selectedProjectId]);
 
-  // project options
   const projectOptions = useMemo(() => {
     if (allOrgProjects && allOrgProjects.length) {
       const currOrg = allOrgProjects.find((o: any) => o.id === selectedOrgId);
@@ -136,7 +129,6 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
     return initialProjects;
   }, [allOrgProjects, selectedOrgId, initialProjects]);
 
-  // keep selected project valid (allow "all")
   useEffect(() => {
     if (selectedProjectId === "all") return;
     if (!projectOptions.length) {
@@ -147,7 +139,6 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
     if (!exists) setSelectedProjectId(projectOptions[0].id);
   }, [projectOptions, selectedProjectId]);
 
-  // react to preset change
   useEffect(() => {
     if (rangePreset !== "custom") {
       setStartDate(startByPreset(rangePreset));
@@ -162,7 +153,7 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
       projectName ||
       selectedProjectId;
 
-  // fetch usage
+  // ------------------ FETCH ------------------
   useEffect(() => {
     setErr(null);
     setOrgByProject(null);
@@ -170,6 +161,8 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
     setOrgDaywise(null);
     setProjectRangeTotals(null);
     setProjectDaywise(null);
+    setProjectSvcBreakdown(null);
+    setProjectProjBreakdown(null);
     setOrgMTD(null);
 
     if (!selectedOrgId) return;
@@ -178,14 +171,13 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
       setLoading(true);
       try {
         if (isAll) {
-          // ---- ORG SCOPE ----
-          // Top cards: org MTD (from new API)
+          // -------- ORG SCOPE --------
           const orgMTDResp = await projectService.getOrgMTDUsage(
             selectedOrgId,
             startDate,
             endDate
           );
-          // normalize shape: your response is { success, data: { usage: [{requests, cost, tokens_used}] } }
+
           let mtdTotals: MetricBlock = {
             requests: 0,
             cost_used: 0,
@@ -204,8 +196,6 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
           }
           setOrgMTD(mtdTotals);
 
-          // Donuts + daywise
-          // Donuts + daywise
           const [gp, gs, daywiseResp] = await Promise.all([
             projectService.getOrgUsageGroupedByProject(
               selectedOrgId,
@@ -220,17 +210,13 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
             projectService.getOrgDaywise(selectedOrgId, startDate, endDate),
           ]);
 
-          // normalize new shapes:
           const gpProjects = (gp as any)?.data?.projects ?? gp ?? [];
           const gsServices = (gs as any)?.data?.services ?? gs ?? [];
-
-          // IMPORTANT: this API returns { data: { usage: [...] } }
           const daywiseArr =
             (daywiseResp as any)?.data?.usage ??
             (daywiseResp as any)?.usage ??
             (Array.isArray(daywiseResp) ? daywiseResp : []);
 
-          // (optional) ensure numeric casting & keep order by date
           const normDaywise = (Array.isArray(daywiseArr) ? daywiseArr : []).map(
             (d: any) => ({
               date: d.date || d.day || "",
@@ -243,31 +229,73 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
           setOrgByProject(Array.isArray(gpProjects) ? gpProjects : []);
           setOrgByService(Array.isArray(gsServices) ? gsServices : []);
           setOrgDaywise(normDaywise);
-          console.debug("orgDaywise points:", normDaywise.length, normDaywise);
         } else {
-          // ---- PROJECT SCOPE ----
-          const mtd = await projectService.getProjectMTD(selectedProjectId);
+          // -------- PROJECT SCOPE (NO MTD) --------
+          // 1) Daywise (scope=project)
+          const daywiseResp = await callGetApi(
+            `/api/v1/usage/?scope=project&project_id=${encodeURIComponent(
+              selectedProjectId
+            )}&type=daywise&start_date=${encodeURIComponent(
+              startDate
+            )}&end_date=${encodeURIComponent(endDate)}`
+          );
 
-          let points: any[] = [];
-          if (Array.isArray((mtd as any)?.data?.usage))
-            points = (mtd as any).data.usage;
-          else if (Array.isArray(mtd)) points = mtd;
-          else if (Array.isArray((mtd as any)?.usage))
-            points = (mtd as any).usage;
+          const points =
+            (daywiseResp as any)?.data?.usage ??
+            (daywiseResp as any)?.usage ??
+            (Array.isArray(daywiseResp) ? daywiseResp : []);
 
-          const totals: MetricBlock = {
-            requests: 0,
-            cost_used: 0,
-            tokens_used: 0,
-          };
-          for (const p of points) {
-            totals.requests += Number(p.requests || 0);
-            totals.cost_used += Number(p.cost ?? p.cost_used ?? 0);
-            totals.tokens_used += Number(p.tokens_used || 0);
-          }
+          const normProjectDaywise = (Array.isArray(points) ? points : []).map(
+            (d: any) => ({
+              date: d.date || d.day || "",
+              requests: Number(d.requests ?? 0),
+              cost: Number(d.cost_used ?? d.cost ?? 0),
+              tokens_used: Number(d.tokens_used ?? 0),
+            })
+          );
 
-          setProjectDaywise(points);
+          // totals from daywise (since no MTD)
+          const totals: MetricBlock = normProjectDaywise.reduce(
+            (acc: MetricBlock, p: any) => ({
+              requests: acc.requests + (p.requests || 0),
+              cost_used: acc.cost_used + (p.cost || 0),
+              tokens_used: acc.tokens_used + (p.tokens_used || 0),
+            }),
+            { requests: 0, cost_used: 0, tokens_used: 0 }
+          );
+
+          setProjectDaywise(normProjectDaywise);
           setProjectRangeTotals(totals);
+
+          // 2) Service breakdown (org endpoint with project filter)
+          const svcResp = await callGetApi(
+            `/api/v1/usage/organization/${encodeURIComponent(
+              selectedOrgId
+            )}?group_by=service&project_id=${encodeURIComponent(
+              selectedProjectId
+            )}&start_date=${encodeURIComponent(
+              startDate
+            )}&end_date=${encodeURIComponent(endDate)}`
+          );
+          const svcList =
+            (svcResp as any)?.data?.services ??
+            (Array.isArray(svcResp) ? svcResp : []);
+          setProjectSvcBreakdown(Array.isArray(svcList) ? svcList : []);
+
+          // 3) Project breakdown (org endpoint with project filter -> single item)
+          const projResp = await callGetApi(
+            `/api/v1/usage/organization/${encodeURIComponent(
+              selectedOrgId
+            )}?group_by=project&project_id=${encodeURIComponent(
+              selectedProjectId
+            )}&start_date=${encodeURIComponent(
+              startDate
+            )}&end_date=${encodeURIComponent(endDate)}`
+          );
+          const projList =
+            (projResp as any)?.data?.projects ??
+            (Array.isArray(projResp) ? projResp : []);
+          setProjectProjBreakdown(Array.isArray(projList) ? projList : []);
         }
       } catch (e) {
         console.error(e);
@@ -280,10 +308,9 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
     run();
   }, [isAll, selectedProjectId, selectedOrgId, startDate, endDate]);
 
-  /** -------------------- KPI cards -------------------- */
+  // ------------------ DERIVED ------------------
   const kpiTotals: MetricBlock = useMemo(() => {
     if (isAll) {
-      // now driven by org MTD
       return {
         requests: orgMTD?.requests ?? 0,
         cost_used: orgMTD?.cost_used ?? 0,
@@ -297,7 +324,6 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
     };
   }, [isAll, orgMTD, projectRangeTotals]);
 
-  /** -------------------- Daywise series -------------------- */
   const daywiseSeries = useMemo(() => {
     if (isAll) {
       const arr = Array.isArray(orgDaywise) ? orgDaywise : [];
@@ -310,22 +336,27 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
     }
     const arr = Array.isArray(projectDaywise) ? projectDaywise : [];
     return arr.map((d: any) => ({
-      x: d.date || d.day || "",
+      x: d.date || "",
       req: d.requests ?? 0,
-      cost: d.cost_used ?? d.cost ?? 0,
+      cost: d.cost ?? 0,
       tokens: d.tokens_used ?? 0,
     }));
   }, [isAll, orgDaywise, projectDaywise]);
 
-  /** -------------------- Donuts -------------------- */
   const donutCostByService = useMemo(() => {
-    if (!isAll) return [{ label: "N/A (project scope)", value: 1 }];
-    const items = (orgByService || []).map((s: any) => ({
+    if (isAll) {
+      const items = (orgByService || []).map((s: any) => ({
+        label: s.service,
+        value: Number(s?.usage?.cost_used ?? 0),
+      }));
+      return items.length ? items : [{ label: "No data", value: 1 }];
+    }
+    const items = (projectSvcBreakdown || []).map((s: any) => ({
       label: s.service,
       value: Number(s?.usage?.cost_used ?? 0),
     }));
     return items.length ? items : [{ label: "No data", value: 1 }];
-  }, [isAll, orgByService]);
+  }, [isAll, orgByService, projectSvcBreakdown]);
 
   const donutCostByProject = useMemo(() => {
     if (isAll) {
@@ -335,16 +366,22 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
       }));
       return items.length ? items : [{ label: "No data", value: 1 }];
     }
-    // project scope: single slice for selected project
-    return [
-      {
-        label: selectedProjectName,
-        value: Number(kpiTotals.cost_used ?? 0),
-      },
-    ];
-  }, [isAll, orgByProject, selectedProjectName, kpiTotals.cost_used]);
+    // project scope -> single slice (from projectProjBreakdown if present, else from totals)
+    const val =
+      Number(
+        (projectProjBreakdown?.[0]?.usage?.cost_used ??
+          kpiTotals.cost_used ??
+          0) as number
+      ) || 0;
+    return [{ label: selectedProjectName, value: val }];
+  }, [
+    isAll,
+    orgByProject,
+    selectedProjectName,
+    kpiTotals.cost_used,
+    projectProjBreakdown,
+  ]);
 
-  /** -------------------- Tables (tabs) -------------------- */
   const projectTabRows: string[][] = useMemo(() => {
     if (isAll) {
       const arr = Array.isArray(orgByProject) ? orgByProject : [];
@@ -355,6 +392,7 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
         formatINR(Number(p?.usage?.cost_used ?? 0)),
       ]);
     }
+    // single project row (from totals)
     return [
       [
         selectedProjectName,
@@ -365,23 +403,32 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
     ];
   }, [isAll, orgByProject, selectedProjectName, kpiTotals]);
 
+  // ✅ Populate Services table for both scopes
   const servicesTabRows: string[][] = useMemo(() => {
-    if (!isAll) return [];
-    const arr = Array.isArray(orgByService) ? orgByService : [];
+    if (isAll) {
+      const arr = Array.isArray(orgByService) ? orgByService : [];
+      return arr.map((s: any) => [
+        s.service,
+        Number(s?.usage?.requests ?? 0).toLocaleString("en-IN"),
+        Number(s?.usage?.tokens_used ?? 0).toLocaleString("en-IN"),
+        formatINR(Number(s?.usage?.cost_used ?? 0)),
+      ]);
+    }
+    const arr = Array.isArray(projectSvcBreakdown) ? projectSvcBreakdown : [];
     return arr.map((s: any) => [
       s.service,
       Number(s?.usage?.requests ?? 0).toLocaleString("en-IN"),
       Number(s?.usage?.tokens_used ?? 0).toLocaleString("en-IN"),
       formatINR(Number(s?.usage?.cost_used ?? 0)),
     ]);
-  }, [isAll, orgByService]);
+  }, [isAll, orgByService, projectSvcBreakdown]);
 
+  // ------------------ RENDER ------------------
   return (
     <DashboardContent maxWidth="xl">
       <Stack spacing={4}>
         {err && <Alert severity="error">{err}</Alert>}
 
-        {/* Filters */}
         <Stack
           direction={{ xs: "column", md: "row" }}
           spacing={2}
@@ -391,7 +438,6 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
           <Typography variant="h4">Usage</Typography>
         </Stack>
 
-        {/* KPI cards (now using org MTD for All Projects) */}
         <Grid container spacing={2}>
           <Grid item xs={12} sm={4}>
             <DataCard
@@ -446,7 +492,6 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
           </Grid>
         </Grid>
 
-        {/* Controls */}
         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
           <FormControl size="small" sx={{ minWidth: 180 }}>
             <InputLabel id="project-select-label">Project</InputLabel>
@@ -471,7 +516,6 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
             </Select>
           </FormControl>
 
-          {/* Range preset */}
           <FormControl size="small" sx={{ minWidth: 160 }}>
             <InputLabel id="range-select-label">Range</InputLabel>
             <Select
@@ -488,7 +532,6 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
             </Select>
           </FormControl>
 
-          {/* Only show date pickers for custom */}
           {rangePreset === "custom" && (
             <>
               <TextField
@@ -511,88 +554,53 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
           )}
         </Stack>
 
-        {/* ROW 1: Line (Cost) + Donut (Cost by Service) */}
+        {/* Row 1 */}
         <Grid container spacing={2} alignItems="stretch">
-          <Grid item xs={12} md={6}>
-            <Box
-              sx={{ height: "100%", display: "flex", flexDirection: "column" }}
-            >
+          <Grid item xs={12} md={8}>
+            <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
               <AppRequestsCostArea
                 title="Cost (Daywise)"
-                subheader={`${
-                  isAll ? "Organization" : "Project"
-                } • ${startDate} → ${endDate}`}
-                data={daywiseSeries.map((d) => {
-                  console.log(daywiseSeries);
-                  return {
-                    x: d.x,
-                    req: d.req,
-                    cost: d.cost,
-                  };
-                })}
-                series = {[
-                    { name: 'Requests', type: 'area' as const, data: daywiseSeries.map((d) => d.req) },
-                    { name: 'Cost ($)', type: 'area' as const, data: daywiseSeries.map((d) => d.cost) },
-                  ]}
-                sx={{ flexGrow: 1 }}
-              />
-            </Box>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Box
-              sx={{ height: "100%", display: "flex", flexDirection: "column" }}
-            >
-              <AppCostByServiceDonut
-                title="Cost by Service"
-                subheader={
-                  isAll
-                    ? "Share of total org cost"
-                    : "Not available for project scope"
-                }
-                chart={{ series: donutCostByService }}
-                sx={{ flexGrow: 1 }}
-                
-              />
-            </Box>
-          </Grid>
-        </Grid>
-
-        {/* ROW 2: Line (Requests) + Donut (Cost by Project) */}
-        <Grid container spacing={2} alignItems="stretch">
-          <Grid item xs={12} md={6}>
-            <Box
-              sx={{ height: "100%", display: "flex", flexDirection: "column" }}
-            >
-              <AppRequestsCostArea
-                title="Requests (Daywise)"
-                subheader={`${
-                  isAll ? "Organization" : "Project"
-                } • ${startDate} → ${endDate}`}
-                data={daywiseSeries.map((d) => ({
-                  x: d.x,
-                  req: d.req,
-                  token : d.tokens,
-                  cost: d.cost
-                }))}
-                series = {[
-                    { name: 'Requests', type: 'area' as const, data: daywiseSeries.map((d) => d.req) },
-                    { name: 'Tokens', type: 'area' as const, data: daywiseSeries.map((d) => d.tokens) },
+                subheader={`${isAll ? "Organization" : "Project"} • ${startDate} → ${endDate}`}
+                data={daywiseSeries.map((d) => ({ x: d.x, req: 0, cost: d.cost }))}
+                series={[
+                  { name: "Cost ($)", type: "column" as const, data: daywiseSeries.map((d) => d.cost) },
                 ]}
                 sx={{ flexGrow: 1 }}
               />
             </Box>
           </Grid>
-          <Grid item xs={12} md={6}>
-            <Box
-              sx={{ height: "100%", display: "flex", flexDirection: "column" }}
-            >
+          <Grid item xs={12} md={4}>
+            <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+              <AppCostByServiceDonut
+                title="Cost by Service"
+                subheader={isAll ? "Share of total org cost" : `Project: ${selectedProjectName}`}
+                chart={{ series: donutCostByService }}
+                sx={{ flexGrow: 1 }}
+              />
+            </Box>
+          </Grid>
+        </Grid>
+
+        {/* Row 2 */}
+        <Grid container spacing={2} alignItems="stretch">
+          <Grid item xs={12} md={8}>
+            <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+              <AppRequestsCostArea
+                title="Requests (Daywise)"
+                subheader={`${isAll ? "Organization" : "Project"} • ${startDate} → ${endDate}`}
+                data={daywiseSeries.map((d) => ({ x: d.x, req: d.req, cost: 0 }))}
+                series={[
+                  { name: "Requests", type: "area" as const, data: daywiseSeries.map((d) => d.req) },
+                ]}
+                sx={{ flexGrow: 1 }}
+              />
+            </Box>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
               <AppCostByServiceDonut
                 title="Cost by Project"
-                subheader={
-                  isAll
-                    ? "Share of total org cost"
-                    : `Project: ${selectedProjectName}`
-                }
+                subheader={isAll ? "Share of total org cost" : `Project: ${selectedProjectName}`}
                 chart={{ series: donutCostByProject }}
                 sx={{ flexGrow: 1 }}
               />
@@ -602,7 +610,6 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
 
         <Divider sx={{ borderStyle: "dashed" }} />
 
-        {/* Table with tabs */}
         <Paper variant="outlined" sx={{ p: 1 }}>
           <Tabs
             value={tab}
@@ -612,7 +619,7 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
             sx={{ borderBottom: 1, borderColor: "divider" }}
           >
             <Tab label="Project" />
-            <Tab label="Services" disabled={!isAll} />
+            <Tab label="Services" />
           </Tabs>
 
           <Box sx={{ p: 2 }}>
@@ -629,27 +636,17 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
             )}
 
             {tab === 1 && (
-              <>
-                {!isAll && (
-                  <Alert severity="info" sx={{ mb: 2 }}>
-                    Per-service breakdown isn’t available in project scope.
-                    Switch Project to “All Projects” to view this tab.
-                  </Alert>
-                )}
-                {isAll && (
-                  <PaginatedTable
-                    columns={["Service", "Requests", "Tokens", "Cost"]}
-                    rows={servicesTabRows}
-                    pageState={tableState}
-                    onChangePage={(page) =>
-                      setTableState((s) => ({ ...s, page }))
-                    }
-                    onChangeRows={(rowsPerPage) =>
-                      setTableState((s) => ({ ...s, rowsPerPage, page: 0 }))
-                    }
-                  />
-                )}
-              </>
+              <PaginatedTable
+                columns={["Service", "Requests", "Tokens", "Cost"]}
+                rows={servicesTabRows}
+                pageState={tableState}
+                onChangePage={(page) =>
+                  setTableState((s) => ({ ...s, page }))
+                }
+                onChangeRows={(rowsPerPage) =>
+                  setTableState((s) => ({ ...s, rowsPerPage, page: 0 }))
+                }
+              />
             )}
           </Box>
         </Paper>

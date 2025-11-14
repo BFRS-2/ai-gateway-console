@@ -28,7 +28,7 @@ export function AppRequestsCostArea({ title, subheader, data, options, series, .
 
   const chartOptions = useChart({
     chart: { stacked: false, toolbar: { show: false } },
-    colors: [theme.palette.info.main, theme.palette.warning.main],
+    colors: [theme.palette.success.main, theme.palette.warning.main],
     xaxis: { categories, labels: { style: { colors: theme.palette.text.secondary } } },
     yaxis: [
       {
@@ -43,8 +43,8 @@ export function AppRequestsCostArea({ title, subheader, data, options, series, .
     ],
     stroke: { width: [2, 2], curve: 'smooth' },
     fill: {
-      type: 'gradient',
-      gradient: { opacityFrom: 0.25, opacityTo: 0, stops: [0, 90] },
+      // type: 'gradient',
+      // gradient: { opacityFrom: 0.25, opacityTo: 0, stops: [0, 90] },
     },
     tooltip: {
       shared: true,
