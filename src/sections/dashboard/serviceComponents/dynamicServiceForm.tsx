@@ -89,7 +89,7 @@ export default function DynamicServiceForm({
   value,
   onChange,
   onSubmit,
-  submitLabel = "Save & Activate",
+  submitLabel = "Save",
 }: {
   schema: ServiceSchema;
   serviceKey: string;

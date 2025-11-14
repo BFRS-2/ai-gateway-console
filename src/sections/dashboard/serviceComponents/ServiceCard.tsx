@@ -329,7 +329,7 @@ export function ServiceCard({
               value={formVal}
               onChange={setFormVal}
               onSubmit={handleSubmit}
-              submitLabel="Save & Activate"
+              submitLabel="Save"
             />
           )}
         </Box>

@@ -246,10 +246,10 @@ const projectService = {
     ) as Promise<ApiKeyGenerateResponse>,
 
   /** POST /api/v1/projects/{{project_id}}/api-key/delete  (expects { api_key }) */
-  deleteApiKey: (project_id: string, api_key: string) =>
+  deleteApiKey: (project_id: string, name: string) =>
     callDeleteApi(
       `/api/v1/projects/${encodeURIComponent(project_id)}/api-key/delete`,
-      { api_key }
+      { name }
     ) as Promise<ApiKeyDeleteResponse>,
 };
 

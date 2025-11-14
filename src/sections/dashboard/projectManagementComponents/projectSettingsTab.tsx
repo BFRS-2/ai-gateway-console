@@ -54,6 +54,28 @@ type ProjectDetails = {
   langfuse_project_name?: string;
 };
 
+// ---- message normalizer: ALWAYS pass strings to React/Notistack
+function toUserMsg(input: unknown, fallback = "Something went wrong") {
+  if (input == null) return fallback;
+  if (typeof input === "string") return input;
+
+  if (typeof input === "object") {
+    const anyObj = input as any;
+    // common shapes
+    if (typeof anyObj.message === "string") return anyObj.message;
+    if (typeof anyObj.error === "string") return anyObj.error;
+    if (typeof anyObj.payload?.message === "string")
+      return anyObj.payload.message;
+    // try to show a compact JSON
+    try {
+      return JSON.stringify(anyObj);
+    } catch {
+      return fallback;
+    }
+  }
+  return String(input);
+}
+
 export function ProjectSettingsTab({
   projectId,
   selectedProject,
@@ -75,11 +97,18 @@ export function ProjectSettingsTab({
 
   // Revoke dialog
   const [revokeOpen, setRevokeOpen] = useState(false);
-  const [pendingRevokeKey, setPendingRevokeKey] = useState<
-    { name: string; key: string } | null
-  >(null);
+  const [pendingRevokeKey, setPendingRevokeKey] = useState<{
+    name: string;
+    key: string;
+  } | null>(null);
 
-  // New key (one-time reveal) modal
+  // Create-key (name input) modal
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newKeyName, setNewKeyName] = useState("");
+  const [creatingKey, setCreatingKey] = useState(false);
+  const [createErr, setCreateErr] = useState<string>("");
+
+  // One-time reveal modal
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [plainNewKey, setPlainNewKey] = useState<string>("");
 
@@ -104,7 +133,6 @@ export function ProjectSettingsTab({
     []
   );
 
-  // ---------- Tooltips copy ----------
   const T = {
     sections: {
       details: "Edit basic properties of your project.",
@@ -143,8 +171,8 @@ export function ProjectSettingsTab({
     try {
       await navigator.clipboard.writeText(text);
       enqueueSnackbar("Copied!", { variant: "success" });
-    } catch {
-      enqueueSnackbar("Copy failed", { variant: "error" });
+    } catch (err) {
+      enqueueSnackbar(toUserMsg(err, "Copy failed"), { variant: "error" });
     }
   };
 
@@ -177,7 +205,10 @@ export function ProjectSettingsTab({
       }
     } catch (err) {
       console.error("getProjectDetails failed", err);
-      enqueueSnackbar("Failed to load project details", { variant: "error" });
+      enqueueSnackbar(
+        toUserMsg(err?.response?.data ?? err, "Failed to load project details"),
+        { variant: "error" }
+      );
       setName(selectedProject?.name || "");
       setApiKeys([]);
     } finally {
@@ -200,7 +231,7 @@ export function ProjectSettingsTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
-  // ---------- Handlers ----------
+  // ---------- Save handlers ----------
   const handleSaveAll = async () => {
     if (!projectId) return;
     if (!name.trim()) {
@@ -226,44 +257,93 @@ export function ProjectSettingsTab({
         window.dispatchEvent(new Event("fetch_org_project"));
         fetchDetails();
       } else {
-        enqueueSnackbar("Failed to update project", { variant: "error" });
+        enqueueSnackbar(toUserMsg(res, "Failed to update project"), {
+          variant: "error",
+        });
       }
     } catch (err) {
-      enqueueSnackbar("Failed to update project", { variant: "error" });
+      enqueueSnackbar(
+        toUserMsg(err?.response?.data ?? err, "Failed to update project"),
+        { variant: "error" }
+      );
     } finally {
       setSaving(false);
     }
   };
 
-  const handleCreateKey = async () => {
-    if (!projectId) return;
-    try {
-      const res = await (projectService as any).addNewApiKey?.(projectId);
-      if (res?.success) {
-        const plain =
-          res?.data?.api_key ||
-          res?.data?.key ||
-          (typeof res?.data === "string" ? res.data : "") ||
-          res?.api_key ||
-          "";
-        if (plain) {
-          setPlainNewKey(plain);
-          setShowKeyModal(true);
-        } else {
-          enqueueSnackbar(
-            "API key created. Backend did not return the secret to display.",
-            { variant: "info" }
-          );
-        }
-        await fetchDetails();
-      } else {
-        enqueueSnackbar("Failed to create API key", { variant: "error" });
-      }
-    } catch (err) {
-      enqueueSnackbar("Failed to create API key", { variant: "error" });
-    }
+  // ---------- Create key: open modal ----------
+  const openCreateKeyModal = () => {
+    setNewKeyName("");
+    setCreateErr("");
+    setCreateOpen(true);
   };
 
+  // ---------- Create key: submit with name ----------
+const submitCreateKey = async () => {
+  if (!projectId) return;
+  const trimmed = newKeyName.trim();
+  if (!trimmed) {
+    setCreateErr("Please enter a key name.");
+    return;
+  }
+  if (trimmed.length > 64) {
+    setCreateErr("Key name must be ≤ 64 characters.");
+    return;
+  }
+
+  setCreatingKey(true);
+  setCreateErr("");
+  try {
+    type CreateKeyResponse = {
+      success: boolean;
+      status_code?: number;
+      data?: {
+        api_key?: { name?: string; key?: string };
+        project?: { id?: string; name?: string };
+      };
+      message?: string;
+      error?: unknown;
+    };
+
+    // Call: addNewApiKey(projectId, { name })
+    const res = (await (projectService as any).addNewApiKey?.(projectId, {
+      name: trimmed,
+    })) as CreateKeyResponse;
+
+    // Log once for debugging (optional)
+    console.log("create key response:", res);
+
+    if (res?.success) {
+      // NEW SHAPE: secret lives at data.api_key.key
+      const plain = res?.data?.api_key?.key ?? "";
+
+      if (plain) {
+        setPlainNewKey(plain);
+        setShowKeyModal(true);
+      } else {
+        enqueueSnackbar(
+          "API key created, but the secret was not returned by the server.",
+          { variant: "info" }
+        );
+      }
+
+      setCreateOpen(false);
+      await fetchDetails(); // refresh list
+      enqueueSnackbar("API key created", { variant: "success" });
+    } else {
+      setCreateErr(
+        toUserMsg(res ?? { message: "Failed to create API key" })
+      );
+    }
+  } catch (err: any) {
+    setCreateErr(
+      toUserMsg(err?.response?.data ?? err, "Failed to create API key")
+    );
+  } finally {
+    setCreatingKey(false);
+  }
+};
+  // ---------- Revoke ----------
   const confirmRevoke = (apiKeyObj: { name: string; key: string }) => {
     setPendingRevokeKey(apiKeyObj);
     setRevokeOpen(true);
@@ -272,15 +352,19 @@ export function ProjectSettingsTab({
   const handleRevoke = async () => {
     if (!pendingRevokeKey) return;
     try {
-      // Assuming backend revokes by key NAME
       const res = await (projectService as any).deleteApiKey?.(
+        projectId,
         pendingRevokeKey.name
       );
       if (res?.success) {
         enqueueSnackbar("API key revoked", { variant: "success" });
-        setApiKeys((prev) => prev.filter((k) => k.name !== pendingRevokeKey.name));
+        setApiKeys((prev) =>
+          prev.filter((k) => k.name !== pendingRevokeKey.name)
+        );
       } else {
-        enqueueSnackbar("Failed to revoke API key", { variant: "error" });
+        enqueueSnackbar(res.error.payload.message, {
+          variant: "error",
+        });
       }
     } catch (err) {
       enqueueSnackbar("Failed to revoke API key", { variant: "error" });
@@ -342,12 +426,14 @@ export function ProjectSettingsTab({
 
       {/* Two-column layout */}
       <Grid container spacing={2} alignItems="stretch">
-        {/* LEFT: Details + Limits (stacked) */}
+        {/* LEFT: Details + Limits */}
         <Grid item xs={12} md={6}>
           <Stack spacing={2} sx={{ height: "100%" }}>
             {/* Project details */}
             <Paper variant="outlined" sx={gradientCard}>
-              <TitleWithInfo info={T.sections.details}>Project details</TitleWithInfo>
+              <TitleWithInfo info={T.sections.details}>
+                Project details
+              </TitleWithInfo>
 
               {loading ? (
                 <Stack spacing={1.2}>
@@ -357,7 +443,7 @@ export function ProjectSettingsTab({
                   <Skeleton height={40} />
                 </Stack>
               ) : (
-                <Stack spacing={1.5}>
+                <Stack spacing={1.5} mt={2}>
                   <TextField
                     label="Project name"
                     size="small"
@@ -377,7 +463,6 @@ export function ProjectSettingsTab({
                     }}
                   />
 
-                  {/* Status with adjacent info icon */}
                   <Stack direction="row" spacing={1} alignItems="center">
                     <FormControl size="small" sx={{ flex: 1 }}>
                       <InputLabel id="status-label">Status</InputLabel>
@@ -390,10 +475,20 @@ export function ProjectSettingsTab({
                         }
                       >
                         <MenuItem value="active">
-                          <Chip size="small" color="success" label="Active" variant="filled" />
+                          <Chip
+                            size="small"
+                            color="success"
+                            label="Active"
+                            variant="filled"
+                          />
                         </MenuItem>
                         <MenuItem value="inactive">
-                          <Chip size="small" color="default" label="Inactive" variant="outlined" />
+                          <Chip
+                            size="small"
+                            color="default"
+                            label="Inactive"
+                            variant="outlined"
+                          />
                         </MenuItem>
                       </Select>
                     </FormControl>
@@ -414,11 +509,18 @@ export function ProjectSettingsTab({
                     onChange={(e) => setDescription(e.target.value)}
                     InputProps={{
                       endAdornment: (
-                        <InputAdornment position="end" sx={{ alignSelf: "flex-start" }}>
+                        <InputAdornment
+                          position="end"
+                          sx={{ alignSelf: "flex-start" }}
+                        >
                           <Tooltip title={T.fields.description}>
                             <InfoOutlinedIcon
                               fontSize="small"
-                              sx={{ color: "text.secondary", cursor: "help", mt: 0.5 }}
+                              sx={{
+                                color: "text.secondary",
+                                cursor: "help",
+                                mt: 0.5,
+                              }}
                             />
                           </Tooltip>
                         </InputAdornment>
@@ -454,9 +556,11 @@ export function ProjectSettingsTab({
               )}
             </Paper>
 
-            {/* Usage & cost limits — LEFT column */}
+            {/* Usage & cost limits */}
             <Paper variant="outlined" sx={gradientCard}>
-              <TitleWithInfo info={T.sections.limits}>Usage & cost limits</TitleWithInfo>
+              <TitleWithInfo info={T.sections.limits}>
+                Usage & cost limits
+              </TitleWithInfo>
 
               {loading ? (
                 <Stack spacing={1.2}>
@@ -516,13 +620,21 @@ export function ProjectSettingsTab({
         {/* RIGHT: API credentials */}
         <Grid item xs={12} md={6}>
           <Paper variant="outlined" sx={{ ...gradientCard, height: "100%" }}>
-            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
+            <Stack
+              direction="row"
+              alignItems="center"
+              justifyContent="space-between"
+              sx={{ mb: 1.5 }}
+            >
               <Stack direction="row" alignItems="center" spacing={0.75}>
                 <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
                   API credentials
                 </Typography>
                 <Tooltip title={T.sections.creds}>
-                  <InfoOutlinedIcon fontSize="small" sx={{ color: "text.secondary" }} />
+                  <InfoOutlinedIcon
+                    fontSize="small"
+                    sx={{ color: "text.secondary" }}
+                  />
                 </Tooltip>
               </Stack>
 
@@ -532,7 +644,7 @@ export function ProjectSettingsTab({
                     size="small"
                     variant="contained"
                     startIcon={<AddRoundedIcon />}
-                    onClick={handleCreateKey}
+                    onClick={openCreateKeyModal}
                     disabled={loading}
                   >
                     Generate new key
@@ -596,7 +708,8 @@ export function ProjectSettingsTab({
         <DialogTitle>Revoke API key?</DialogTitle>
         <DialogContent>
           <Typography variant="body2" sx={{ mt: 0.5 }}>
-            This will immediately disable the selected key. You can’t undo this action.
+            This will immediately disable the selected key. You can’t undo this
+            action.
           </Typography>
           {pendingRevokeKey && (
             <Box
@@ -625,12 +738,68 @@ export function ProjectSettingsTab({
         </DialogActions>
       </Dialog>
 
+      {/* Create-key dialog (enter a name) */}
+      <Dialog
+        open={createOpen}
+        onClose={() => (!creatingKey ? setCreateOpen(false) : null)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>Name your API key</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Choose a descriptive name (e.g., “Backend-service”, “CI Pipeline”,
+            “QA-Laptop”).
+          </Typography>
+          <TextField
+            autoFocus
+            fullWidth
+            label="Key name"
+            size="small"
+            value={newKeyName}
+            onChange={(e) => {
+              setNewKeyName(e.target.value);
+              setCreateErr("");
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                submitCreateKey();
+              }
+            }}
+            inputProps={{ maxLength: 64 }}
+            error={Boolean(createErr)}
+            helperText={
+              createErr || "You’ll see the secret only once after creation."
+            }
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateOpen(false)} disabled={creatingKey}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={submitCreateKey}
+            disabled={creatingKey}
+          >
+            {creatingKey ? "Creating…" : "Create key"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* One-time key reveal modal */}
-      <Dialog open={showKeyModal} onClose={() => setShowKeyModal(false)} fullWidth maxWidth="sm">
+      <Dialog
+        open={showKeyModal}
+        onClose={() => setShowKeyModal(false)}
+        fullWidth
+        maxWidth="sm"
+      >
         <DialogTitle>New API key created</DialogTitle>
         <DialogContent>
           <Alert severity="warning" sx={{ mb: 1 }}>
-            Copy and keep it safe — it <b>cannot be accessed after this screen</b>.
+            Copy and keep it safe — it{" "}
+            <b>cannot be accessed after this screen</b>.
           </Alert>
           <Box
             sx={{
