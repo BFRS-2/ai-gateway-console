@@ -43,7 +43,7 @@ export function ProjectListPanel({
                   p.budgetINR ? (
                     <Stack sx={{ mt: 1 }}>
                       <Typography variant="caption" color="text.secondary">
-                        Budget: ₹{p.budgetINR?.toLocaleString('en-IN')} • Spend (30d): ₹{p.spendINR30d?.toLocaleString('en-IN')}
+                        Budget: ${p.budgetINR?.toLocaleString('en-IN')} • Spend (30d): ${p.spendINR30d?.toLocaleString('en-IN')}
                       </Typography>
                       <LinearProgress
                         variant="determinate"

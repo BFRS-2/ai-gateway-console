@@ -125,7 +125,7 @@ export type GetProjectDetailsResponse = {
 
 /* -------------------- Base paths (NO fallbacks) -------------------- */
 const ORG_USAGE_BASE = "/api/v1/usage/organization";
-const USAGE_BASE = "/api/v1/usage";
+const USAGE_BASE = "/api/v1/usage/";
 
 /* -------------------- Service -------------------- */
 const projectService = {
@@ -251,6 +251,27 @@ const projectService = {
       `/api/v1/projects/${encodeURIComponent(project_id)}/api-key/delete`,
       { name }
     ) as Promise<ApiKeyDeleteResponse>,
+
+  getOrgMTDUsage: (
+    organization_id: string,
+    start_date: string,
+    end_date: string
+  ) =>
+    callGetApi(
+      `/api/v1/usage/?scope=org&organization_id=${encodeURIComponent(
+        organization_id
+      )}&type=mtd&start_date=${encodeURIComponent(
+        start_date
+      )}&end_date=${encodeURIComponent(end_date)}`
+    ) as Promise<
+      Array<{
+        date: string;
+        requests?: number;
+        cost_used?: number;
+        tokens_used?: number;
+      }>
+    >,
+
 };
 
 export default projectService;

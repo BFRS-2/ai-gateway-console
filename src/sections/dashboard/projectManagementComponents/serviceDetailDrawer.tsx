@@ -24,7 +24,7 @@ export function ServiceDetailsDrawer({
           <Divider sx={{ my: 2 }} />
           <Typography variant="subtitle2">Metrics (30d)</Typography>
           <Typography variant="body2">Calls: {service.metrics?.calls30d?.toLocaleString('en-IN')}</Typography>
-          <Typography variant="body2">Cost: ₹{(service.metrics?.costINR30d ?? 0).toLocaleString('en-IN')}</Typography>
+          <Typography variant="body2">Cost: ${(service.metrics?.costINR30d ?? 0).toLocaleString('en-IN')}</Typography>
           {service.metrics?.p95ms && <Typography variant="body2">p95: {service.metrics?.p95ms} ms</Typography>}
           <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
             <Button variant="contained">Save</Button>

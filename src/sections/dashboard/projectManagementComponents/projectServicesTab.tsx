@@ -46,7 +46,7 @@ export function ProjectServicesTab({ project, dense }: { project: Project; dense
                     {s.model ?? s.language ?? '-'}
                   </TableCell>
                   <TableCell>{s.metrics?.calls30d?.toLocaleString('en-IN')}</TableCell>
-                  <TableCell>₹{(s.metrics?.costINR30d ?? 0).toLocaleString('en-IN')}</TableCell>
+                  <TableCell>${(s.metrics?.costINR30d ?? 0).toLocaleString('en-IN')}</TableCell>
                   <TableCell align="right">
                     <IconButton
                       size="small"

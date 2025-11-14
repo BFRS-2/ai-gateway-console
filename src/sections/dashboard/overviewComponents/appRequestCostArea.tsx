@@ -17,16 +17,14 @@ type Props = CardProps & {
   subheader?: string;
   data: Point[]; // [{ x: 'Mon', req: 5200, cost: 38000 }, ...]
   options?: ChartOptions;
+  series :  { name:string, type: string , data: number[] }[]
 };
 
-export function AppRequestsCostArea({ title, subheader, data, options, ...other }: Props) {
+export function AppRequestsCostArea({ title, subheader, data, options, series, ...other }: Props) {
   const theme = useTheme();
 
   const categories = data.map((d) => d.x);
-  const series = [
-    { name: 'Requests', type: 'area' as const, data: data.map((d) => d.req) },
-    { name: 'Cost (₹)', type: 'area' as const, data: data.map((d) => d.cost) },
-  ];
+
 
   const chartOptions = useChart({
     chart: { stacked: false, toolbar: { show: false } },
@@ -39,7 +37,7 @@ export function AppRequestsCostArea({ title, subheader, data, options, ...other 
       },
       {
         opposite: true,
-        title: { text: 'Cost (₹)' },
+        title: { text: 'Cost ($)' },
         labels: { formatter: (v: number) => fNumber(v) },
       },
     ],
@@ -53,7 +51,7 @@ export function AppRequestsCostArea({ title, subheader, data, options, ...other 
       intersect: false,
       y: [
         { formatter: (v: number) => fNumber(v) },
-        { formatter: (v: number) => `₹${fNumber(v)}` },
+        { formatter: (v: number) => `$${fNumber(v)}` },
       ],
     },
     legend: { position: 'top' },

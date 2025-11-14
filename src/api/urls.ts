@@ -22,7 +22,7 @@ const urls = {
   GET_PROJECTS: "/api/v1/projects/setup/",              // <-- your requested key (list & create)
   PROJECTS: "/api/v1/projects/",                 // alternate name used in examples
   PROJECT_BY_ORGANIZATION: "/api/v1/projects/by-organization",
-  PROJECT_USAGE: "/api/v1/usage",            // use with `${PROJECTS}/${projectId}/usage`
+  PROJECT_USAGE: "/api/v1/usage/",            // use with `${PROJECTS}/${projectId}/usage`
   PROJECT_SERVICES: "/api/v1/projects",         // use with `${PROJECT_SERVICES}/${projectId}/services`
   USER_PROJECTS : "/api/v1/user/projects",
 

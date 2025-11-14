@@ -53,7 +53,7 @@ export function ProjectHeader({ team, project, compact = false }: { team: Team; 
         <Grid item xs={6} sm={3}>
           <DataCard
             title="Cost (30d)"
-            value={`₹${(kpis.cost).toLocaleString('en-IN')}`}
+            value={`$${(kpis.cost).toLocaleString('en-IN')}`}
             icon="/assets/icons/glass/wallet.svg"
             styles={{
               background: bgGradient({ direction: '90deg', startColor: '#FFE7D6', endColor: '#FFAF7A', imgUrl: '/assets/icons/glass/pattern.svg', backgroundSize: 'contain' }),
