@@ -460,7 +460,7 @@ const handleCreateOrgFromDialog = async () => {
                 onClick={() => setOrgDialogOpen(true)}
 
               >
-                Create organization
+                Create Organization
               </Button>}
 
               {slots?.leftAreaEnd}
@@ -514,7 +514,7 @@ const handleCreateOrgFromDialog = async () => {
         fullWidth
         maxWidth="xs"
       >
-        <DialogTitle>Create organization</DialogTitle>
+        <DialogTitle>Create Organization</DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
           <TextField
             autoFocus

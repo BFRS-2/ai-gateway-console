@@ -328,7 +328,7 @@ export function ProjectManagementRoot() {
 
         <Box sx={{ flex: 1, overflow: "auto" }}>
           <Tabs value={tab} onChange={(_, v) => setTab(v)}>
-            <Tab label="Project settings" value={0} />
+            <Tab label="Project Settings" value={0} />
             <Tab label="Members" value={1} />
             <Tab label="Services" value={2} />
           </Tabs>
@@ -615,7 +615,7 @@ export function ProjectManagementRoot() {
           }}
         >
           <Tabs value={tab} onChange={(_, v) => setTab(v)}>
-            <Tab label="Project settings" value={0} />
+            <Tab label="Project Settings" value={0} />
             <Tab label="Members" value={1} />
             <Tab label="Services" value={2} />
           </Tabs>

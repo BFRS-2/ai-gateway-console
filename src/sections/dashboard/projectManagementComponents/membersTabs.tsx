@@ -235,6 +235,7 @@ export function MembersTab({
                         <Chip
                           label={u.status.toUpperCase()}
                           color={u.status === "active" ? "success" : "error"}
+                          size="small"
                         ></Chip>
                       </TableCell>
                     </TableRow>

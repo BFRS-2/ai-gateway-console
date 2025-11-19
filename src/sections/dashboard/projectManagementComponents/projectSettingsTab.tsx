@@ -416,7 +416,7 @@ export function ProjectSettingsTab({
       {/* Header */}
       <Box sx={headerGradient}>
         <Typography variant="h5" fontWeight={700}>
-          Project settings
+          Project Settings
         </Typography>
         <Box sx={{ flex: 1 }} />
         <Tooltip title={T.actions.refresh}>
