@@ -259,7 +259,7 @@ export function ProjectSettingsTab({
         window.dispatchEvent(new Event("fetch_org_project"));
         fetchDetails();
       } else {
-        enqueueSnackbar(toUserMsg(res, "Failed to update project"), {
+        enqueueSnackbar(toUserMsg(res.message, "Failed to update project"), {
           variant: "error",
         });
       }
@@ -561,11 +561,6 @@ export function ProjectSettingsTab({
                     }}
                     disabled={!isEdittingAllowed}
                   />
-
-                  <Divider sx={{ my: 1.5 }} />
-                  <Typography variant="caption" color="text.secondary">
-                    Changes are saved to your organization’s workspace.
-                  </Typography>
                 </Stack>
               )}
             </Paper>
@@ -667,7 +662,7 @@ export function ProjectSettingsTab({
                     onClick={openCreateKeyModal}
                     disabled={loading}
                   >
-                    Generate New API Key
+                    Generate API Key
                   </Button>
                 </span>
               </Tooltip>}
@@ -689,7 +684,7 @@ export function ProjectSettingsTab({
                       <ListItem
                         key={item.name}
                         secondaryAction={
-                          !isEdittingAllowed && <Tooltip title="Revoke key">
+                          isEdittingAllowed && <Tooltip title="Revoke key">
                             <IconButton
                               edge="end"
                               onClick={() => confirmRevoke(item)}
@@ -700,6 +695,12 @@ export function ProjectSettingsTab({
                             </IconButton>
                           </Tooltip>
                           }
+                          sx={{
+                            borderBottom  : "1px solid",
+                            borderColor   : "rgba(255,255,255,0.2)",
+                            alignItems    : "flex-start",
+                            py            : 1,
+                          }}
                       >
                         <ListItemText
                           primary={item.name}
