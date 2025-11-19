@@ -220,7 +220,7 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
       const data = await serviceManagementService.getAllServices(
         effectiveProjectId
       );
-      if (data?.success) setServices(data.data.services || []);
+      if (data?.success) setServices(data.data || []);
       else setServices([]);
     } catch {
       setServices([]);

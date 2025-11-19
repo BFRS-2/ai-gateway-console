@@ -69,8 +69,8 @@ const COMMON_DEFAULTS = {
 
 export const serviceSchemas: ServiceSchemas = {
   // === CHAT COMPLETION (kept key as "inference" to avoid breaking callers) ===
-  inference: {
-    service: "inference",
+  "chat completion": {
+    service: "chat completion",
     title: "Configure Chat Completion",
     ui: {
       containerStyle: { width: "70vw", maxWidth: "1100px", margin: "0 auto", padding: "16px 0 32px" },

@@ -42,7 +42,7 @@ const authService = {
     project_id: string
   ) => {
     return callGetApi(
-      `/api/v1/permissions${objectToQueryString({
+      `/api/v1/users/permissions${objectToQueryString({
         organization_id,
         project_id,
       })}`
