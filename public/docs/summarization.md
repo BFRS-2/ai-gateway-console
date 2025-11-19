@@ -8,7 +8,7 @@ This document provides detailed developer documentation for the **Summarization 
 #### Base URL
 
 ```
-{{baseUrl}}
+http://192.168.22.193:8001
 ```
 
 ---
@@ -35,7 +35,7 @@ Content-Type: application/json
 
 **Endpoint:**
 ```
-POST {{baseUrl}}/api/v1/summarization
+POST http://192.168.22.193:8001/api/v1/summarization
 ```
 
 **Description:**
@@ -51,7 +51,7 @@ Generates a concise summary for the provided text input based on the specified `
 
 #### Example cURL
 ```bash
-curl -X POST "{{baseUrl}}/api/v1/summarization" \
+curl -X POST "http://192.168.22.193:8001/api/v1/summarization" \
   -H "Content-Type: application/json" \
   -H "x-api-key: {{project_api_key}}" \
   -d '{
@@ -63,9 +63,18 @@ curl -X POST "{{baseUrl}}/api/v1/summarization" \
 #### Example Response
 ```json
 {
-  "summary": "This is a concise summary capturing the essence of the input text.",
-  "tokens_used": 120,
-  "model": "default"
+  "success": true,
+  "status_code": 200,
+  "data": {
+    "output": {
+      "summary": "This is a concise summary capturing the essence of the input text."
+    },
+    "tokens": {
+      "input": 257,
+      "output": 49,
+      "total": 306
+    }
+  }
 }
 ```
 
@@ -75,7 +84,7 @@ curl -X POST "{{baseUrl}}/api/v1/summarization" \
 
 **Endpoint:**
 ```
-POST {{baseUrl}}/api/v1/summarization
+POST http://192.168.22.193:8001/api/v1/summarization
 ```
 
 **Description:**
@@ -95,7 +104,7 @@ Provides more control over summarization parameters, including model, provider, 
 
 #### Example cURL
 ```bash
-curl -X POST "{{baseUrl}}/api/v1/summarization" \
+curl -X POST "http://192.168.22.193:8001/api/v1/summarization" \
   -H "Content-Type: application/json" \
   -H "x-api-key: {{project_api_key}}" \
   -d '{
@@ -111,11 +120,18 @@ curl -X POST "{{baseUrl}}/api/v1/summarization" \
 #### Example Response
 ```json
 {
-  "summary": "This is an advanced summary of your text.",
-  "tokens_used": 180,
-  "model": "gpt-4o",
-  "provider": "openai",
-  "temperature": 0.7
+  "success": true,
+  "status_code": 200,
+  "data": {
+    "output": {
+      "summary": "This is an advanced summary of your text."
+    },
+    "tokens": {
+      "input": 257,
+      "output": 49,
+      "total": 306
+    }
+  }
 }
 ```
 
@@ -125,7 +141,7 @@ curl -X POST "{{baseUrl}}/api/v1/summarization" \
 
 **Endpoint:**
 ```
-POST {{baseUrl}}/api/v1/summarization
+POST http://192.168.22.193:8001/api/v1/summarization
 ```
 
 **Description:**
@@ -146,7 +162,7 @@ Streams the summary content progressively for real-time display. Ideal for chat-
 
 #### Example cURL
 ```bash
-curl -X POST "{{baseUrl}}/api/v1/summarization" \
+curl -X POST "http://192.168.22.193:8001/api/v1/summarization" \
   -H "Content-Type: application/json" \
   -H "x-api-key: {{project_api_key}}" \
   -d '{
@@ -174,7 +190,7 @@ data: {"status":"completed","summary":"The input text outlines how to summarize 
 
 **Endpoint:**
 ```
-POST {{baseUrl}}/api/v1/summarization?debug=true
+POST http://192.168.22.193:8001/api/v1/summarization?debug=true
 ```
 
 **Description:**
@@ -194,7 +210,7 @@ Enables detailed debug information in the response, including input data, config
 
 #### Example cURL
 ```bash
-curl -X POST "{{baseUrl}}/api/v1/summarization?debug=true" \
+curl -X POST "http://192.168.22.193:8001/api/v1/summarization?debug=true" \
   -H "Content-Type: application/json" \
   -H "x-api-key: {{project_api_key}}" \
   -d '{
@@ -210,17 +226,42 @@ curl -X POST "{{baseUrl}}/api/v1/summarization?debug=true" \
 #### Example Response
 ```json
 {
-  "summary": "This is a debug-enabled summary.",
-  "tokens_used": 200,
-  "model": "gpt-4o",
-  "provider": "openai",
-  "config": {
-    "temperature": 0.7,
-    "max_tokens": 1000,
-    "debug": true
-  },
-  "pii_detected": false,
-  "input_excerpt": "This is a long text that needs to be summarized."
+  "success": true,
+  "status_code": 200,
+  "data": {
+    "input": {
+      "user_prompt": "This is a long text that needs to be summarized. It contains multiple sentences and paragraphs that should be condensed into a shorter version while maintaining the key information and meaning.",
+      "config": {
+        "model": "gpt-4o",
+        "provider": "openai",
+        "system_prompt": "\nYou are an advanced summarization assistant trained to generate clear, contextually accurate, and concise summaries.\n\nYour goal is to distill the most important information from any provided text — whether it's an article, report, transcript, conversation, or document. \nFocus on:\n- Capturing the main ideas, facts, and intent.\n- Preserving the original meaning and tone.\n- Removing redundancy, filler, and irrelevant details.\n- Maintaining logical flow and readability.\n\nAdapt the summarization style and length based on the user's request (e.g., short summary, detailed summary, key bullet points, or executive brief).\n\nAlways ensure your summary stays within the specified word count limit (200 words) while maintaining quality and completeness.\n\nIf no specific format or length is mentioned, provide a balanced, paragraph-style summary that captures all key points within the word limit.\nAlso do not mention word count in the final summary\n",
+        "temperature": 0.7,
+        "max_tokens": 1000
+      }
+    },
+    "output": {
+      "summary": "The text is a lengthy piece that requires summarization. It consists of several sentences and paragraphs that need to be condensed into a shorter version while retaining the essential information and meaning."
+    },
+    "tokens": {
+      "input": 230,
+      "output": 35,
+      "total": 265
+    },
+    "pii_detection": {
+      "user_prompt": {
+        "total_entities": 0,
+        "entity_types": {},
+        "detected_entities": [],
+        "original_text": "This is a long text that needs to be summarized. It contains multiple sentences and paragraphs that should be condensed into a shorter version while maintaining the key information and meaning."
+      },
+      "system_prompt": {
+        "total_entities": 0,
+        "entity_types": {},
+        "detected_entities": [],
+        "original_text": "\nYou are an advanced summarization assistant trained to generate clear, contextually accurate, and concise summaries.\n\nYour goal is to distill the most important information from any provided text — whether it's an article, report, transcript, conversation, or document. \nFocus on:\n- Capturing the main ideas, facts, and intent.\n- Preserving the original meaning and tone.\n- Removing redundancy, filler, and irrelevant details.\n- Maintaining logical flow and readability.\n\nAdapt the summarization style and length based on the user's request (e.g., short summary, detailed summary, key bullet points, or executive brief).\n\nAlways ensure your summary stays within the specified word count limit (200 words) while maintaining quality and completeness.\n\nIf no specific format or length is mentioned, provide a balanced, paragraph-style summary that captures all key points within the word limit.\nAlso do not mention word count in the final summary\n"
+      }
+    }
+  }
 }
 ```
 
@@ -230,7 +271,7 @@ curl -X POST "{{baseUrl}}/api/v1/summarization?debug=true" \
 
 **Endpoint:**
 ```
-POST {{baseUrl}}/api/v1/summarization?debug=true
+POST http://192.168.22.193:8001/api/v1/summarization?debug=true
 ```
 
 **Description:**
@@ -264,9 +305,9 @@ data: {"status":"completed","summary":"Condensed summary with debug trace."}
 
 | Status | Description | Example |
 |--------|--------------|----------|
-| 400 | Invalid input | `{ "error": "Invalid word_count parameter" }` |
-| 401 | Unauthorized / Missing API key | `{ "error": "Unauthorized" }` |
-| 500 | Internal server error | `{ "error": "Unexpected server failure" }` |
+| 400 | Invalid input | `{ "success": false, "status_code": 400, "errors": {}, "message": "Invalid word_count parameter" }` |
+| 401 | Unauthorized / Missing API key | `{ "success": false, "status_code": 401, "errors": {}, "message": "Unauthorized" }` |
+| 500 | Internal server error | `{ "success": false, "status_code": 500, "errors": {}, "message": "Unexpected server failure" }` |
 
 ---
 
