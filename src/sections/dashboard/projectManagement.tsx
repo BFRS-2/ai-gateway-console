@@ -26,6 +26,7 @@ import {
   MenuItem,
 } from "@mui/material";
 import FolderIcon from "@mui/icons-material/Folder";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { useSelector } from "react-redux";
 import { RootState } from "src/stores/store";
 import { useSnackbar } from "notistack";
@@ -75,7 +76,12 @@ export function ProjectManagementRoot() {
   );
   const [inviting, setInviting] = useState(false);
 
-  // pick first project whenever the list changes
+  // API key reveal dialog (after project create)
+  const [apiKeyOpen, setApiKeyOpen] = useState(false);
+  const [newApiKey, setNewApiKey] = useState<string | null>(null);
+  const [newProjectName, setNewProjectName] = useState<string>("");
+
+  // pick first project whenever the list changes (org switch included)
   useEffect(() => {
     if (!projectList.length) {
       setProjectId("");
@@ -98,7 +104,7 @@ export function ProjectManagementRoot() {
   );
 
   // ----------------------------
-  // invite handlers (missing before)
+  // invite handlers
   // ----------------------------
   const handleInviteOpen = () => {
     setInviteEmail("");
@@ -205,7 +211,21 @@ export function ProjectManagementRoot() {
         if (created?.id) {
           setProjectId(created.id);
         }
+
+        // extract API key from response
+        const firstKey =
+          created?.api_keys && created.api_keys.length
+            ? created.api_keys[0].key
+            : null;
+
+        if (firstKey) {
+          setNewApiKey(firstKey);
+          setNewProjectName(created?.name ?? projectName.trim());
+          setApiKeyOpen(true);
+        }
+
         enqueueSnackbar("Project created", { variant: "success" });
+        // trigger org/project refetch so sidebars update
         window.dispatchEvent(new Event("fetch_org_project"));
         setCreateOpen(false);
       } else {
@@ -216,6 +236,16 @@ export function ProjectManagementRoot() {
       enqueueSnackbar("Project creation failed", { variant: "error" });
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleCopyApiKey = async () => {
+    if (!newApiKey) return;
+    try {
+      await navigator.clipboard.writeText(newApiKey);
+      enqueueSnackbar("API key copied", { variant: "success" });
+    } catch {
+      enqueueSnackbar("Failed to copy API key", { variant: "error" });
     }
   };
 
@@ -333,6 +363,40 @@ export function ProjectManagementRoot() {
             >
               {creating ? "Creating..." : "Create"}
             </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* API key reveal dialog (mobile) */}
+        <Dialog
+          open={apiKeyOpen}
+          onClose={() => setApiKeyOpen(false)}
+          fullWidth
+          maxWidth="xs"
+        >
+          <DialogTitle>Project API Key</DialogTitle>
+          <DialogContent sx={{ pt: 1, display: "flex", flexDirection: "column", gap: 2 }}>
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              Project: <b>{newProjectName}</b>
+            </Typography>
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              This API key is shown only once. Store it securely.
+            </Typography>
+            <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+              <TextField
+                fullWidth
+                label="API key"
+                value={newApiKey ?? ""}
+                InputProps={{
+                  readOnly: true,
+                }}
+              />
+              <IconButton onClick={handleCopyApiKey} aria-label="Copy API key">
+                <ContentCopyIcon fontSize="small" />
+              </IconButton>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setApiKeyOpen(false)}>Close</Button>
           </DialogActions>
         </Dialog>
 
@@ -462,9 +526,8 @@ export function ProjectManagementRoot() {
           <Box sx={{ flex: 1, overflowY: "auto" }}>
             {projectList.length ? (
               projectList.map((p) => (
-                <Tooltip title={p.name}>
+                <Tooltip key={p.id} title={p.name}>
                   <Box
-                    key={p.id}
                     onClick={() => setProjectId(p.id)}
                     sx={{
                       px: 1.5,
@@ -568,6 +631,40 @@ export function ProjectManagementRoot() {
           >
             {creating ? "Creating..." : "Create"}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* API key reveal dialog (desktop) */}
+      <Dialog
+        open={apiKeyOpen}
+        onClose={() => setApiKeyOpen(false)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Project API Key</DialogTitle>
+        <DialogContent sx={{ pt: 1, display: "flex", flexDirection: "column", gap: 2 }}>
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            Project: <b>{newProjectName}</b>
+          </Typography>
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            This API key is shown only once. Store it securely.
+          </Typography>
+          <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+            <TextField
+              fullWidth
+              label="API key"
+              value={newApiKey ?? ""}
+              InputProps={{
+                readOnly: true,
+              }}
+            />
+            <IconButton onClick={handleCopyApiKey} aria-label="Copy API key">
+              <ContentCopyIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setApiKeyOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
 

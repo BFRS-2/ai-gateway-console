@@ -200,7 +200,6 @@ export function HeaderBase({
     return state.user.currUser
   });
 
-  console.log("🚀 ~ HeaderBase ~ user:", user)
   useEffect(() => {
     try {
       const token =

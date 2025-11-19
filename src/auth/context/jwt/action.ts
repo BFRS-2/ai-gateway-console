@@ -28,7 +28,6 @@ export const signInWithPassword = async ({ email, password }: SignInParams): Pro
   try {
     const params = { email, password };
     const res = await authService.login(params);
-    console.log("🚀 ~ signInWithPassword ~ res:", res)
     if(!res || res?.success !== true){
       throw new Error('Login failed');
     }
