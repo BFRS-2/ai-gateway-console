@@ -133,9 +133,14 @@ export function ServiceCard({
       serviceManagementService.getAllProviders(),
     ])
       .then(([modelsRes, providersRes]) => {
-        const modelList: ModelRow[] = modelsRes?.data?.models ?? [];
-        const allowedModels = modelList.filter((m) => m.allowed_services.includes(svcKey));
-        const providerList: ProviderRow[] = providersRes?.data?.providers ?? [];
+        const modelList: ModelRow[] = modelsRes?.data ?? [];
+        const allowedModels = modelList.filter((m) => {
+          const normalizedVals = m.allowed_services.map((items) =>
+            items.toLowerCase()
+          );
+          return normalizedVals.includes(svcKey);
+        });
+        const providerList: ProviderRow[] = providersRes?.data ?? [];
         setModels(Array.isArray(allowedModels) ? allowedModels : []);
         setProviders(Array.isArray(providerList) ? providerList : []);
       })

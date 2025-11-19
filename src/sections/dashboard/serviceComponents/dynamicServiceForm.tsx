@@ -109,9 +109,12 @@ export default function DynamicServiceForm({
       (models || [])
         .filter(
           (m) =>
-            m?.status === "active" &&
-            Array.isArray(m.allowed_services) &&
-            m.allowed_services.includes(serviceKey)
+          {
+            const normalizedVals = m.allowed_services.map((items) =>
+            items.toLowerCase()
+          );
+          return normalizedVals.includes(serviceKey) && m?.status === "active";
+        }
         )
         .map((m) => ({ label: m.name, value: m.name, provider: m.provider })),
     [models, serviceKey]
