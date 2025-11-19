@@ -279,10 +279,6 @@ export function ProjectManagementRoot() {
       enqueueSnackbar("Failed to copy API key", { variant: "error" });
     }
   };
-
-  const userPremission = useSelector(
-    (state: RootState) => state.user.userPermission
-  );
   const userRole = useSelector((state: RootState) => state.user.userRole);
 
   // ----------------------------
@@ -548,6 +544,7 @@ export function ProjectManagementRoot() {
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
+              // backgroundColor: "rgba(255,255,255,0.05)",
             }}
           >
             <Typography variant="subtitle2">Projects</Typography>
@@ -565,7 +562,7 @@ export function ProjectManagementRoot() {
 
           <Divider />
 
-          <Box sx={{ flex: 1, overflowY: "auto" }}>
+          <Box sx={{ flex: 1, overflowY: "auto", mt:1 }}>
             {projectList.length ? (
               projectList.map((p) => (
                 <Tooltip key={p.id} title={p.name}>
