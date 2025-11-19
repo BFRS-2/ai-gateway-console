@@ -463,7 +463,7 @@ const submitCreateKey = async () => {
                     }}
                   />
 
-                  <Stack direction="row" spacing={1} alignItems="center">
+                  {/* <Stack direction="row" spacing={1} alignItems="center">
                     <FormControl size="small" sx={{ flex: 1 }}>
                       <InputLabel id="status-label">Status</InputLabel>
                       <Select
@@ -498,7 +498,7 @@ const submitCreateKey = async () => {
                         sx={{ color: "text.secondary", cursor: "help" }}
                       />
                     </Tooltip>
-                  </Stack>
+                  </Stack> */}
 
                   <TextField
                     label="Description"
@@ -529,7 +529,7 @@ const submitCreateKey = async () => {
                   />
 
                   <TextField
-                    label="Log Index"
+                    label="Langfuse Log Index"
                     size="small"
                     value={langfuseProjectName}
                     onChange={(e) => setLangfuseProjectName(e.target.value)}
@@ -563,12 +563,12 @@ const submitCreateKey = async () => {
               </TitleWithInfo>
 
               {loading ? (
-                <Stack spacing={1.2}>
+                <Stack spacing={1.2} sx={{ mt: 2 }} >
                   <Skeleton height={40} />
                   <Skeleton height={40} />
                 </Stack>
               ) : (
-                <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ mt: 2 }}>
                   <TextField
                     label="Daily budget"
                     size="small"
@@ -647,7 +647,7 @@ const submitCreateKey = async () => {
                     onClick={openCreateKeyModal}
                     disabled={loading}
                   >
-                    Generate new key
+                    Generate New API Key
                   </Button>
                 </span>
               </Tooltip>

@@ -122,8 +122,9 @@ export function ServiceCard({
     ])
       .then(([modelsRes, providersRes]) => {
         const modelList: ModelRow[] = modelsRes?.data?.models ?? [];
+        const allowedModels = modelList.filter((m) => m.allowed_services.includes(svcKey));
         const providerList: ProviderRow[] = providersRes?.data?.providers ?? [];
-        setModels(Array.isArray(modelList) ? modelList : []);
+        setModels(Array.isArray(allowedModels) ? allowedModels : []);
         setProviders(Array.isArray(providerList) ? providerList : []);
       })
       .finally(() => setLoading(false));

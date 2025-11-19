@@ -66,24 +66,35 @@ export function ProjectManagementRoot() {
   // invite dialog state
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] =
-    useState<"admin" | "owner" | "member">("member");
-  const [inviteAccess, setInviteAccess] =
-    useState<"read" | "write" | "admin">("read");
+  const [inviteName, setInviteName] = useState("");
+  const [inviteRole, setInviteRole] = useState<"admin" | "owner" | "member">(
+    "member"
+  );
+  const [inviteAccess, setInviteAccess] = useState<"read" | "write" | "admin">(
+    "read"
+  );
   const [inviting, setInviting] = useState(false);
 
   // pick first project whenever the list changes
   useEffect(() => {
-    if (projectList.length) {
-      setProjectId((prev) => prev || projectList[0].id);
-    } else {
+    if (!projectList.length) {
       setProjectId("");
+      return;
     }
+
+    setProjectId((prev) => {
+      // if previous project still exists in the new list, keep it
+      const stillExists = prev && projectList.some((p) => p.id === prev);
+      if (stillExists) return prev;
+
+      // otherwise pick the first project of the new org
+      return projectList[0].id;
+    });
   }, [projectList]);
 
   const selectedProject = useMemo(
     () => projectList.find((p) => p.id === projectId),
-    [projectList, projectId]
+    [projectList, projectId, organizationId]
   );
 
   // ----------------------------
@@ -91,6 +102,7 @@ export function ProjectManagementRoot() {
   // ----------------------------
   const handleInviteOpen = () => {
     setInviteEmail("");
+    setInviteName("");
     setInviteRole("member");
     setInviteAccess("read");
     setInviteOpen(true);
@@ -106,6 +118,10 @@ export function ProjectManagementRoot() {
       enqueueSnackbar("Email is required", { variant: "warning" });
       return;
     }
+    if (!inviteName.trim()) {
+      enqueueSnackbar("Name is required", { variant: "warning" });
+      return;
+    }
     if (!organizationId) {
       enqueueSnackbar("No organization in context", { variant: "error" });
       return;
@@ -115,11 +131,13 @@ export function ProjectManagementRoot() {
     if (inviteRole === "admin") {
       payload = {
         email: inviteEmail.trim(),
+        name: inviteName.trim(),
         role: "admin",
       };
     } else if (inviteRole === "owner") {
       payload = {
         email: inviteEmail.trim(),
+        name: inviteName.trim(),
         role: "owner",
         organization_id: organizationId,
       };
@@ -130,6 +148,7 @@ export function ProjectManagementRoot() {
       }
       payload = {
         email: inviteEmail.trim(),
+        name: inviteName.trim(),
         role: "member",
         organization_id: organizationId,
         project_id: projectId,
@@ -324,16 +343,30 @@ export function ProjectManagementRoot() {
           fullWidth
           maxWidth="xs"
         >
-          <DialogTitle>Invite user</DialogTitle>
+          <DialogTitle>Invite Member</DialogTitle>
           <DialogContent
-            sx={{ pt: 1, display: "flex", flexDirection: "column", gap: 2 }}
+            sx={{ pt: 2, display: "flex", flexDirection: "column", gap: 2 }}
           >
+            <TextField
+              label="Name"
+              type="email"
+              value={inviteName}
+              onChange={(e) => setInviteName(e.target.value)}
+              fullWidth
+              sx={{
+                mt: 2,
+              }}
+            />
+
             <TextField
               label="Email"
               type="email"
               value={inviteEmail}
               onChange={(e) => setInviteEmail(e.target.value)}
               fullWidth
+              sx={{
+                mt: 2,
+              }}
             />
 
             <FormControl fullWidth size="small">
@@ -343,9 +376,7 @@ export function ProjectManagementRoot() {
                 label="Role"
                 value={inviteRole}
                 onChange={(e) =>
-                  setInviteRole(
-                    e.target.value as "admin" | "owner" | "member"
-                  )
+                  setInviteRole(e.target.value as "admin" | "owner" | "member")
                 }
               >
                 <MenuItem value="admin">Admin (platform-wide)</MenuItem>
@@ -432,30 +463,30 @@ export function ProjectManagementRoot() {
             {projectList.length ? (
               projectList.map((p) => (
                 <Tooltip title={p.name}>
-                <Box
-                  key={p.id}
-                  onClick={() => setProjectId(p.id)}
-                  sx={{
-                    px: 1.5,
-                    py: 1,
-                    cursor: "pointer",
-                    bgcolor:
-                      p.id === projectId ? "action.selected" : "transparent",
-                    "&:hover": { bgcolor: "action.hover" },
-                  }}
-                >
-                  <Typography
-                    variant="body2"
+                  <Box
+                    key={p.id}
+                    onClick={() => setProjectId(p.id)}
                     sx={{
-                      maxWidth: "100%",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
+                      px: 1.5,
+                      py: 1,
+                      cursor: "pointer",
+                      bgcolor:
+                        p.id === projectId ? "action.selected" : "transparent",
+                      "&:hover": { bgcolor: "action.hover" },
                     }}
                   >
-                    {p.name}
-                  </Typography>
-                </Box>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        maxWidth: "100%",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {p.name}
+                    </Typography>
+                  </Box>
                 </Tooltip>
               ))
             ) : (
@@ -499,7 +530,7 @@ export function ProjectManagementRoot() {
                 organizationId={organizationId}
                 projectId={projectId}
                 selectedProject={selectedProject}
-                onInvite={handleInviteOpen} 
+                onInvite={handleInviteOpen}
               />
             )}
 
@@ -551,6 +582,17 @@ export function ProjectManagementRoot() {
         <DialogContent
           sx={{ pt: 1, display: "flex", flexDirection: "column", gap: 2 }}
         >
+          <TextField
+            label="Name"
+            type="email"
+            value={inviteName}
+            onChange={(e) => setInviteName(e.target.value)}
+            fullWidth
+            sx={{
+              mt: 2,
+            }}
+          />
+
           <TextField
             label="Email"
             type="email"

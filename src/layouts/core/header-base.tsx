@@ -50,6 +50,7 @@ import {
 
 import AccountPopover from "../components/account-popover";
 import { enqueueSnackbar } from "notistack";
+import { setUser } from "src/stores/slicers/user";
 
 // ----------------------------------------------------------------------
 
@@ -195,7 +196,11 @@ export function HeaderBase({
   const [orgDialogOpen, setOrgDialogOpen] = useState(false);
   const [orgName, setOrgName] = useState("");
   const [creatingOrg, setCreatingOrg] = useState(false);
+  const user = useSelector((state: RootState) => {
+    return state.user.currUser
+  });
 
+  console.log("🚀 ~ HeaderBase ~ user:", user)
   useEffect(() => {
     try {
       const token =
@@ -229,6 +234,8 @@ export function HeaderBase({
       .then((res) => {
         if (res?.success === true) {
           const user = res.data.user;
+
+          dispatch(setUser(user))
           try {
             localStorage.setItem("_user", JSON.stringify(user));
           } catch {}
@@ -445,7 +452,7 @@ const handleCreateOrgFromDialog = async () => {
               <AppSelector />
 
               {/* Create org button */}
-              {isAuthenticated && <Button
+              {isAuthenticated && user?.is_admin && <Button
                 size="small"
                 variant="outlined"
                 color="primary"

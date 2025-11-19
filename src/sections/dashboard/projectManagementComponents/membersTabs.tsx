@@ -168,7 +168,7 @@ export function MembersTab({
         </Typography>
 
         <Button variant="contained" onClick={onInvite} disabled={!projectId}>
-          Invite member
+          Invite Member
         </Button>
       </Box>
 
@@ -213,7 +213,7 @@ export function MembersTab({
                 ) : (
                   <TableRow>
                     <TableCell colSpan={4}>
-                      <Typography variant="body2">No users found.</Typography>
+                      <Typography variant="body2">No Member Found</Typography>
                     </TableCell>
                   </TableRow>
                 )}

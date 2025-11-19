@@ -11,7 +11,12 @@ const MuiDialog: Components<Theme>['MuiDialog'] = {
       boxShadow: theme.customShadows.dialog,
       borderRadius: theme.shape.borderRadius * 2,
       ...(!ownerState.fullScreen && { margin: theme.spacing(2) }),
+      
     }),
+    backdrop: {
+      backgroundColor: "rgba(0, 0, 0, )",
+      backdropFilter: "blur(6px)", //
+    },
     paperFullScreen: { borderRadius: 0 },
   },
 };

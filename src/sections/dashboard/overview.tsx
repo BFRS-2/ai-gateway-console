@@ -349,13 +349,13 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
         label: s.service,
         value: Number(s?.usage?.cost_used ?? 0),
       }));
-      return items.length ? items : [{ label: "No data", value: 1 }];
+      return items.length ? items : [{ label: "No data", value: 0 }];
     }
     const items = (projectSvcBreakdown || []).map((s: any) => ({
       label: s.service,
       value: Number(s?.usage?.cost_used ?? 0),
     }));
-    return items.length ? items : [{ label: "No data", value: 1 }];
+    return items.length ? items : [{ label: "No data", value: 0 }];
   }, [isAll, orgByService, projectSvcBreakdown]);
 
   const donutCostByProject = useMemo(() => {
@@ -435,7 +435,7 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
           alignItems="center"
           justifyContent="space-between"
         >
-          <Typography variant="h4">Usage</Typography>
+          <Typography variant="h4">Billing & Usage</Typography>
         </Stack>
 
         <Grid container spacing={2}>
@@ -587,7 +587,7 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
           <Grid item xs={12} md={4}>
             <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
               <AppCostByServiceDonut
-                title="Preoject Wise Cost"
+                title="Project Wise Cost"
                 subheader={`Project: ${selectedProjectName}`}
                 chart={{ series: donutCostByProject }}
                 sx={{ flexGrow: 1 }}
