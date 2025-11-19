@@ -1,5 +1,6 @@
 import urls from "../urls";
 import { callPostApi, callGetApi } from "../callApi";
+import objectToQueryString from "src/utils/objectToGetParams";
 
 export interface LoginRequest {
   email: string;
@@ -36,6 +37,21 @@ const authService = {
     }>,
   setPassword: (body: SetPasswordBody) =>
     callPostApi("/api/v1/users/set-password", body),
+  getUserPermissionForProjectOrg: (
+    organization_id: string,
+    project_id: string
+  ) => {
+    return callGetApi(
+      `/api/v1/permissions${objectToQueryString({
+        organization_id,
+        project_id,
+      })}`
+    ) as Promise<{
+      success: boolean;
+      data: { role: string; access: string };
+      status_code: number;
+    }>;
+  },
 };
 
 export default authService;

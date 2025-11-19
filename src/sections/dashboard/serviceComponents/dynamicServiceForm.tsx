@@ -27,6 +27,7 @@ type JsonObj = Record<string, any>;
 function getByPath(obj: JsonObj, path: Path) {
   return path.split(".").reduce((acc, k) => (acc ? acc[k] : undefined), obj);
 }
+
 function setByPath(obj: JsonObj, path: Path, value: any) {
   const keys = path.split(".");
   const next = { ...obj };
@@ -197,7 +198,13 @@ export default function DynamicServiceForm({
           <TextField
             fullWidth
             size="small"
-            label={<LabelWithHelp label={label} helpText={f.helpText} variant="body2" />}
+            label={
+              <LabelWithHelp
+                label={label}
+                helpText={f.helpText}
+                variant="body2"
+              />
+            }
             placeholder={f.placeholder}
             value={v ?? f.default ?? ""}
             onChange={(e) => onChange(setByPath(value, path, e.target.value))}
@@ -212,7 +219,13 @@ export default function DynamicServiceForm({
             <TextField
               fullWidth
               size="small"
-              label={<LabelWithHelp label={label} helpText={f.helpText} variant="body2" />}
+              label={
+                <LabelWithHelp
+                  label={label}
+                  helpText={f.helpText}
+                  variant="body2"
+                />
+              }
               placeholder={f.placeholder}
               value={v ?? f.default ?? ""}
               onChange={(e) => onChange(setByPath(value, path, e.target.value))}
@@ -229,7 +242,13 @@ export default function DynamicServiceForm({
           <TextField
             fullWidth
             size="small"
-            label={<LabelWithHelp label={label} helpText={f.helpText} variant="body2" />}
+            label={
+              <LabelWithHelp
+                label={label}
+                helpText={f.helpText}
+                variant="body2"
+              />
+            }
             type="number"
             inputProps={{ min: f.min, max: f.max, step: f.step ?? 1 }}
             value={v ?? f.default ?? ""}
@@ -252,7 +271,13 @@ export default function DynamicServiceForm({
                 }
               />
             }
-            label={<LabelWithHelp label={label} helpText={f.helpText} variant="body2" />}
+            label={
+              <LabelWithHelp
+                label={label}
+                helpText={f.helpText}
+                variant="body2"
+              />
+            }
           />
         );
 
@@ -266,7 +291,10 @@ export default function DynamicServiceForm({
 
         return (
           <Box>
-            <LabelWithHelp label={`${label}: ${current}`} helpText={f.helpText} />
+            <LabelWithHelp
+              label={`${label}: ${current}`}
+              helpText={f.helpText}
+            />
             <Slider
               size="small"
               value={current}
@@ -297,7 +325,13 @@ export default function DynamicServiceForm({
             select
             fullWidth
             size="small"
-            label={<LabelWithHelp label={label} helpText={f.helpText} variant="body2" />}
+            label={
+              <LabelWithHelp
+                label={label}
+                helpText={f.helpText}
+                variant="body2"
+              />
+            }
             value={v ?? f.default ?? ""}
             onChange={(e) => onChange(setByPath(value, path, e.target.value))}
             error={!!errors[path]}
@@ -344,7 +378,10 @@ export default function DynamicServiceForm({
               ))}
             </Select>
             {helper(path, f) && (
-              <Typography variant="caption" color={errors[path] ? "error" : "text.secondary"}>
+              <Typography
+                variant="caption"
+                color={errors[path] ? "error" : "text.secondary"}
+              >
                 {helper(path, f)}
               </Typography>
             )}
@@ -391,7 +428,10 @@ export default function DynamicServiceForm({
               fullWidth
             />
             {helper(path, f) && (
-              <Typography variant="caption" color={errors[path] ? "error" : "text.secondary"}>
+              <Typography
+                variant="caption"
+                color={errors[path] ? "error" : "text.secondary"}
+              >
                 {helper(path, f)}
               </Typography>
             )}
@@ -403,7 +443,13 @@ export default function DynamicServiceForm({
           <TextField
             fullWidth
             size="small"
-            label={<LabelWithHelp label={label} helpText={f.helpText} variant="body2" />}
+            label={
+              <LabelWithHelp
+                label={label}
+                helpText={f.helpText}
+                variant="body2"
+              />
+            }
             value={v ?? f.default ?? ""}
             onChange={(e) => onChange(setByPath(value, path, e.target.value))}
             error={!!errors[path]}
@@ -426,26 +472,26 @@ export default function DynamicServiceForm({
     width: "70vw",
     maxWidth: "1100px",
     margin: "0 auto",
-    padding: "16px 0 32px",
+    padding: "16px 0 24px",
   };
 
   return (
     <Scrollbar>
       <Box sx={containerStyle}>
-        <Stack spacing={3}>
+        <Stack spacing={1.5}>
           {/* groups */}
           {uiGroups.length > 0 &&
             uiGroups.map((group) => (
               <Box
                 key={group.id}
                 sx={{
-                  p: 2.5,
+                  p: 1.5,
                   borderRadius: 2,
                   bgcolor: "background.paper",
-                  boxShadow: "0 6px 18px rgba(0,0,0,0.03)",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.02)",
                   display: "flex",
                   flexDirection: "column",
-                  gap: 2,
+                  gap: 1,
                 }}
               >
                 {/* Group header with tooltip from description */}
@@ -468,7 +514,11 @@ export default function DynamicServiceForm({
 
                 {/* Optional visible subtext */}
                 {group.description ? (
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mt: -0.5 }}
+                  >
                     {group.description}
                   </Typography>
                 ) : null}
@@ -476,8 +526,9 @@ export default function DynamicServiceForm({
                 <Box
                   sx={{
                     display: "grid",
-                    gap: 2,
-                    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                    gap: 1,
+                    gridTemplateColumns:
+                      "repeat(auto-fit, minmax(260px, 1fr))",
                     ...(group.style || {}),
                   }}
                 >
@@ -498,20 +549,26 @@ export default function DynamicServiceForm({
           {leftoverFields.length > 0 && (
             <Box
               sx={{
-                p: 2.5,
+                p: 1.5,
                 borderRadius: 2,
                 bgcolor: "background.paper",
-                boxShadow: "0 6px 18px rgba(0,0,0,0.03)",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.02)",
               }}
             >
-              <Stack direction="row" alignItems="center" gap={1} sx={{ mb: 1 }}>
+              <Stack
+                direction="row"
+                alignItems="center"
+                gap={1}
+                sx={{ mb: 0.75 }}
+              >
                 <Typography variant="subtitle1">Other settings</Typography>
               </Stack>
               <Box
                 sx={{
                   display: "grid",
-                  gap: 2,
-                  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                  gap: 1,
+                  gridTemplateColumns:
+                    "repeat(auto-fit, minmax(260px, 1fr))",
                 }}
               >
                 {leftoverFields.map(([path, fs]) => (

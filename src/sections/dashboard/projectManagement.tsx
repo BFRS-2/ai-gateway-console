@@ -27,7 +27,7 @@ import {
 } from "@mui/material";
 import FolderIcon from "@mui/icons-material/Folder";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "src/stores/store";
 import { useSnackbar } from "notistack";
 import projectService from "src/api/services/project.service";
@@ -36,6 +36,8 @@ import { ProjectListDrawer } from "./projectManagementComponents/projectListDraw
 import { ProjectSettingsTab } from "./projectManagementComponents/projectSettingsTab";
 import { MembersTab } from "./projectManagementComponents/membersTabs";
 import { ServicesTab } from "./projectManagementComponents/servicesTab";
+import authService from "src/api/services/auth.service";
+import { setUserPermissionAndRole } from "src/stores/slicers/user";
 
 export function ProjectManagementRoot() {
   const theme = useTheme();
@@ -98,6 +100,34 @@ export function ProjectManagementRoot() {
     });
   }, [projectList]);
 
+  const dispatch = useDispatch();
+  const getUserPermissionAndRole = async () => {
+    if (!organizationId || !projectId) return;
+
+    try {
+      const res = await authService.getUserPermissionForProjectOrg(
+        organizationId,
+        projectId
+      );
+
+      if (res?.success && res?.data) {
+        // update redux store
+        dispatch(
+          setUserPermissionAndRole({
+            access: res.data.access,
+            role: res.data.role,
+          })
+        );
+      }
+    } catch (err) {
+      console.error("getUserPermissionAndRole failed", err);
+    }
+  };
+
+  useEffect(() => {
+    getUserPermissionAndRole();
+  }, [organizationId, projectId]);
+
   const selectedProject = useMemo(
     () => projectList.find((p) => p.id === projectId),
     [projectList, projectId, organizationId]
@@ -120,14 +150,15 @@ export function ProjectManagementRoot() {
   };
 
   const handleInviteSubmit = async () => {
-    if (!inviteEmail.trim()) {
-      enqueueSnackbar("Email is required", { variant: "warning" });
-      return;
-    }
     if (!inviteName.trim()) {
       enqueueSnackbar("Name is required", { variant: "warning" });
       return;
     }
+    if (!inviteEmail.trim()) {
+      enqueueSnackbar("Email is required", { variant: "warning" });
+      return;
+    }
+
     if (!organizationId) {
       enqueueSnackbar("No organization in context", { variant: "error" });
       return;
@@ -249,6 +280,11 @@ export function ProjectManagementRoot() {
     }
   };
 
+  const userPremission = useSelector(
+    (state: RootState) => state.user.userPermission
+  );
+  const userRole = useSelector((state: RootState) => state.user.userRole);
+
   // ----------------------------
   // MOBILE LAYOUT
   // ----------------------------
@@ -282,9 +318,11 @@ export function ProjectManagementRoot() {
 
             <Box sx={{ flex: 1 }} />
 
-            <Button size="small" onClick={handleOpenCreate}>
-              New
-            </Button>
+            {["admin", "owner"].includes(userRole || "") && (
+              <Button size="small" onClick={handleOpenCreate}>
+                New
+              </Button>
+            )}
           </Toolbar>
         </AppBar>
 
@@ -374,7 +412,9 @@ export function ProjectManagementRoot() {
           maxWidth="xs"
         >
           <DialogTitle>Project API Key</DialogTitle>
-          <DialogContent sx={{ pt: 1, display: "flex", flexDirection: "column", gap: 2 }}>
+          <DialogContent
+            sx={{ pt: 1, display: "flex", flexDirection: "column", gap: 2 }}
+          >
             <Typography variant="body2" sx={{ color: "text.secondary" }}>
               Project: <b>{newProjectName}</b>
             </Typography>
@@ -511,14 +551,16 @@ export function ProjectManagementRoot() {
             }}
           >
             <Typography variant="subtitle2">Projects</Typography>
-            <Button
-              size="small"
-              variant="outlined"
-              color="primary"
-              onClick={handleOpenCreate}
-            >
-              Create
-            </Button>
+            {["admin", "owner"].includes(userRole || "") && (
+              <Button
+                size="small"
+                variant="outlined"
+                color="primary"
+                onClick={handleOpenCreate}
+              >
+                Create
+              </Button>
+            )}
           </Box>
 
           <Divider />
@@ -642,7 +684,9 @@ export function ProjectManagementRoot() {
         maxWidth="xs"
       >
         <DialogTitle>Project API Key</DialogTitle>
-        <DialogContent sx={{ pt: 1, display: "flex", flexDirection: "column", gap: 2 }}>
+        <DialogContent
+          sx={{ pt: 1, display: "flex", flexDirection: "column", gap: 2 }}
+        >
           <Typography variant="body2" sx={{ color: "text.secondary" }}>
             Project: <b>{newProjectName}</b>
           </Typography>
@@ -675,7 +719,7 @@ export function ProjectManagementRoot() {
         fullWidth
         maxWidth="xs"
       >
-        <DialogTitle>Invite user</DialogTitle>
+        <DialogTitle>Invite Member</DialogTitle>
         <DialogContent
           sx={{ pt: 1, display: "flex", flexDirection: "column", gap: 2 }}
         >

@@ -225,6 +225,7 @@ export function HeaderBase({
     }
   }, [selected?.organizationId]);
 
+
   useEffect(() => {
     if (!isAuthenticated) return;
 

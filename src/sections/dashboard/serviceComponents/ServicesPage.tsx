@@ -28,6 +28,8 @@ import serviceManagementService from "src/api/services/serviceManagement.service
 import projectService from "src/api/services/project.service";
 import { SavedServiceConfig } from "src/api/services/addService.service";
 import Markdown from "src/components/markdown";
+import { useSelector } from "react-redux";
+import { RootState } from "src/stores/store";
 
 /* --------------------------------- Consts --------------------------------- */
 
@@ -79,7 +81,7 @@ function useMarkdown(path?: string) {
           setContent(text);
           setLoading(false);
         }
-      } catch (e: any) {
+      } catch (e) {
         if (!cancelled) {
           setError(e?.message || "Unable to load documentation");
           setLoading(false);
@@ -152,7 +154,11 @@ function MDViewer({ path, fallback }: { path?: string; fallback?: string }) {
           <Skeleton variant="text" height={24} />
           <Skeleton variant="text" height={24} width="92%" />
           <Skeleton variant="text" height={24} width="88%" />
-          <Skeleton variant="rectangular" height={140} sx={{ borderRadius: 1 }} />
+          <Skeleton
+            variant="rectangular"
+            height={140}
+            sx={{ borderRadius: 1 }}
+          />
           <Skeleton variant="text" height={24} width="76%" />
           <Skeleton variant="text" height={24} width="70%" />
         </Stack>
@@ -198,7 +204,9 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
   const [drawerService, setDrawerService] = useState<Service | null>(null);
 
   const [services, setServices] = useState<Service[]>([]);
-  const [activeServices, setActiveServices] = useState<SavedServiceConfig[]>([]);
+  const [activeServices, setActiveServices] = useState<SavedServiceConfig[]>(
+    []
+  );
   const [servicesLoading, setServicesLoading] = useState(false); // ← loader flag
   const [projectServicesLoading, setProjectServicesLoading] = useState(false); // (optional) separate flag
 
@@ -209,7 +217,9 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
     if (!effectiveProjectId) return;
     setServicesLoading(true);
     try {
-      const data = await serviceManagementService.getAllServices(effectiveProjectId);
+      const data = await serviceManagementService.getAllServices(
+        effectiveProjectId
+      );
       if (data?.success) setServices(data.data.services || []);
       else setServices([]);
     } catch {
@@ -297,21 +307,21 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
             }}
           />
 
-            <TextField
-              select
-              size="small"
-              label="Status"
-              value={status}
-              onChange={(e) => setStatus(e.target.value as any)}
-              sx={{ minWidth: 200 }}
-              disabled={servicesLoading}
-            >
-              {STATUS_FILTER.map((s) => (
-                <MenuItem key={s} value={s}>
-                  {s}
-                </MenuItem>
-              ))}
-            </TextField>
+          <TextField
+            select
+            size="small"
+            label="Status"
+            value={status}
+            onChange={(e) => setStatus(e.target.value as any)}
+            sx={{ minWidth: 200 }}
+            disabled={servicesLoading}
+          >
+            {STATUS_FILTER.map((s) => (
+              <MenuItem key={s} value={s}>
+                {s}
+              </MenuItem>
+            ))}
+          </TextField>
         </Stack>
       </Paper>
 

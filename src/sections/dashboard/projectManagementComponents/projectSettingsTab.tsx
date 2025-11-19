@@ -37,6 +37,8 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { useEffect, useMemo, useState } from "react";
 import { useSnackbar } from "notistack";
 import projectService from "src/api/services/project.service";
+import { useSelector } from "react-redux";
+import { RootState } from "src/stores/store";
 
 type ProjectSettingsTabProps = {
   projectId: string;
@@ -279,70 +281,68 @@ export function ProjectSettingsTab({
   };
 
   // ---------- Create key: submit with name ----------
-const submitCreateKey = async () => {
-  if (!projectId) return;
-  const trimmed = newKeyName.trim();
-  if (!trimmed) {
-    setCreateErr("Please enter a key name.");
-    return;
-  }
-  if (trimmed.length > 64) {
-    setCreateErr("Key name must be ≤ 64 characters.");
-    return;
-  }
-
-  setCreatingKey(true);
-  setCreateErr("");
-  try {
-    type CreateKeyResponse = {
-      success: boolean;
-      status_code?: number;
-      data?: {
-        api_key?: { name?: string; key?: string };
-        project?: { id?: string; name?: string };
-      };
-      message?: string;
-      error?: unknown;
-    };
-
-    // Call: addNewApiKey(projectId, { name })
-    const res = (await (projectService as any).addNewApiKey?.(projectId, {
-      name: trimmed,
-    })) as CreateKeyResponse;
-
-    // Log once for debugging (optional)
-    console.log("create key response:", res);
-
-    if (res?.success) {
-      // NEW SHAPE: secret lives at data.api_key.key
-      const plain = res?.data?.api_key?.key ?? "";
-
-      if (plain) {
-        setPlainNewKey(plain);
-        setShowKeyModal(true);
-      } else {
-        enqueueSnackbar(
-          "API key created, but the secret was not returned by the server.",
-          { variant: "info" }
-        );
-      }
-
-      setCreateOpen(false);
-      await fetchDetails(); // refresh list
-      enqueueSnackbar("API key created", { variant: "success" });
-    } else {
-      setCreateErr(
-        toUserMsg(res ?? { message: "Failed to create API key" })
-      );
+  const submitCreateKey = async () => {
+    if (!projectId) return;
+    const trimmed = newKeyName.trim();
+    if (!trimmed) {
+      setCreateErr("Please enter a key name.");
+      return;
     }
-  } catch (err: any) {
-    setCreateErr(
-      toUserMsg(err?.response?.data ?? err, "Failed to create API key")
-    );
-  } finally {
-    setCreatingKey(false);
-  }
-};
+    if (trimmed.length > 64) {
+      setCreateErr("Key name must be ≤ 64 characters.");
+      return;
+    }
+
+    setCreatingKey(true);
+    setCreateErr("");
+    try {
+      type CreateKeyResponse = {
+        success: boolean;
+        status_code?: number;
+        data?: {
+          api_key?: { name?: string; key?: string };
+          project?: { id?: string; name?: string };
+        };
+        message?: string;
+        error?: unknown;
+      };
+
+      // Call: addNewApiKey(projectId, { name })
+      const res = (await (projectService as any).addNewApiKey?.(projectId, {
+        name: trimmed,
+      })) as CreateKeyResponse;
+
+      // Log once for debugging (optional)
+      console.log("create key response:", res);
+
+      if (res?.success) {
+        // NEW SHAPE: secret lives at data.api_key.key
+        const plain = res?.data?.api_key?.key ?? "";
+
+        if (plain) {
+          setPlainNewKey(plain);
+          setShowKeyModal(true);
+        } else {
+          enqueueSnackbar(
+            "API key created, but the secret was not returned by the server.",
+            { variant: "info" }
+          );
+        }
+
+        setCreateOpen(false);
+        await fetchDetails(); // refresh list
+        enqueueSnackbar("API key created", { variant: "success" });
+      } else {
+        setCreateErr(toUserMsg(res ?? { message: "Failed to create API key" }));
+      }
+    } catch (err) {
+      setCreateErr(
+        toUserMsg(err?.response?.data ?? err, "Failed to create API key")
+      );
+    } finally {
+      setCreatingKey(false);
+    }
+  };
   // ---------- Revoke ----------
   const confirmRevoke = (apiKeyObj: { name: string; key: string }) => {
     setPendingRevokeKey(apiKeyObj);
@@ -373,6 +373,17 @@ const submitCreateKey = async () => {
       setPendingRevokeKey(null);
     }
   };
+
+  const userRole = useSelector((state: RootState) => state.user.userRole);
+  const userPermission = useSelector(
+    (state: RootState) => state.user.userPermission
+  );
+
+  const isEdittingAllowed = useMemo(() => {
+    if (userRole === "admin" || userRole === "owner") return true;
+    if (userRole === "member" && userPermission === "write") return true;
+    return false;
+  }, [userRole, userPermission]);
 
   // ---------- Render ----------
   if (!projectId) {
@@ -413,7 +424,7 @@ const submitCreateKey = async () => {
             <RefreshRoundedIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Button
+        {isEdittingAllowed && <Button
           variant="contained"
           startIcon={<CheckCircleRoundedIcon />}
           onClick={handleSaveAll}
@@ -421,7 +432,7 @@ const submitCreateKey = async () => {
           sx={{ ml: 1 }}
         >
           Save changes
-        </Button>
+        </Button>}
       </Box>
 
       {/* Two-column layout */}
@@ -461,6 +472,7 @@ const submitCreateKey = async () => {
                         </InputAdornment>
                       ),
                     }}
+                    disabled={!isEdittingAllowed}
                   />
 
                   {/* <Stack direction="row" spacing={1} alignItems="center">
@@ -526,6 +538,7 @@ const submitCreateKey = async () => {
                         </InputAdornment>
                       ),
                     }}
+                    disabled={!isEdittingAllowed}
                   />
 
                   <TextField
@@ -546,6 +559,7 @@ const submitCreateKey = async () => {
                         </InputAdornment>
                       ),
                     }}
+                    disabled={!isEdittingAllowed}
                   />
 
                   <Divider sx={{ my: 1.5 }} />
@@ -563,12 +577,16 @@ const submitCreateKey = async () => {
               </TitleWithInfo>
 
               {loading ? (
-                <Stack spacing={1.2} sx={{ mt: 2 }} >
+                <Stack spacing={1.2} sx={{ mt: 2 }}>
                   <Skeleton height={40} />
                   <Skeleton height={40} />
                 </Stack>
               ) : (
-                <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ mt: 2 }}>
+                <Stack
+                  direction={{ xs: "column", sm: "row" }}
+                  spacing={1.5}
+                  sx={{ mt: 2 }}
+                >
                   <TextField
                     label="Daily budget"
                     size="small"
@@ -577,6 +595,7 @@ const submitCreateKey = async () => {
                     value={daily}
                     onChange={(e) => setDaily(e.target.value)}
                     fullWidth
+                    disabled={!isEdittingAllowed}
                     InputProps={{
                       endAdornment: (
                         <InputAdornment position="end">
@@ -598,6 +617,7 @@ const submitCreateKey = async () => {
                     value={monthly}
                     onChange={(e) => setMonthly(e.target.value)}
                     fullWidth
+                    disabled={!isEdittingAllowed}
                     InputProps={{
                       endAdornment: (
                         <InputAdornment position="end">
@@ -638,7 +658,7 @@ const submitCreateKey = async () => {
                 </Tooltip>
               </Stack>
 
-              <Tooltip title={T.actions.genKey}>
+             {isEdittingAllowed && <Tooltip title={T.actions.genKey}>
                 <span>
                   <Button
                     size="small"
@@ -650,7 +670,7 @@ const submitCreateKey = async () => {
                     Generate New API Key
                   </Button>
                 </span>
-              </Tooltip>
+              </Tooltip>}
             </Stack>
 
             <Divider sx={{ mb: 1 }} />
@@ -669,7 +689,7 @@ const submitCreateKey = async () => {
                       <ListItem
                         key={item.name}
                         secondaryAction={
-                          <Tooltip title="Revoke key">
+                          !isEdittingAllowed && <Tooltip title="Revoke key">
                             <IconButton
                               edge="end"
                               onClick={() => confirmRevoke(item)}
@@ -679,7 +699,7 @@ const submitCreateKey = async () => {
                               <DeleteIcon fontSize="inherit" />
                             </IconButton>
                           </Tooltip>
-                        }
+                          }
                       >
                         <ListItemText
                           primary={item.name}

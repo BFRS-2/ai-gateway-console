@@ -18,6 +18,8 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSnackbar } from "notistack";
 import userManagementService from "src/api/services/user.service";
+import { useSelector } from "react-redux";
+import { RootState } from "src/stores/store";
 
 type ApiUser = {
   id: string;
@@ -148,7 +150,22 @@ export function MembersTab({
   useEffect(() => {
     return () => abortRef.current?.abort();
   }, []);
+  const userRole = useSelector((state: RootState) => {
+    return state.user.userRole;
+  });
+  console.log("🚀 ~ MembersTab ~ userRole:", userRole)
+  const userPermission = useSelector(
+    (state: RootState) => state.user.userPermission
+  );
+  console.log("🚀 ~ MembersTab ~ userPermission:", userPermission)
 
+  const isEdittingAllowed = useMemo(() => {
+    
+    if (userRole === "admin" || userRole === "owner") return true;
+    if (userRole === "member" && userPermission === "write") return true;
+    return false;
+  }, [userRole, userPermission]);
+  console.log("🚀 ~ MembersTab ~ isEdittingAllowed:", isEdittingAllowed)
   return (
     <Box sx={{ p: 2 }}>
       <Box
@@ -161,15 +178,22 @@ export function MembersTab({
         }}
       >
         <Typography variant="h4">
-          Members for : {(() => {
+          Members for :{" "}
+          {(() => {
             const name = selectedProject?.name ?? "";
-            return name ? (name.length > 20 ? `${name.slice(0, 20)}...` : name) : "Current context";
+            return name
+              ? name.length > 20
+                ? `${name.slice(0, 20)}...`
+                : name
+              : "Current context";
           })()}
         </Typography>
 
-        <Button variant="contained" onClick={onInvite} disabled={!projectId}>
-          Invite Member
-        </Button>
+        {isEdittingAllowed && (
+          <Button variant="contained" onClick={onInvite} disabled={!projectId}>
+            Invite Member
+          </Button>
+        )}
       </Box>
 
       <TextField
@@ -207,7 +231,12 @@ export function MembersTab({
                           ? "admin"
                           : u.organizations?.[0]?.role || "member"}
                       </TableCell>
-                      <TableCell><Chip label={u.status.toUpperCase()} color={u.status === "active" ? "success" : "error"}></Chip></TableCell>
+                      <TableCell>
+                        <Chip
+                          label={u.status.toUpperCase()}
+                          color={u.status === "active" ? "success" : "error"}
+                        ></Chip>
+                      </TableCell>
                     </TableRow>
                   ))
                 ) : (

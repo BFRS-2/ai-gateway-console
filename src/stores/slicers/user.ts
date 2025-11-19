@@ -1,4 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
+import { set } from "nprogress";
 import { UserInfo } from "src/api/services/auth.service";
 
 interface Consent {
@@ -7,7 +8,9 @@ interface Consent {
 
 const initialState: {
   currUser: UserInfo | null;
-} = { currUser: null };
+  userPermission : "read" | "write" | null
+  userRole : "admin" | "owner" | "member" | null
+} = { currUser: null, userPermission: null, userRole: null };
 export const userSlice = createSlice({
   name: "user_slice",
   initialState,
@@ -15,8 +18,12 @@ export const userSlice = createSlice({
     setUser: (state, action) => {
       state.currUser = action.payload;
     },
+    setUserPermissionAndRole : (state, action) => {
+      state.userPermission = action.payload.access;
+      state.userRole = action.payload.role;
+    }
   },
 });
-export const { setUser } = userSlice.actions;
+export const { setUser, setUserPermissionAndRole } = userSlice.actions;
 
 export default userSlice.reducer;

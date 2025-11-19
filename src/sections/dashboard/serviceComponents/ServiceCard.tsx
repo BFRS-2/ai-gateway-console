@@ -21,7 +21,7 @@ import {
 import LaunchIcon from "@mui/icons-material/Launch";
 import SettingsIcon from "@mui/icons-material/Settings";
 import CloseIcon from "@mui/icons-material/Close";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import serviceManagementService from "src/api/services/serviceManagement.service";
 import { serviceSchemas } from "./serviceschema";
@@ -81,6 +81,18 @@ export function ServiceCard({
   const effectiveProjectId = projectId || "";
 
   const { enqueueSnackbar } = useSnackbar();
+
+
+  const userRole = useSelector((state: RootState) => state.user.userRole);
+  const userPermission = useSelector(
+    (state: RootState) => state.user.userPermission
+  );
+
+  const isEdittingAllowed = useMemo(() => {
+    if (userRole === "admin" || userRole === "owner") return true;
+    if (userRole === "member" && userPermission === "write") return true;
+    return false;
+  }, [userRole, userPermission]);
 
   const computeInitialForm = () => {
     if (!schema) return {};
@@ -221,7 +233,7 @@ export function ServiceCard({
           title={service.name}
           // ⬇️ removed subheader to allow full-width description below
           action={
-            <FormControlLabel
+            isEdittingAllowed && <FormControlLabel
               control={
                 <Switch
                   checked={service.is_active}
@@ -276,14 +288,14 @@ export function ServiceCard({
             >
               Open Docs
             </Button>
-            <Button
+            {isEdittingAllowed && <Button
               size="small"
               variant="outlined"
               startIcon={<SettingsIcon />}
               onClick={openConfigDrawer}
             >
               Configure
-            </Button>
+            </Button>}
           </Stack>
         </CardContent>
       </Card>
