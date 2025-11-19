@@ -102,12 +102,11 @@ export function ProjectManagementRoot() {
 
   const dispatch = useDispatch();
   const getUserPermissionAndRole = async () => {
-    if (!organizationId || !projectId) return;
-
-    try {
+    if (organizationId || selectedProject?.id){
+      try {
       const res = await authService.getUserPermissionForProjectOrg(
-        organizationId,
-        projectId
+        organizationId || "",
+        selectedProject?.id || ""
       );
 
       if (res?.success && res?.data) {
@@ -122,16 +121,20 @@ export function ProjectManagementRoot() {
     } catch (err) {
       console.error("getUserPermissionAndRole failed", err);
     }
+    };
   };
 
-  useEffect(() => {
-    getUserPermissionAndRole();
-  }, [organizationId, projectId]);
+ 
 
   const selectedProject = useMemo(
     () => projectList.find((p) => p.id === projectId),
     [projectList, projectId, organizationId]
   );
+
+
+   useEffect(() => {
+    getUserPermissionAndRole();
+  }, [organizationId, selectedProject?.id]);
 
   // ----------------------------
   // invite handlers

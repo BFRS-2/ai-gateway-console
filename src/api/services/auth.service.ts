@@ -38,8 +38,8 @@ const authService = {
   setPassword: (body: SetPasswordBody) =>
     callPostApi("/api/v1/users/set-password", body),
   getUserPermissionForProjectOrg: (
-    organization_id: string,
-    project_id: string
+    organization_id : string,
+    project_id : string
   ) => {
     return callGetApi(
       `/api/v1/users/permissions${objectToQueryString({
