@@ -76,3 +76,15 @@ input[type='number']::-webkit-inner-spin-button {
   margin: 0;
   -webkit-appearance: none;
 }
+.docs_container table tr td{
+  /* min-width: 250px; */
+  word-break: normal;
+}
+.docs_container table{
+  max-width: 100%;
+ 
+}
+.docs_container table code{
+white-space: pre-wrap;
+  word-break: break-word;  
+}

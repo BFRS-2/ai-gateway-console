@@ -187,7 +187,7 @@ function MDViewer({ path, fallback }: { path?: string; fallback?: string }) {
   }
 
   return (
-    <Box sx={{ "& *": { wordBreak: "break-word" } }}>
+    <Box sx={{ overflowY: "hidden" }} className="docs_container">
       <Markdown>{content || ""}</Markdown>
     </Box>
   );
@@ -452,7 +452,7 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
           </IconButton>
         </Box>
 
-        <Box sx={{ p: 2, height: "100%", overflowY: "auto" }}>
+        <Box sx={{ p: 2, height: "100%", overflowY: "auto" }} >
           {drawerService ? (
             <Stack spacing={2}>
               <MDViewer
