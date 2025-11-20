@@ -51,6 +51,7 @@ import {
 import AccountPopover from "../components/account-popover";
 import { enqueueSnackbar } from "notistack";
 import { setUser } from "src/stores/slicers/user";
+import { hasValidCharacter } from "src/utils/hasValidCharacter";
 
 // ----------------------------------------------------------------------
 
@@ -369,7 +370,31 @@ export function HeaderBase({
 
   // new: handle create org from dialog
 const handleCreateOrgFromDialog = async () => {
-  if (!orgName.trim()) return;
+  if (!orgName.trim()) {
+    enqueueSnackbar("Organization name cannot be empty", { variant: "warning" });
+    return;
+  };
+
+   if (orgName.trim().length < 2) {
+        enqueueSnackbar("Langfuse log index should be atleast of 2 characters", {
+          variant: "warning",
+        });
+        return;
+      }
+      if (orgName.trim().length > 90) {
+        enqueueSnackbar("Langfuse log index should atmost be of 90 characters", {
+          variant: "warning",
+        });
+        return;
+      }
+      if (hasValidCharacter(orgName.trim()) === false) {
+        enqueueSnackbar(
+          "Project name should not contain special characters except hyphen(-) and underscore(_).",
+          { variant: "warning" }
+        );
+        return;
+      }
+  
   try {
     setCreatingOrg(true);
     const res = await organizationService.create({

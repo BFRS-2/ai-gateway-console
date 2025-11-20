@@ -33,9 +33,9 @@ import { callGetApi } from "src/api/callApi"; // uses same auth/baseURL layer
 type MetricBlock = { cost_used: number; requests: number; tokens_used: number };
 
 const formatINR = (n: number) =>
-  new Intl.NumberFormat("en-IN", {
+  new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: "INR",
+    currency: "USD",
     maximumFractionDigits: 2,
   }).format(Number.isFinite(n) ? n : 0);
 

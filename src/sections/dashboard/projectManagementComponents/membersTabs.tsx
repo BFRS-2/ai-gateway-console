@@ -103,6 +103,7 @@ export function MembersTab({
           setUsers(items);
           setUserTotal(total);
         } else {
+          
           setUsers([]);
           setUserTotal(0);
         }

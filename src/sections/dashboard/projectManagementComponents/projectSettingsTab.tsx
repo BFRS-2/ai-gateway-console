@@ -39,6 +39,7 @@ import { useSnackbar } from "notistack";
 import projectService from "src/api/services/project.service";
 import { useSelector } from "react-redux";
 import { RootState } from "src/stores/store";
+import { hasValidCharacter } from "src/utils/hasValidCharacter";
 
 type ProjectSettingsTabProps = {
   projectId: string;
@@ -54,6 +55,27 @@ type ProjectDetails = {
   status?: "active" | "inactive";
   api_keys?: { name: string; key: string }[];
   langfuse_project_name?: string;
+  langfuse_status?: "active" | "default" | "pending" | "disabled" | string;
+  alert_limit?: { daily?: number; monthly?: number };
+};
+
+/* --------- Helpers for Langfuse index prefix/suffix handling --------- */
+
+const normalizeSegment = (value?: string | null) =>
+  (value ?? "").replace(/\s+/g, "");
+
+const getLangfusePrefix = (orgName?: string | null, projectName?: string | null) => {
+  const orgSegment = normalizeSegment(orgName);
+  const projectSegment = normalizeSegment(projectName);
+  return [orgSegment, projectSegment].filter(Boolean).join("-");
+};
+
+const splitLangfuseIndex = (fullIndex: string, prefix: string) => {
+  if (!fullIndex) return { suffix: "" };
+  if (prefix && fullIndex.startsWith(`${prefix}-`)) {
+    return { suffix: fullIndex.slice(prefix.length + 1) };
+  }
+  return { suffix: fullIndex };
 };
 
 // ---- message normalizer: ALWAYS pass strings to React/Notistack
@@ -96,6 +118,9 @@ export function ProjectSettingsTab({
   const [langfuseProjectName, setLangfuseProjectName] = useState<string>("");
 
   const [apiKeys, setApiKeys] = useState<{ name: string; key: string }[]>([]);
+  const [langfuseStatus, setLangfuseStatus] = useState<
+    "active" | "default" | "pending" | "disabled" | undefined
+  >(undefined);
 
   // Revoke dialog
   const [revokeOpen, setRevokeOpen] = useState(false);
@@ -109,6 +134,11 @@ export function ProjectSettingsTab({
   const [newKeyName, setNewKeyName] = useState("");
   const [creatingKey, setCreatingKey] = useState(false);
   const [createErr, setCreateErr] = useState<string>("");
+
+  const orgName = useSelector(
+    (state: RootState) =>
+      state.orgProject.selectedOrganizationProject?.organizationName
+  );
 
   // One-time reveal modal
   const [showKeyModal, setShowKeyModal] = useState(false);
@@ -180,7 +210,18 @@ export function ProjectSettingsTab({
 
   // ---------- Load ----------
   const fetchDetails = async () => {
-    if (!projectId) return;
+    if (!projectId) {
+      setName("");
+      setDescription("");
+      setStatus("active");
+      setDaily("");
+      setMonthly("");
+      setLangfuseProjectName("");
+      setLangfuseStatus(undefined);
+      setApiKeys([]);
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await (projectService as any).getProjectDetails?.(projectId);
@@ -200,9 +241,19 @@ export function ProjectSettingsTab({
             : ""
         );
         setLangfuseProjectName(proj.langfuse_project_name ?? "");
+        setLangfuseStatus(
+          (proj.langfuse_status as
+            | "active"
+            | "default"
+            | "pending"
+            | "disabled"
+            | undefined) ?? undefined
+        );
         setApiKeys(Array.isArray(proj.api_keys) ? proj.api_keys : []);
       } else {
         setName(selectedProject?.name || "");
+        setLangfuseProjectName("");
+        setLangfuseStatus(undefined);
         setApiKeys([]);
       }
     } catch (err) {
@@ -218,6 +269,45 @@ export function ProjectSettingsTab({
     }
   };
 
+  const getLangfuseStatusMeta = (
+    status: ProjectDetails["langfuse_status"]
+  ): {
+    label: string;
+    color: "success" | "info" | "warning" | "default";
+    description: string;
+  } => {
+    switch (status) {
+      case "active":
+        return {
+          label: "Active",
+          color: "success",
+          description:
+            "Traces are routed to the selected log index for this project.",
+        };
+      case "default":
+        return {
+          label: "Default index",
+          color: "info",
+          description:
+            "Traces are going to the default log index (not the custom project index).",
+        };
+      case "pending":
+        return {
+          label: "Pending",
+          color: "warning",
+          description:
+            "Configuration is pending. Until it’s approved, traces will be going to the default index.",
+        };
+      default:
+        return {
+          label: "Default",
+          color: "default",
+          description:
+            "Traces are going to the default log index. No custom index is set up for this project.",
+        };
+    }
+  };
+
   useEffect(() => {
     if (!projectId) {
       setName("");
@@ -226,12 +316,33 @@ export function ProjectSettingsTab({
       setDaily("");
       setMonthly("");
       setLangfuseProjectName("");
+      setLangfuseStatus(undefined);
       setApiKeys([]);
       return;
     }
     fetchDetails();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
+
+  // ---------- Derived Langfuse prefix / suffix / preview ----------
+  const langfusePrefix = useMemo(
+    () => getLangfusePrefix(orgName, name || selectedProject?.name),
+    [orgName, name, selectedProject]
+  );
+
+  const { suffix: langfuseSuffix } = useMemo(
+    () => splitLangfuseIndex(langfuseProjectName, langfusePrefix),
+    [langfuseProjectName, langfusePrefix]
+  );
+
+  const langfusePreview = useMemo(() => {
+    if (langfusePrefix && langfuseSuffix) {
+      return `${langfusePrefix}-${langfuseSuffix}`;
+    }
+    if (langfusePrefix) return `${langfusePrefix}-<suffix>`;
+    if (langfuseSuffix) return langfuseSuffix;
+    return "orgName-projectName-<your-suffix>";
+  }, [langfusePrefix, langfuseSuffix]);
 
   // ---------- Save handlers ----------
   const handleSaveAll = async () => {
@@ -240,6 +351,70 @@ export function ProjectSettingsTab({
       enqueueSnackbar("Project name cannot be empty", { variant: "warning" });
       return;
     }
+
+    if (name.trim().length < 2) {
+      enqueueSnackbar("Project name should be atleast of 2 characters", {
+        variant: "warning",
+      });
+      return;
+    }
+    if (name.trim().length > 45) {
+      enqueueSnackbar("Project name should atmost be of 45 characters", {
+        variant: "warning",
+      });
+      return;
+    }
+    if (hasValidCharacter(name.trim()) === false) {
+      enqueueSnackbar(
+        "Project name should not contain special characters except hyphen(-) and underscore(_).",
+        { variant: "warning" }
+      );
+      return;
+    }
+
+    // Validate Langfuse suffix (user input part)
+    const trimmedSuffix = langfuseSuffix.trim();
+
+    if (!trimmedSuffix) {
+      enqueueSnackbar("Langfuse log index suffix cannot be empty", {
+        variant: "warning",
+      });
+      return;
+    }
+
+    if (trimmedSuffix.length < 2) {
+      enqueueSnackbar(
+        "Langfuse log index suffix should be atleast of 2 characters",
+        {
+          variant: "warning",
+        }
+      );
+      return;
+    }
+
+    if (trimmedSuffix.length > 45) {
+      enqueueSnackbar(
+        "Langfuse log index suffix should atmost be of 45 characters",
+        {
+          variant: "warning",
+        }
+      );
+      return;
+    }
+
+    if (hasValidCharacter(trimmedSuffix) === false) {
+      enqueueSnackbar(
+        "Langfuse log index suffix should not contain special characters except hyphen(-) and underscore(_).",
+        { variant: "warning" }
+      );
+      return;
+    }
+
+    // Build final index with prefix + suffix (orgName-projName-<suffix>)
+    const finalLangfuseIndex = langfusePrefix
+      ? `${langfusePrefix}-${trimmedSuffix}`
+      : trimmedSuffix;
+
     setSaving(true);
     try {
       const payload = {
@@ -251,7 +426,7 @@ export function ProjectSettingsTab({
           daily: daily ? Number(daily) : undefined,
           monthly: monthly ? Number(monthly) : undefined,
         },
-        langfuse_project_name: langfuseProjectName?.trim() || undefined,
+        langfuse_project_name: finalLangfuseIndex,
       };
       const res = await (projectService as any).updatePoject?.(payload);
       if (res?.success) {
@@ -259,9 +434,12 @@ export function ProjectSettingsTab({
         window.dispatchEvent(new Event("fetch_org_project"));
         fetchDetails();
       } else {
-        enqueueSnackbar(toUserMsg(res.message, "Failed to update project"), {
-          variant: "error",
-        });
+        enqueueSnackbar(
+          toUserMsg(res?.error?.payload?.message, "Failed to update project"),
+          {
+            variant: "error",
+          }
+        );
       }
     } catch (err) {
       enqueueSnackbar(
@@ -288,8 +466,13 @@ export function ProjectSettingsTab({
       setCreateErr("Please enter a key name.");
       return;
     }
-    if (trimmed.length > 64) {
-      setCreateErr("Key name must be ≤ 64 characters.");
+    if (trimmed.length > 45) {
+      setCreateErr("Key name must be < 45 characters.");
+      return;
+    }
+
+    if (trimmed.length < 2) {
+      setCreateErr("Key name must be atleast 2 characters.");
       return;
     }
 
@@ -308,9 +491,12 @@ export function ProjectSettingsTab({
       };
 
       // Call: addNewApiKey(projectId, { name })
-      const res = (await (projectService as any).addNewApiKey?.(projectId, {
-        name: trimmed,
-      })) as CreateKeyResponse;
+      const res: any = (await (projectService as any).addNewApiKey?.(
+        projectId,
+        {
+          name: trimmed,
+        }
+      )) as CreateKeyResponse;
 
       // Log once for debugging (optional)
       console.log("create key response:", res);
@@ -333,7 +519,13 @@ export function ProjectSettingsTab({
         await fetchDetails(); // refresh list
         enqueueSnackbar("API key created", { variant: "success" });
       } else {
-        setCreateErr(toUserMsg(res ?? { message: "Failed to create API key" }));
+        setCreateErr(
+          toUserMsg(
+            res?.error?.payload?.message ?? {
+              message: "Failed to create API key",
+            }
+          )
+        );
       }
     } catch (err) {
       setCreateErr(
@@ -343,6 +535,7 @@ export function ProjectSettingsTab({
       setCreatingKey(false);
     }
   };
+
   // ---------- Revoke ----------
   const confirmRevoke = (apiKeyObj: { name: string; key: string }) => {
     setPendingRevokeKey(apiKeyObj);
@@ -424,15 +617,17 @@ export function ProjectSettingsTab({
             <RefreshRoundedIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        {isEdittingAllowed && <Button
-          variant="contained"
-          startIcon={<CheckCircleRoundedIcon />}
-          onClick={handleSaveAll}
-          disabled={saving || loading}
-          sx={{ ml: 1 }}
-        >
-          Save changes
-        </Button>}
+        {isEdittingAllowed && (
+          <Button
+            variant="contained"
+            startIcon={<CheckCircleRoundedIcon />}
+            onClick={handleSaveAll}
+            disabled={saving || loading}
+            sx={{ ml: 1 }}
+          >
+            Save changes
+          </Button>
+        )}
       </Box>
 
       {/* Two-column layout */}
@@ -541,13 +736,36 @@ export function ProjectSettingsTab({
                     disabled={!isEdittingAllowed}
                   />
 
+                  {/* Langfuse index with prefix */}
                   <TextField
-                    label="Langfuse Log Index"
+                    label="Langfuse Log Index suffix"
                     size="small"
-                    value={langfuseProjectName}
-                    onChange={(e) => setLangfuseProjectName(e.target.value)}
-                    placeholder="optional"
+                    value={langfuseSuffix}
+                    disabled={!["default", "pending"].includes(langfuseStatus || "") && !isEdittingAllowed}
+                    onChange={(e) => {
+                      const nextSuffix = e.target.value;
+                      const nextFull = langfusePrefix
+                        ? langfusePrefix +
+                          (nextSuffix ? `-${nextSuffix}` : "-")
+                        : nextSuffix;
+                      setLangfuseProjectName(nextFull);
+                    }}
+                    placeholder="e.g. prod, staging"
                     InputProps={{
+                      startAdornment: langfusePrefix ? (
+                        <InputAdornment position="start">
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              fontFamily: "monospace",
+                              color: "text.secondary",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {langfusePrefix}-
+                          </Typography>
+                        </InputAdornment>
+                      ) : undefined,
                       endAdornment: (
                         <InputAdornment position="end">
                           <Tooltip title={T.fields.logIndex}>
@@ -559,8 +777,52 @@ export function ProjectSettingsTab({
                         </InputAdornment>
                       ),
                     }}
-                    disabled={!isEdittingAllowed}
                   />
+
+                  {/* Preview of full index */}
+                  {["default", "pending"].includes(langfuseStatus || "") && <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ mt: -0.5 }}
+                  >
+                    Will be created as:{" "}
+                    <Typography
+                      component="span"
+                      variant="caption"
+                      sx={{ fontFamily: "monospace" }}
+                    >
+                      {langfusePreview}
+                    </Typography>
+                  </Typography>}
+
+                  {langfuseStatus && (
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      alignItems="center"
+                      sx={{ mt: 0.5 }}
+                    >
+                      {(() => {
+                        const meta = getLangfuseStatusMeta(langfuseStatus);
+                        return (
+                          <>
+                            <Chip
+                              size="small"
+                              color={meta.color}
+                              label={`Langfuse: ${meta.label}`}
+                            />
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{ lineHeight: 1.4 }}
+                            >
+                              {meta.description}
+                            </Typography>
+                          </>
+                        );
+                      })()}
+                    </Stack>
+                  )}
                 </Stack>
               )}
             </Paper>
@@ -653,19 +915,21 @@ export function ProjectSettingsTab({
                 </Tooltip>
               </Stack>
 
-             {isEdittingAllowed && <Tooltip title={T.actions.genKey}>
-                <span>
-                  <Button
-                    size="small"
-                    variant="contained"
-                    startIcon={<AddRoundedIcon />}
-                    onClick={openCreateKeyModal}
-                    disabled={loading}
-                  >
-                    Generate API Key
-                  </Button>
-                </span>
-              </Tooltip>}
+              {isEdittingAllowed && (
+                <Tooltip title={T.actions.genKey}>
+                  <span>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      startIcon={<AddRoundedIcon />}
+                      onClick={openCreateKeyModal}
+                      disabled={loading}
+                    >
+                      Generate API Key
+                    </Button>
+                  </span>
+                </Tooltip>
+              )}
             </Stack>
 
             <Divider sx={{ mb: 1 }} />
@@ -684,23 +948,25 @@ export function ProjectSettingsTab({
                       <ListItem
                         key={item.name}
                         secondaryAction={
-                          isEdittingAllowed && <Tooltip title="Revoke key">
-                            <IconButton
-                              edge="end"
-                              onClick={() => confirmRevoke(item)}
-                              size="small"
-                              color="error"
-                            >
-                              <DeleteIcon fontSize="inherit" />
-                            </IconButton>
-                          </Tooltip>
-                          }
-                          sx={{
-                            borderBottom  : "1px solid",
-                            borderColor   : "rgba(255,255,255,0.2)",
-                            alignItems    : "flex-start",
-                            py            : 1,
-                          }}
+                          isEdittingAllowed && (
+                            <Tooltip title="Revoke key">
+                              <IconButton
+                                edge="end"
+                                onClick={() => confirmRevoke(item)}
+                                size="small"
+                                color="error"
+                              >
+                                <DeleteIcon fontSize="inherit" />
+                              </IconButton>
+                            </Tooltip>
+                          )
+                        }
+                        sx={{
+                          borderBottom: "1px solid",
+                          borderColor: "rgba(255,255,255,0.2)",
+                          alignItems: "flex-start",
+                          py: 1,
+                        }}
                       >
                         <ListItemText
                           primary={item.name}

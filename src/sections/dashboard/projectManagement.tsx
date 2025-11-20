@@ -38,6 +38,7 @@ import { MembersTab } from "./projectManagementComponents/membersTabs";
 import { ServicesTab } from "./projectManagementComponents/servicesTab";
 import authService from "src/api/services/auth.service";
 import { setUserPermissionAndRole } from "src/stores/slicers/user";
+import { hasValidCharacter } from "src/utils/hasValidCharacter";
 
 export function ProjectManagementRoot() {
   const theme = useTheme();
@@ -233,6 +234,19 @@ export function ProjectManagementRoot() {
       return;
     }
 
+    if (projectName.trim().length < 2) {
+      enqueueSnackbar("Project name should be atleast of 2 characters", { variant: "warning" });
+      return;
+    }
+     if (projectName.trim().length > 45) {
+      enqueueSnackbar("Project name should atmost be of 45 characters", { variant: "warning" });
+      return;
+    }
+    if(hasValidCharacter(projectName.trim()) === false){
+      enqueueSnackbar("Project name should not contain special characters except hyphen(-) and underscore(_).", { variant: "warning" });
+      return;
+    }
+
     try {
       setCreating(true);
       const projRes = await projectService.create({
@@ -263,7 +277,7 @@ export function ProjectManagementRoot() {
         window.dispatchEvent(new Event("fetch_org_project"));
         setCreateOpen(false);
       } else {
-        enqueueSnackbar("Project creation failed", { variant: "error" });
+        enqueueSnackbar(projRes?.error?.payload?.message || "Project creation failed", { variant: "error" });
       }
     } catch (err) {
       console.error("create project failed", err);
