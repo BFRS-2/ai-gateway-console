@@ -388,7 +388,7 @@ export const serviceSchemas: ServiceSchemas = {
       "config.backup_provider": { label: "Provider", type: "dropdown", required: true, dynamic: "providers", helpText: "Provider for the backup OCR model." },
       "config.allowed_models": { label: "Allowed Models", type: "multiselect", dynamic: "models", helpText: "Restrict which models can be selected at runtime (Optionally leave empty to allow all)." },
       "config.max_tokens": { label: "Max Tokens", type: "number", min: 1, max: 200000, required: true, helpText: "Token cap per OCR request." },
-      "config.supported_formats": { label: "Supported Formats", type: "chips", helpText: "Acceptable MIME types for OCR input." },
+      // "config.supported_formats": { label: "Supported Formats", type: "chips", helpText: "Acceptable MIME types for OCR input." },
       "limits.daily": { label: "Daily Limit", type: "number", min: 0, required: true, helpText: "Daily OCR quota." },
       "limits.monthly": { label: "Monthly Limit", type: "number", min: 0, required: true, helpText: "Monthly OCR quota." },
       "alerts.daily": { label: "Daily Alert %", type: "number", min: 0, max: 100, step: 1, helpText: "Alert when daily usage crosses this percentage." },
