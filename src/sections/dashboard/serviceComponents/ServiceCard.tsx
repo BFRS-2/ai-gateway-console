@@ -121,7 +121,10 @@ export function ServiceCard({
       openConfigDrawer();
       return;
     }
-    onToggle(service, false);
+    else{
+      openConfigDrawer();
+    }
+    // onToggle(service, false);
   };
 
   useEffect(() => {

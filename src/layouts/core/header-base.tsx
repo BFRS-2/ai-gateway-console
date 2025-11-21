@@ -376,13 +376,13 @@ const handleCreateOrgFromDialog = async () => {
   };
 
    if (orgName.trim().length < 2) {
-        enqueueSnackbar("Langfuse log index should be atleast of 2 characters", {
+        enqueueSnackbar("Organization name should be atleast of 2 characters", {
           variant: "warning",
         });
         return;
       }
       if (orgName.trim().length > 90) {
-        enqueueSnackbar("Langfuse log index should atmost be of 90 characters", {
+        enqueueSnackbar("Organization name should atmost be of 90 characters", {
           variant: "warning",
         });
         return;
@@ -401,7 +401,7 @@ const handleCreateOrgFromDialog = async () => {
       name: orgName.trim(),
     });
     if (res?.success) {
-      const newOrg = res.data.organization as Organization;
+      const newOrg = res.data as Organization;
 
       // refresh org + project mapping
       const orgsResp = await organizationService.getAll();
@@ -414,7 +414,6 @@ const handleCreateOrgFromDialog = async () => {
       const orgWithProjects = mergeOrgsWithProjects(organizations, projects);
       dispatch(setOrganizationProjectMapping(orgWithProjects));
       enqueueSnackbar("Org created", {variant : "success"})
-      // find the newly created org in mapping
       const found = orgWithProjects.find((o) => o.id === newOrg.id);
       if (found) {
         dispatch(

@@ -103,37 +103,34 @@ export function ProjectManagementRoot() {
 
   const dispatch = useDispatch();
   const getUserPermissionAndRole = async () => {
-    if (organizationId || selectedProject?.id){
+    if (organizationId || selectedProject?.id) {
       try {
-      const res = await authService.getUserPermissionForProjectOrg(
-        organizationId || "",
-        selectedProject?.id || ""
-      );
-
-      if (res?.success && res?.data) {
-        // update redux store
-        dispatch(
-          setUserPermissionAndRole({
-            access: res.data.access,
-            role: res.data.role,
-          })
+        const res = await authService.getUserPermissionForProjectOrg(
+          organizationId || "",
+          selectedProject?.id || ""
         );
-      }
-    } catch (err) {
-      console.error("getUserPermissionAndRole failed", err);
-    }
-    };
-  };
 
- 
+        if (res?.success && res?.data) {
+          // update redux store
+          dispatch(
+            setUserPermissionAndRole({
+              access: res.data.access,
+              role: res.data.role,
+            })
+          );
+        }
+      } catch (err) {
+        console.error("getUserPermissionAndRole failed", err);
+      }
+    }
+  };
 
   const selectedProject = useMemo(
     () => projectList.find((p) => p.id === projectId),
     [projectList, projectId, organizationId]
   );
 
-
-   useEffect(() => {
+  useEffect(() => {
     getUserPermissionAndRole();
   }, [organizationId, selectedProject?.id]);
 
@@ -235,15 +232,22 @@ export function ProjectManagementRoot() {
     }
 
     if (projectName.trim().length < 2) {
-      enqueueSnackbar("Project name should be atleast of 2 characters", { variant: "warning" });
+      enqueueSnackbar("Project name should be atleast of 2 characters", {
+        variant: "warning",
+      });
       return;
     }
-     if (projectName.trim().length > 45) {
-      enqueueSnackbar("Project name should atmost be of 45 characters", { variant: "warning" });
+    if (projectName.trim().length > 45) {
+      enqueueSnackbar("Project name should atmost be of 45 characters", {
+        variant: "warning",
+      });
       return;
     }
-    if(hasValidCharacter(projectName.trim()) === false){
-      enqueueSnackbar("Project name should not contain special characters except hyphen(-) and underscore(_).", { variant: "warning" });
+    if (hasValidCharacter(projectName.trim()) === false) {
+      enqueueSnackbar(
+        "Project name should not contain special characters except hyphen(-) and underscore(_).",
+        { variant: "warning" }
+      );
       return;
     }
 
@@ -277,7 +281,10 @@ export function ProjectManagementRoot() {
         window.dispatchEvent(new Event("fetch_org_project"));
         setCreateOpen(false);
       } else {
-        enqueueSnackbar(projRes?.error?.payload?.message || "Project creation failed", { variant: "error" });
+        enqueueSnackbar(
+          projRes?.error?.payload?.message || "Project creation failed",
+          { variant: "error" }
+        );
       }
     } catch (err) {
       console.error("create project failed", err);
@@ -289,8 +296,30 @@ export function ProjectManagementRoot() {
 
   const handleCopyApiKey = async () => {
     if (!newApiKey) return;
+
+    // Preferred method: modern clipboard API
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(newApiKey);
+        enqueueSnackbar("API key copied", { variant: "success" });
+        return;
+      } catch (err) {
+        console.warn("Clipboard API failed, fallback to legacy:", err);
+      }
+    }
+
+    // Fallback method: create temporary textarea
     try {
-      await navigator.clipboard.writeText(newApiKey);
+      const textArea = document.createElement("textarea");
+      textArea.value = newApiKey;
+      textArea.style.position = "fixed"; // avoid scrolling to bottom
+      textArea.style.left = "-9999px";
+      textArea.style.opacity = "0";
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+
       enqueueSnackbar("API key copied", { variant: "success" });
     } catch {
       enqueueSnackbar("Failed to copy API key", { variant: "error" });
@@ -579,7 +608,7 @@ export function ProjectManagementRoot() {
 
           <Divider />
 
-          <Box sx={{ flex: 1, overflowY: "auto", mt:1 }}>
+          <Box sx={{ flex: 1, overflowY: "auto", mt: 1 }}>
             {projectList.length ? (
               projectList.map((p) => (
                 <Tooltip key={p.id} title={p.name}>

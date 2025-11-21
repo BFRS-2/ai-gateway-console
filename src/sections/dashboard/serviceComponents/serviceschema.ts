@@ -61,10 +61,10 @@ export interface ServiceSchema {
 export type ServiceSchemas = Record<string, ServiceSchema>;
 
 const COMMON_DEFAULTS = {
-  default_model: "gpt-4o",
-  backup_model: "gpt-4o-mini",
-  default_provider: "openai",
-  backup_provider: "openai",
+  // default_model: "gpt-4o",
+  // backup_model: "gpt-4o-mini",
+  // default_provider: "openai",
+  // backup_provider: "openai",
 };
 
 export const serviceSchemas: ServiceSchemas = {

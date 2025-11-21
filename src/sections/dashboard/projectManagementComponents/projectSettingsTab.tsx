@@ -64,7 +64,10 @@ type ProjectDetails = {
 const normalizeSegment = (value?: string | null) =>
   (value ?? "").replace(/\s+/g, "");
 
-const getLangfusePrefix = (orgName?: string | null, projectName?: string | null) => {
+const getLangfusePrefix = (
+  orgName?: string | null,
+  projectName?: string | null
+) => {
   const orgSegment = normalizeSegment(orgName);
   const projectSegment = normalizeSegment(projectName);
   return [orgSegment, projectSegment].filter(Boolean).join("-");
@@ -121,6 +124,11 @@ export function ProjectSettingsTab({
   const [langfuseStatus, setLangfuseStatus] = useState<
     "active" | "default" | "pending" | "disabled" | undefined
   >(undefined);
+
+  // Once a Langfuse index exists, lock the prefix from the stored index
+  const [langfuseFixedPrefix, setLangfuseFixedPrefix] = useState<string | null>(
+    null
+  );
 
   // Revoke dialog
   const [revokeOpen, setRevokeOpen] = useState(false);
@@ -200,11 +208,29 @@ export function ProjectSettingsTab({
   };
 
   const copyToClipboard = async (text: string) => {
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(text);
+        enqueueSnackbar("API key copied", { variant: "success" });
+        return;
+      } catch (err) {
+        console.warn("Clipboard API failed, fallback to legacy:", err);
+      }
+    }
+    // Fallback method: create temporary textarea
     try {
-      await navigator.clipboard.writeText(text);
-      enqueueSnackbar("Copied!", { variant: "success" });
-    } catch (err) {
-      enqueueSnackbar(toUserMsg(err, "Copy failed"), { variant: "error" });
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed"; // avoid scrolling to bottom
+      textArea.style.left = "-9999px";
+      textArea.style.opacity = "0";
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+      enqueueSnackbar("API key copied", { variant: "success" });
+    } catch {
+      enqueueSnackbar("Failed to copy API key", { variant: "error" });
     }
   };
 
@@ -218,6 +244,7 @@ export function ProjectSettingsTab({
       setMonthly("");
       setLangfuseProjectName("");
       setLangfuseStatus(undefined);
+      setLangfuseFixedPrefix(null);
       setApiKeys([]);
       return;
     }
@@ -226,6 +253,7 @@ export function ProjectSettingsTab({
     try {
       const res = await (projectService as any).getProjectDetails?.(projectId);
       const proj: ProjectDetails | undefined = res?.data?.[0];
+
       if (proj) {
         setName(proj.name ?? selectedProject?.name ?? "");
         setDescription(proj.description ?? "");
@@ -240,7 +268,23 @@ export function ProjectSettingsTab({
             ? String(proj.cost_limits?.monthly)
             : ""
         );
-        setLangfuseProjectName(proj.langfuse_project_name ?? "");
+
+        // ----- Langfuse index handling -----
+        const fullIndex = proj.langfuse_project_name ?? "";
+        setLangfuseProjectName(fullIndex);
+
+        if (fullIndex) {
+          // Derive prefix from stored full index:
+          // everything before the last "-" is treated as prefix
+          const lastDash = fullIndex.lastIndexOf("-");
+          const prefixFromServer =
+            lastDash > 0 ? fullIndex.slice(0, lastDash) : fullIndex;
+          setLangfuseFixedPrefix(prefixFromServer || null);
+        } else {
+          // No existing index → allow prefix to follow current org + project name
+          setLangfuseFixedPrefix(null);
+        }
+
         setLangfuseStatus(
           (proj.langfuse_status as
             | "active"
@@ -252,17 +296,29 @@ export function ProjectSettingsTab({
         setApiKeys(Array.isArray(proj.api_keys) ? proj.api_keys : []);
       } else {
         setName(selectedProject?.name || "");
+        setDescription("");
+        setStatus("active");
+        setDaily("");
+        setMonthly("");
         setLangfuseProjectName("");
         setLangfuseStatus(undefined);
+        setLangfuseFixedPrefix(null);
         setApiKeys([]);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("getProjectDetails failed", err);
       enqueueSnackbar(
         toUserMsg(err?.response?.data ?? err, "Failed to load project details"),
         { variant: "error" }
       );
       setName(selectedProject?.name || "");
+      setDescription("");
+      setStatus("active");
+      setDaily("");
+      setMonthly("");
+      setLangfuseProjectName("");
+      setLangfuseStatus(undefined);
+      setLangfuseFixedPrefix(null);
       setApiKeys([]);
     } finally {
       setLoading(false);
@@ -317,6 +373,7 @@ export function ProjectSettingsTab({
       setMonthly("");
       setLangfuseProjectName("");
       setLangfuseStatus(undefined);
+      setLangfuseFixedPrefix(null);
       setApiKeys([]);
       return;
     }
@@ -326,12 +383,16 @@ export function ProjectSettingsTab({
 
   // ---------- Derived Langfuse prefix / suffix / preview ----------
   const langfusePrefix = useMemo(
-    () => getLangfusePrefix(orgName, name || selectedProject?.name),
-    [orgName, name, selectedProject]
+    () =>
+      // If we already have an index from backend, keep using that prefix
+      langfuseFixedPrefix ??
+      // Otherwise, derive from current org + project name
+      getLangfusePrefix(orgName, name || selectedProject?.name),
+    [langfuseFixedPrefix, orgName, name, selectedProject]
   );
 
   const { suffix: langfuseSuffix } = useMemo(
-    () => splitLangfuseIndex(langfuseProjectName, langfusePrefix),
+    () => splitLangfuseIndex(langfuseProjectName, langfusePrefix || ""),
     [langfuseProjectName, langfusePrefix]
   );
 
@@ -364,7 +425,7 @@ export function ProjectSettingsTab({
       });
       return;
     }
-    if (hasValidCharacter(name.trim()) === false) {
+    if (!hasValidCharacter(name.trim())) {
       enqueueSnackbar(
         "Project name should not contain special characters except hyphen(-) and underscore(_).",
         { variant: "warning" }
@@ -374,46 +435,43 @@ export function ProjectSettingsTab({
 
     // Validate Langfuse suffix (user input part)
     const trimmedSuffix = langfuseSuffix.trim();
+    if (trimmedSuffix) {
+      if (trimmedSuffix.length < 2) {
+        enqueueSnackbar(
+          "Langfuse log index suffix should be atleast of 2 characters",
+          {
+            variant: "warning",
+          }
+        );
+        return;
+      }
 
-    if (!trimmedSuffix) {
-      enqueueSnackbar("Langfuse log index suffix cannot be empty", {
-        variant: "warning",
-      });
-      return;
+      if (trimmedSuffix.length > 45) {
+        enqueueSnackbar(
+          "Langfuse log index suffix should atmost be of 45 characters",
+          {
+            variant: "warning",
+          }
+        );
+        return;
+      }
+
+      if (!hasValidCharacter(trimmedSuffix)) {
+        enqueueSnackbar(
+          "Langfuse log index suffix should not contain special characters except hyphen(-) and underscore(_).",
+          { variant: "warning" }
+        );
+        return;
+      }
     }
 
-    if (trimmedSuffix.length < 2) {
-      enqueueSnackbar(
-        "Langfuse log index suffix should be atleast of 2 characters",
-        {
-          variant: "warning",
-        }
-      );
-      return;
-    }
-
-    if (trimmedSuffix.length > 45) {
-      enqueueSnackbar(
-        "Langfuse log index suffix should atmost be of 45 characters",
-        {
-          variant: "warning",
-        }
-      );
-      return;
-    }
-
-    if (hasValidCharacter(trimmedSuffix) === false) {
-      enqueueSnackbar(
-        "Langfuse log index suffix should not contain special characters except hyphen(-) and underscore(_).",
-        { variant: "warning" }
-      );
-      return;
-    }
-
-    // Build final index with prefix + suffix (orgName-projName-<suffix>)
-    const finalLangfuseIndex = langfusePrefix
-      ? `${langfusePrefix}-${trimmedSuffix}`
-      : trimmedSuffix;
+    // Build final index with prefix + suffix
+    // If there is an existing prefix (locked or dynamic), use it.
+    // If no suffix is provided, send empty string (to clear).
+    const finalLangfuseIndex =
+      trimmedSuffix && langfusePrefix
+        ? `${langfusePrefix}-${trimmedSuffix}`
+        : trimmedSuffix || "";
 
     setSaving(true);
     try {
@@ -426,8 +484,9 @@ export function ProjectSettingsTab({
           daily: daily ? Number(daily) : undefined,
           monthly: monthly ? Number(monthly) : undefined,
         },
-        langfuse_project_name: finalLangfuseIndex,
+        langfuse_project_name: finalLangfuseIndex || undefined,
       };
+
       const res = await (projectService as any).updatePoject?.(payload);
       if (res?.success) {
         enqueueSnackbar("Project updated", { variant: "success" });
@@ -441,7 +500,7 @@ export function ProjectSettingsTab({
           }
         );
       }
-    } catch (err) {
+    } catch (err: any) {
       enqueueSnackbar(
         toUserMsg(err?.response?.data ?? err, "Failed to update project"),
         { variant: "error" }
@@ -490,7 +549,6 @@ export function ProjectSettingsTab({
         error?: unknown;
       };
 
-      // Call: addNewApiKey(projectId, { name })
       const res: any = (await (projectService as any).addNewApiKey?.(
         projectId,
         {
@@ -498,11 +556,9 @@ export function ProjectSettingsTab({
         }
       )) as CreateKeyResponse;
 
-      // Log once for debugging (optional)
       console.log("create key response:", res);
 
       if (res?.success) {
-        // NEW SHAPE: secret lives at data.api_key.key
         const plain = res?.data?.api_key?.key ?? "";
 
         if (plain) {
@@ -516,7 +572,7 @@ export function ProjectSettingsTab({
         }
 
         setCreateOpen(false);
-        await fetchDetails(); // refresh list
+        await fetchDetails();
         enqueueSnackbar("API key created", { variant: "success" });
       } else {
         setCreateErr(
@@ -527,7 +583,7 @@ export function ProjectSettingsTab({
           )
         );
       }
-    } catch (err) {
+    } catch (err: any) {
       setCreateErr(
         toUserMsg(err?.response?.data ?? err, "Failed to create API key")
       );
@@ -555,9 +611,16 @@ export function ProjectSettingsTab({
           prev.filter((k) => k.name !== pendingRevokeKey.name)
         );
       } else {
-        enqueueSnackbar(res.error.payload.message, {
-          variant: "error",
-        });
+        enqueueSnackbar(
+          toUserMsg(
+            res?.error?.payload?.message ?? {
+              message: "Failed to revoke API key",
+            }
+          ),
+          {
+            variant: "error",
+          }
+        );
       }
     } catch (err) {
       enqueueSnackbar("Failed to revoke API key", { variant: "error" });
@@ -670,43 +733,7 @@ export function ProjectSettingsTab({
                     disabled={!isEdittingAllowed}
                   />
 
-                  {/* <Stack direction="row" spacing={1} alignItems="center">
-                    <FormControl size="small" sx={{ flex: 1 }}>
-                      <InputLabel id="status-label">Status</InputLabel>
-                      <Select
-                        labelId="status-label"
-                        label="Status"
-                        value={status}
-                        onChange={(e) =>
-                          setStatus(e.target.value as "active" | "inactive")
-                        }
-                      >
-                        <MenuItem value="active">
-                          <Chip
-                            size="small"
-                            color="success"
-                            label="Active"
-                            variant="filled"
-                          />
-                        </MenuItem>
-                        <MenuItem value="inactive">
-                          <Chip
-                            size="small"
-                            color="default"
-                            label="Inactive"
-                            variant="outlined"
-                          />
-                        </MenuItem>
-                      </Select>
-                    </FormControl>
-                    <Tooltip title={T.fields.status}>
-                      <InfoOutlinedIcon
-                        fontSize="small"
-                        sx={{ color: "text.secondary", cursor: "help" }}
-                      />
-                    </Tooltip>
-                  </Stack> */}
-
+                  {/* Description */}
                   <TextField
                     label="Description"
                     size="small"
@@ -741,7 +768,10 @@ export function ProjectSettingsTab({
                     label="Langfuse Log Index suffix"
                     size="small"
                     value={langfuseSuffix}
-                    disabled={!["default", "pending"].includes(langfuseStatus || "") && !isEdittingAllowed}
+                    disabled={
+                      !["default", "pending"].includes(langfuseStatus || "") &&
+                      !isEdittingAllowed
+                    }
                     onChange={(e) => {
                       const nextSuffix = e.target.value;
                       const nextFull = langfusePrefix
@@ -780,20 +810,22 @@ export function ProjectSettingsTab({
                   />
 
                   {/* Preview of full index */}
-                  {["default", "pending"].includes(langfuseStatus || "") && <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ mt: -0.5 }}
-                  >
-                    Will be created as:{" "}
+                  {["default", "pending"].includes(langfuseStatus || "") && (
                     <Typography
-                      component="span"
                       variant="caption"
-                      sx={{ fontFamily: "monospace" }}
+                      color="text.secondary"
+                      sx={{ mt: -0.5 }}
                     >
-                      {langfusePreview}
+                      Will be created as:{" "}
+                      <Typography
+                        component="span"
+                        variant="caption"
+                        sx={{ fontFamily: "monospace" }}
+                      >
+                        {langfusePreview}
+                      </Typography>
                     </Typography>
-                  </Typography>}
+                  )}
 
                   {langfuseStatus && (
                     <Stack
