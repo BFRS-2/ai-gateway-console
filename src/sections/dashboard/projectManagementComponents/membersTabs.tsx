@@ -26,7 +26,8 @@ type ApiUser = {
   email: string;
   name: string;
   is_admin: boolean;
-  organizations: Array<{ organization_id: string; role: string }>;
+  role: string;
+  access: string;
   status: string;
 };
 
@@ -154,11 +155,9 @@ export function MembersTab({
   const userRole = useSelector((state: RootState) => {
     return state.user.userRole;
   });
-  console.log("🚀 ~ MembersTab ~ userRole:", userRole)
   const userPermission = useSelector(
     (state: RootState) => state.user.userPermission
   );
-  console.log("🚀 ~ MembersTab ~ userPermission:", userPermission)
 
   const isEdittingAllowed = useMemo(() => {
     
@@ -166,7 +165,6 @@ export function MembersTab({
     if (userRole === "member" && userPermission === "write") return true;
     return false;
   }, [userRole, userPermission]);
-  console.log("🚀 ~ MembersTab ~ isEdittingAllowed:", isEdittingAllowed)
   return (
     <Box sx={{ p: 2 }}>
       <Box
@@ -229,8 +227,9 @@ export function MembersTab({
                       <TableCell>{u.name}</TableCell>
                       <TableCell>
                         {u.is_admin
-                          ? "admin"
-                          : u.organizations?.[0]?.role || "member"}
+                          ? "Admin"
+                          : u.role + ( u.role == "member"  ? ` (${u.access})` : "")
+                          }
                       </TableCell>
                       <TableCell>
                         <Chip

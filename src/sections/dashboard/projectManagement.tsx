@@ -196,10 +196,21 @@ export function ProjectManagementRoot() {
 
     try {
       setInviting(true);
-      await userManagementService.addMember(payload);
-      enqueueSnackbar("Invitation sent", { variant: "success" });
+      try {
+       const res =  await userManagementService.addMember(payload);
+       if(res.success){
+         enqueueSnackbar("Invitation sent", { variant: "success" });
       setInviteOpen(false);
       window.dispatchEvent(new Event("refetch_members"));
+       }  
+       else{
+        enqueueSnackbar(res.error?.payload?.message || "Failed to invite user", { variant: "error" });
+       }
+      } catch (error) {
+        console.error("Failed to add member", error);
+        enqueueSnackbar("Failed to add member", { variant: "error" });
+      }
+     
     } catch (err) {
       console.error("invite failed", err);
       enqueueSnackbar("Failed to invite user", { variant: "error" });
