@@ -427,7 +427,7 @@ export function ProjectSettingsTab({
     }
     if (!hasValidCharacter(name.trim())) {
       enqueueSnackbar(
-        "Project name should not contain special characters except hyphen(-) and underscore(_).",
+        "Project name should not contain special characters except (-) and (_) and atleast 1 alphabet.",
         { variant: "warning" }
       );
       return;
@@ -458,7 +458,7 @@ export function ProjectSettingsTab({
 
       if (!hasValidCharacter(trimmedSuffix)) {
         enqueueSnackbar(
-          "Langfuse log index suffix should not contain special characters except hyphen(-) and underscore(_).",
+          "Langfuse log index suffix contain special characters except (-) and (_) and atleast 1 alphabet.",
           { variant: "warning" }
         );
         return;

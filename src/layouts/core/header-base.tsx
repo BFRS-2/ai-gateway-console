@@ -389,7 +389,7 @@ const handleCreateOrgFromDialog = async () => {
       }
       if (hasValidCharacter(orgName.trim()) === false) {
         enqueueSnackbar(
-          "Project name should not contain special characters except hyphen(-) and underscore(_).",
+          "Project name should not contain special characters except (-) and (_) and atleast 1 alphabet.",
           { variant: "warning" }
         );
         return;
