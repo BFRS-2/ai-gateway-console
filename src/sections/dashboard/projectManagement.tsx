@@ -245,7 +245,7 @@ export function ProjectManagementRoot() {
     }
     if (hasValidCharacter(projectName.trim()) === false) {
       enqueueSnackbar(
-        "Project name should not contain special characters except hyphen(-) and underscore(_).",
+        "Project name should not contain special characters except (-) and (_) and atleast 1 alphabet.",
         { variant: "warning" }
       );
       return;
@@ -814,7 +814,6 @@ export function ProjectManagementRoot() {
               >
                 <MenuItem value="read">Read</MenuItem>
                 <MenuItem value="write">Write</MenuItem>
-                <MenuItem value="admin">Admin</MenuItem>
               </Select>
             </FormControl>
           )}
