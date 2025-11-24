@@ -132,7 +132,7 @@ const projectService = {
   create: (body: ProjectCreateBody) => callPostApi(urls.GET_PROJECTS, body),
 
   getAll: () =>
-    callGetApi(urls.PROJECTS) as Promise<{
+    callGetApi("/api/v1/projects") as Promise<{
       data: Project[];
       success: boolean;
       status_code: number;

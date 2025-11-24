@@ -36,6 +36,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "src/stores/store";
 import { useSnackbar } from "notistack";
 import { mergeWithSchemaInitial } from "src/utils/mergeServiceConfig";
+import { ServiceKbManager } from "./ServiceKbManger";
 
 export function ServiceCard({
   service,
@@ -70,18 +71,12 @@ export function ServiceCard({
   const [formVal, setFormVal] = useState<any>(() =>
     schema ? structuredClone(schema.initial) : {}
   );
-
   const [models, setModels] = useState<ModelRow[]>([]);
   const [providers, setProviders] = useState<ProviderRow[]>([]);
   const [loading, setLoading] = useState(false);
-
-  const selectedOrganizationProject = useSelector(
-    (state: RootState) => state.orgProject.selectedOrganizationProject
-  );
-  const effectiveProjectId = projectId || "";
+  const effectiveProjectId = projectId 
 
   const { enqueueSnackbar } = useSnackbar();
-
 
   const userRole = useSelector((state: RootState) => state.user.userRole);
   const userPermission = useSelector(
@@ -120,11 +115,9 @@ export function ServiceCard({
       }
       openConfigDrawer();
       return;
-    }
-    else{
+    } else {
       openConfigDrawer();
     }
-    // onToggle(service, false);
   };
 
   useEffect(() => {
@@ -148,7 +141,7 @@ export function ServiceCard({
         setProviders(Array.isArray(providerList) ? providerList : []);
       })
       .finally(() => setLoading(false));
-  }, [open]);
+  }, [open, svcKey]);
 
   const handleSubmit = async () => {
     if (!effectiveProjectId) {
@@ -239,21 +232,21 @@ export function ServiceCard({
       <Card variant="outlined" sx={{ height: "100%" }}>
         <CardHeader
           title={service.name}
-          // ⬇️ removed subheader to allow full-width description below
           action={
-            isEdittingAllowed && <FormControlLabel
-              control={
-                <Switch
-                  checked={service.is_active}
-                  onChange={(_, v) => handleEnable(v)}
-                />
-              }
-              label={service.is_active ? "Enabled" : "Disabled"}
-            />
+            isEdittingAllowed && (
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={service.is_active}
+                    onChange={(_, v) => handleEnable(v)}
+                  />
+                }
+                label={service.is_active ? "Enabled" : "Disabled"}
+              />
+            )
           }
         />
         <CardContent>
-          {/* Full-width description */}
           {service.description && (
             <Typography
               variant="body2"
@@ -287,6 +280,15 @@ export function ServiceCard({
             </Typography>
           )}
 
+          {service.name === "Chatbot" && isEdittingAllowed && (
+            <Box sx={{ mt: 2 }}>
+              <ServiceKbManager
+                projectId={effectiveProjectId}
+                disabled={!isEdittingAllowed}
+              />
+            </Box>
+          )}
+
           <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
             <Button
               size="small"
@@ -296,14 +298,16 @@ export function ServiceCard({
             >
               Open Docs
             </Button>
-            {isEdittingAllowed && <Button
-              size="small"
-              variant="outlined"
-              startIcon={<SettingsIcon />}
-              onClick={openConfigDrawer}
-            >
-              Configure
-            </Button>}
+            {isEdittingAllowed && (
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<SettingsIcon />}
+                onClick={openConfigDrawer}
+              >
+                Configure
+              </Button>
+            )}
           </Stack>
         </CardContent>
       </Card>
@@ -317,7 +321,6 @@ export function ServiceCard({
         slotProps={{
           backdrop: {
             sx: {
-              // darker scrim + slight blur to separate background app
               backgroundColor: "rgba(0,0,0,0.4)",
               backdropFilter: "blur(2px)",
             },
@@ -337,7 +340,6 @@ export function ServiceCard({
               t.palette.mode === "dark"
                 ? "-28px 0 56px rgba(0,0,0,0.6), -1px 0 0 rgba(255,255,255,0.06)"
                 : "-24px 0 48px rgba(0,0,0,0.25)",
-
             backgroundImage:
               t.palette.mode === "dark"
                 ? "linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.00))"
@@ -378,7 +380,6 @@ export function ServiceCard({
           </IconButton>
         </Box>
 
-        {/* Scrollable content */}
         <Box
           sx={{
             flex: 1,
