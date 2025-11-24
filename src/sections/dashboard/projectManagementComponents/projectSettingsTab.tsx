@@ -668,9 +668,17 @@ export function ProjectSettingsTab({
   );
 
   return (
-    <Box sx={{ mt: 2 }}>
+    <Box sx={{ p: 2 }}>
       {/* Header */}
-      <Box sx={headerGradient}>
+       <Box
+        sx={{
+          mb: 2,
+          display: "flex",
+          gap: 1,
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
         <Typography variant="h5" fontWeight={700}>
           Project Settings
         </Typography>
@@ -769,9 +777,12 @@ export function ProjectSettingsTab({
                     size="small"
                     value={langfuseSuffix}
                     disabled={
-                      !["default", "pending"].includes(langfuseStatus || "") &&
-                      !isEdittingAllowed
+                      !(["default", "pending", "disabled"].includes(langfuseStatus || "") &&
+                      isEdittingAllowed)
                     }
+                    sx={{
+                      "& .MuiInputBase-input.MuiOutlinedInput-input": { ml: "-7px"}
+                    }}
                     onChange={(e) => {
                       const nextSuffix = e.target.value;
                       const nextFull = langfusePrefix
@@ -810,7 +821,7 @@ export function ProjectSettingsTab({
                   />
 
                   {/* Preview of full index */}
-                  {["default", "pending"].includes(langfuseStatus || "") && (
+                  {["default", "pending", "disabled"].includes(langfuseStatus || "") && (
                     <Typography
                       variant="caption"
                       color="text.secondary"

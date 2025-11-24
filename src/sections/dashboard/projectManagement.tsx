@@ -39,7 +39,21 @@ import { ServicesTab } from "./projectManagementComponents/servicesTab";
 import authService from "src/api/services/auth.service";
 import { setUserPermissionAndRole } from "src/stores/slicers/user";
 import { hasValidCharacter } from "src/utils/hasValidCharacter";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
+function tabValueToParam(
+  value: 0 | 1 | 2
+): "settings" | "members" | "services" {
+  switch (value) {
+    case 1:
+      return "members";
+    case 2:
+      return "services";
+    case 0:
+    default:
+      return "settings";
+  }
+}
 export function ProjectManagementRoot() {
   const theme = useTheme();
   const mdDown = useMediaQuery(theme.breakpoints.down("md"));
@@ -63,9 +77,23 @@ export function ProjectManagementRoot() {
   const [createOpen, setCreateOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [creating, setCreating] = useState(false);
-
-  // tabs
-  const [tab, setTab] = useState<0 | 1 | 2>(0);
+  const tabParamToValue = (param: string | null): 0 | 1 | 2 => {
+    switch (param) {
+      case "members":
+        return 1;
+      case "services":
+        return 2;
+      default:
+        return 0; // "settings" / default
+    }
+  };
+  const [tab, setTab] = useState<0 | 1 | 2>(() =>
+    tabParamToValue(
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("tab")
+        : null
+    )
+  );
 
   // invite dialog state
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -197,20 +225,21 @@ export function ProjectManagementRoot() {
     try {
       setInviting(true);
       try {
-       const res =  await userManagementService.addMember(payload);
-       if(res.success){
-         enqueueSnackbar("Invitation sent", { variant: "success" });
-      setInviteOpen(false);
-      window.dispatchEvent(new Event("refetch_members"));
-       }  
-       else{
-        enqueueSnackbar(res.error?.payload?.message || "Failed to invite user", { variant: "error" });
-       }
+        const res = await userManagementService.addMember(payload);
+        if (res.success) {
+          enqueueSnackbar("Invitation sent", { variant: "success" });
+          setInviteOpen(false);
+          window.dispatchEvent(new Event("refetch_members"));
+        } else {
+          enqueueSnackbar(
+            res.error?.payload?.message || "Failed to invite user",
+            { variant: "error" }
+          );
+        }
       } catch (error) {
         console.error("Failed to add member", error);
         enqueueSnackbar("Failed to add member", { variant: "error" });
       }
-     
     } catch (err) {
       console.error("invite failed", err);
       enqueueSnackbar("Failed to invite user", { variant: "error" });
@@ -338,6 +367,37 @@ export function ProjectManagementRoot() {
   };
   const userRole = useSelector((state: RootState) => state.user.userRole);
 
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // map between numeric tab and URL param
+
+  // tabs
+
+  useEffect(() => {
+    const paramTab = tabParamToValue(searchParams.get("tab"));
+    setTab((prev) => (prev === paramTab ? prev : paramTab));
+  }, [searchParams]);
+
+  const handleTabChange = (_: any, newValue: 0 | 1 | 2) => {
+    setTab(newValue);
+
+    const param = tabValueToParam(newValue);
+    const current = new URLSearchParams(searchParams.toString());
+
+    if (param === "settings") {
+      // optional: keep "settings" as default without param
+      current.delete("tab");
+    } else {
+      current.set("tab", param);
+    }
+
+    const queryString = current.toString();
+    const url = queryString ? `${pathname}?${queryString}` : pathname;
+
+    router.replace(url, { scroll: false });
+  };
   // ----------------------------
   // MOBILE LAYOUT
   // ----------------------------
@@ -380,7 +440,7 @@ export function ProjectManagementRoot() {
         </AppBar>
 
         <Box sx={{ flex: 1, overflow: "auto" }}>
-          <Tabs value={tab} onChange={(_, v) => setTab(v)}>
+          <Tabs value={tab} onChange={handleTabChange}>
             <Tab label="Project Settings" value={0} />
             <Tab label="Members" value={1} />
             <Tab label="Services" value={2} />
@@ -668,7 +728,7 @@ export function ProjectManagementRoot() {
             pr: 2,
           }}
         >
-          <Tabs value={tab} onChange={(_, v) => setTab(v)}>
+          <Tabs value={tab} onChange={handleTabChange}>
             <Tab label="Project Settings" value={0} />
             <Tab label="Members" value={1} />
             <Tab label="Services" value={2} />

@@ -21,6 +21,7 @@ import {
 
 import { AuthProvider } from "src/auth/context/jwt";
 import ReduxProvider from "./dashboard/provider";
+import { ValidationErrorProvider } from "src/hooks/ValidationErrorContext";
 
 // ----------------------------------------------------------------------
 
@@ -49,11 +50,13 @@ export default async function RootLayout({ children }: Props) {
           >
             <ThemeProvider>
 
-                <ReduxProvider>
+                <ReduxProvider> 
                   <MotionLazy>
                     <ProgressBar />
                     <SettingsDrawer />
+                    <ValidationErrorProvider>
                     {children}
+                    </ValidationErrorProvider>
                   </MotionLazy>
                 </ReduxProvider>
             </ThemeProvider>

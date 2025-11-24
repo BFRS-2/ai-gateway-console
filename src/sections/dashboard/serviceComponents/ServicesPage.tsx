@@ -284,7 +284,7 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
 
   return (
     <Stack spacing={2}>
-      <Typography variant="h4">Services</Typography>
+      <Typography variant="h5" fontWeight={700}>Services</Typography>
 
       <Paper variant="outlined" sx={{ p: 2 }}>
         <Stack

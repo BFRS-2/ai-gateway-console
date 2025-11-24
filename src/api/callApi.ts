@@ -16,7 +16,6 @@ function buildHeaders(body: any) {
     headers.set("Content-Type", "application/json");
   }
 
-
   headers.set("ngrok-skip-browser-warning", "43534");
   // Auth header — add only if we actually have a token
   const token = localStorage.getItem(STORAGE_KEY);
@@ -72,8 +71,43 @@ async function callAPI(url: string, body: any, method: HttpMethod) {
     if (response.status === 401) {
       localStorage.removeItem("_user");
       localStorage.removeItem("jwt_access_token");
-      if(!window.location.pathname.includes("login")) window.location.href = "/login";
+      if (!window.location.pathname.includes("login"))
+        window.location.href = "/login";
       return; // stop processing
+    }
+    if (response.status === 422) {
+      const payload = await parseResponse(response); // should be your JSON
+
+      const errorsObj: Record<string, unknown> = (payload as any)?.errors ?? {};
+
+      // Build a single error message string from `errors`
+      // e.g. "langfuse_project_name can only be updated when ...".
+      const messages = Object.values(errorsObj).filter(
+        (v) => typeof v === "string"
+      ) as string[];
+
+      const message =
+        messages[0] || (payload as any)?.message || "Validation error occurred";
+
+      // Emit custom event (browser only)
+      if (
+        typeof window !== "undefined" &&
+        typeof window.dispatchEvent === "function"
+      ) {
+        window.dispatchEvent(
+          new CustomEvent("api-validation-error", {
+            detail: {
+              status: 422,
+              message,
+              errors: errorsObj,
+              raw: payload,
+            },
+          })
+        );
+      }
+
+      // Also return an API_Error instance (so callers can handle it too)
+      return new API_Error({ status: response.status, payload });
     }
 
     // Treat non-2xx as API errors
@@ -86,7 +120,7 @@ async function callAPI(url: string, body: any, method: HttpMethod) {
     // Success
     return await parseResponse(response);
   } catch (e) {
-    console.log("🚀 ~ callAPI ~ e:", e)
+    console.log("🚀 ~ callAPI ~ e:", e);
     return new FE_Error(e);
   }
 }
@@ -100,7 +134,10 @@ export async function callGithubApi(path: string = "RP/docs.md") {
     });
 
     if (!api_res.ok) {
-      return new API_Error({ status: api_res.status, payload: await api_res.text() });
+      return new API_Error({
+        status: api_res.status,
+        payload: await api_res.text(),
+      });
     }
 
     return await api_res.text();
@@ -112,10 +149,9 @@ export async function callGithubApi(path: string = "RP/docs.md") {
 export function callGetApi(url: string) {
   return callAPI(url, undefined, "GET");
 }
-export function callDeleteApi(url: string, body : any = undefined) {
+export function callDeleteApi(url: string, body: any = undefined) {
   return callAPI(url, body, "DELETE");
 }
-
 
 export function callPostApi(url: string, body: any) {
   return callAPI(url, body, "POST");

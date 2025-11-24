@@ -176,7 +176,7 @@ export function MembersTab({
           justifyContent: "space-between",
         }}
       >
-        <Typography variant="h4">
+        <Typography variant="h5" fontWeight={700}>
           Members for :{" "}
           {(() => {
             const name = selectedProject?.name ?? "";

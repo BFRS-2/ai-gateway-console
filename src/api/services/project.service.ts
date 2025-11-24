@@ -1,4 +1,3 @@
-// src/api/services/project.service.ts
 import urls from "../urls";
 import { callDeleteApi, callGetApi, callPostApi, callPutApi } from "../callApi";
 import objectToQueryString from "src/utils/objectToGetParams";
