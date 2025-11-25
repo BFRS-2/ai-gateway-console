@@ -303,7 +303,7 @@ export function ServiceKbManager({
         <strong>File:</strong> {statusData.file_name}
       </Typography>
       <Typography variant="body2">
-        <strong>Status:</strong> {statusData.status}
+        <strong>KB Status:</strong> {statusData.status}
       </Typography>
       <Typography variant="body2">
         <strong>Chunking:</strong> {statusData.chunking_size} /{" "}
