@@ -54,20 +54,41 @@ export default function SetPasswordView() {
   const onSubmit = handleSubmit(async (data) => {
     setErrorMsg("");
     try {
-      await authService.setPassword({
+      const res = await authService.setPassword({
         email: data.email,
         password: data.password,
         // invite_token: inviteToken,
       });
 
-      setSuccessMsg("Password set successfully. You can now sign in.");
+      const apiErrorMessage =
+        (res as any)?.error?.payload?.message ||
+        (res as any)?.error?.message ||
+        (res as any)?.message;
+
+      if (!res || (res as any)?.success !== true) {
+        setErrorMsg(
+          apiErrorMessage || "Failed to set password. Please try again."
+        );
+        return;
+      }
+
+      setSuccessMsg(
+        (res as any)?.message ||
+          "Password set successfully. You can now sign in."
+      );
       // Give the user a moment to read, then go to login with email prefilled
       setTimeout(() => {
         router.push(`/login?email=${encodeURIComponent(data.email)}&set=ok`);
       }, 800);
     } catch (e: any) {
       console.error(e);
-      setErrorMsg(e?.message || "Failed to set password. Please try again.");
+      const apiErrorMessage =
+        e?.error?.payload?.message ||
+        e?.payload?.message ||
+        e?.message ||
+        "Failed to set password. Please try again.";
+
+      setErrorMsg(apiErrorMessage);
     }
   });
 
