@@ -525,6 +525,10 @@ export function ProjectSettingsTab({
       setCreateErr("Please enter a key name.");
       return;
     }
+    if(hasValidCharacter(trimmed) === false){
+      setCreateErr("Key name should not contain special characters and atleast 1 alphabet.");
+      return;
+    }
     if (trimmed.length > 45) {
       setCreateErr("Key name must be < 45 characters.");
       return;
