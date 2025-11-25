@@ -179,12 +179,41 @@ export function ProjectManagementRoot() {
   };
 
   const handleInviteSubmit = async () => {
-    if (!inviteName.trim()) {
+    const trimmedName = inviteName.trim();
+    if (!trimmedName) {
       enqueueSnackbar("Name is required", { variant: "warning" });
+      return;
+    }
+    if (trimmedName.length < 2) {
+      enqueueSnackbar("Name should be atleast of 2 characters", {
+        variant: "warning",
+      });
+      return;
+    }
+    if (trimmedName.length > 50) {
+      enqueueSnackbar("Name should be atmost of 50 characters", {
+        variant: "warning",
+      });
+      return;
+    }
+
+    // Allow only letters and spaces (no numbers or special characters)
+    const nameRegex = /^[A-Za-z\s]+$/;
+    if (!nameRegex.test(trimmedName)) {
+      enqueueSnackbar(
+        "Name should contain only letters and spaces (no numbers or special characters)",
+        { variant: "warning" }
+      );
       return;
     }
     if (!inviteEmail.trim()) {
       enqueueSnackbar("Email is required", { variant: "warning" });
+      return;
+    }
+    const email = inviteEmail.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      enqueueSnackbar("Enter a valid email address", { variant: "warning" });
       return;
     }
 
@@ -196,7 +225,7 @@ export function ProjectManagementRoot() {
     let payload: any;
     if (inviteRole === "admin") {
       payload = {
-        email: inviteEmail.trim(),
+        email: email,
         name: inviteName.trim(),
         role: "admin",
       };

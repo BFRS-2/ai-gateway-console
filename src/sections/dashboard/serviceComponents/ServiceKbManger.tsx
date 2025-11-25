@@ -19,7 +19,7 @@ import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSnackbar } from "notistack";
 import kbService, { KBStatusData } from "src/api/services/kb.service";
-import { Refresh, RefreshRounded } from "@mui/icons-material";
+import { InfoOutlined, Refresh, RefreshRounded } from "@mui/icons-material";
 
 type ServiceKbManagerProps = {
   projectId?: string;
@@ -297,7 +297,6 @@ export function ServiceKbManager({
     : statusData?.status
     ? statusData.status
     : "No KB";
-
   const tooltipContent = statusData ? (
     <Box sx={{ p: 0.5 }}>
       <Typography variant="body2">
@@ -321,42 +320,90 @@ export function ServiceKbManager({
         </Typography>
       )}
       {statusData.error && (
-        <Typography variant="caption" color="error">
+        <Typography
+          variant="caption"
+          color="error"
+          display="block"
+          sx={{ mt: 0.5 }}
+        >
           <strong>Error:</strong> {statusData.error}
         </Typography>
       )}
+
+      {/* Legend for states */}
+      {/* <Box sx={{ mt: 1 }}>
+        <Typography variant="caption" display="block">
+          <strong>No KB</strong>: No knowledge base uploaded yet.
+        </Typography>
+        <Typography variant="caption" display="block">
+          <strong>pending / processing</strong>: Ingestion &amp; chunking in
+          progress.
+        </Typography>
+        <Typography variant="caption" display="block">
+          <strong>completed</strong>: KB is ready and used for answering
+          queries.
+        </Typography>
+        <Typography variant="caption" display="block">
+          <strong>failed</strong>: Ingestion failed; check error and re-upload.
+        </Typography>
+      </Box> */}
     </Box>
   ) : (
-    "No knowledge base uploaded yet."
+    <Box sx={{ p: 0.5 }}>
+      <Typography variant="caption" display="block">
+        No knowledge base has been uploaded yet. Knowledge base is required
+        to use this service.
+      </Typography>
+    </Box>
   );
 
+  const uploadKbInfo = (
+    <Box sx={{ p: 0.5 }}>
+      <Typography variant="caption" display="block">
+        Upload a CSV file or provide a CSV URL to create/update this project’s
+        knowledge base.
+      </Typography>
+      <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+        When the KB is processing or completed, uploading a new one is disabled
+        to avoid inconsistent states.
+      </Typography>
+    </Box>
+  );
   return (
     <>
       {/* Button + status chip (right side) */}
-      <Stack direction="row" spacing={1} alignItems="center">
+      <Stack
+        direction="row"
+        spacing={1}
+        alignItems="center"
+        flexWrap="wrap" // 👈 lets it wrap nicely on small widths
+      >
         {["failed", null, ""].includes(statusData?.status || "") ? (
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<CloudUploadIcon />}
-            onClick={handleOpenKbDialog}
-            disabled={false}
-          >
-            Manage KB
-          </Button>
+          <Tooltip title={uploadKbInfo}>
+            <span>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<CloudUploadIcon />}
+                onClick={handleOpenKbDialog}
+              >
+                Upload KB
+              </Button>
+            </span>
+          </Tooltip>
         ) : (
-          <Tooltip title="Uploading of new kb not allowed once KB is processing or completed.">
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<CloudUploadIcon />}
-              onClick={handleOpenKbDialog}
-              disabled={
-                true
-              }
-            >
-              Manage KB
-            </Button>
+          <Tooltip title={uploadKbInfo}>
+            <span>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<CloudUploadIcon />}
+                onClick={handleOpenKbDialog}
+                disabled
+              >
+                Upload KB
+              </Button>
+            </span>
           </Tooltip>
         )}
 
@@ -390,28 +437,44 @@ export function ServiceKbManager({
         <DialogTitle>Manage Knowledge Base</DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField
-              label="Chunking Size"
-              type="number"
-              value={chunkingSize}
-              onChange={(e) => setChunkingSize(e.target.value)}
-              inputProps={{ min: 1 }}
-              fullWidth
-            />
-            <TextField
-              label="Overlapping Size"
-              type="number"
-              value={overlappingSize}
-              onChange={(e) => setOverlappingSize(e.target.value)}
-              inputProps={{ min: 0 }}
-              fullWidth
-            />
+            <Stack direction="row" spacing={1} alignItems="center">
+              <TextField
+                label="Chunking Size"
+                type="number"
+                value={chunkingSize}
+                onChange={(e) => setChunkingSize(e.target.value)}
+                inputProps={{ min: 1 }}
+                fullWidth
+              />
+              <Tooltip title="Max characters in each chunk. Recommended: 800–1500.">
+                <InfoOutlined fontSize="small" color="action" />
+              </Tooltip>
+            </Stack>
+
+            <Stack direction="row" spacing={1} alignItems="center">
+              <TextField
+                label="Overlapping Size"
+                type="number"
+                value={overlappingSize}
+                onChange={(e) => setOverlappingSize(e.target.value)}
+                inputProps={{ min: 0 }}
+                fullWidth
+              />
+              <Tooltip title="How many characters overlap between chunks to retain context. Recommended: 100–250.">
+                <InfoOutlined fontSize="small" color="action" />
+              </Tooltip>
+            </Stack>
 
             {/* File upload */}
             <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                CSV File
-              </Typography>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  CSV File
+                </Typography>
+                <Tooltip title='Must be .csv and contain a "text" column. You may also include optional label columns.'>
+                  <InfoOutlined fontSize="small" color="action" />
+                </Tooltip>
+              </Stack>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -462,14 +525,20 @@ export function ServiceKbManager({
             </Typography>
 
             <Box>
-              <Button
-                size="small"
-                onClick={handleDownloadSampleCsv}
-                variant="outlined"
-                color="primary"
-              >
-                Download sample CSV
-              </Button>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Button
+                  size="small"
+                  onClick={handleDownloadSampleCsv}
+                  variant="outlined"
+                  color="primary"
+                >
+                  Download sample CSV
+                </Button>
+
+                <Tooltip title="Download a sample CSV template to prepare your knowledge data.">
+                  <InfoOutlined fontSize="small" color="action" />
+                </Tooltip>
+              </Stack>
             </Box>
           </Stack>
         </DialogContent>

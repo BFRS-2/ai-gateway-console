@@ -240,7 +240,7 @@ export default function AccountPopover() {
             </Alert>
           )}
 
-          <Stack spacing={2}>
+          <Stack spacing={2} mt={2}>
             <TextField
               label="Current password"
               type={showOld ? "text" : "password"}
