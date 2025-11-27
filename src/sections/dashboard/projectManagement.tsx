@@ -56,6 +56,26 @@ function tabValueToParam(
 }
 export function ProjectManagementRoot() {
   const theme = useTheme();
+
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const updateProjectInUrl = (id: string) => {
+    const current = new URLSearchParams(searchParams.toString());
+
+    if (id) {
+      current.set("projectId", id);
+    } else {
+      current.delete("projectId");
+    }
+
+    const queryString = current.toString();
+    const url = queryString ? `${pathname}?${queryString}` : pathname;
+
+    router.replace(url, { scroll: false });
+  };
+
   const mdDown = useMediaQuery(theme.breakpoints.down("md"));
   const { enqueueSnackbar } = useSnackbar();
 
@@ -119,15 +139,23 @@ export function ProjectManagementRoot() {
       return;
     }
 
-    setProjectId((prev) => {
-      // if previous project still exists in the new list, keep it
-      const stillExists = prev && projectList.some((p) => p.id === prev);
-      if (stillExists) return prev;
+    const paramProjectId = searchParams.get("projectId");
 
-      // otherwise pick the first project of the new org
+    setProjectId((prev) => {
+      // 1. If URL has projectId and it exists in list, prefer that
+      if (paramProjectId && projectList.some((p) => p.id === paramProjectId)) {
+        return paramProjectId;
+      }
+
+      // 2. Else if previous state is still valid, keep it
+      if (prev && projectList.some((p) => p.id === prev)) {
+        return prev;
+      }
+
+      // 3. Else fall back to first project
       return projectList[0].id;
     });
-  }, [projectList]);
+  }, [projectList, searchParams]);
 
   const dispatch = useDispatch();
   const getUserPermissionAndRole = async () => {
@@ -331,6 +359,7 @@ export function ProjectManagementRoot() {
         const created = projRes?.data ?? projRes;
         if (created?.id) {
           setProjectId(created.id);
+          updateProjectInUrl(created.id);
         }
 
         // extract API key from response
@@ -395,10 +424,6 @@ export function ProjectManagementRoot() {
     }
   };
   const userRole = useSelector((state: RootState) => state.user.userRole);
-
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   // map between numeric tab and URL param
 
@@ -510,6 +535,7 @@ export function ProjectManagementRoot() {
           selectedProjectId={projectId}
           onSelectProject={(id) => {
             setProjectId(id);
+            updateProjectInUrl(id);
             setProjectDrawerOpen(false);
           }}
         />
@@ -713,7 +739,10 @@ export function ProjectManagementRoot() {
               projectList.map((p) => (
                 <Tooltip key={p.id} title={p.name}>
                   <Box
-                    onClick={() => setProjectId(p.id)}
+                    onClick={() => {
+                      setProjectId(p.id);
+                      updateProjectInUrl(p.id);
+                    }}
                     sx={{
                       px: 1.5,
                       py: 1,
