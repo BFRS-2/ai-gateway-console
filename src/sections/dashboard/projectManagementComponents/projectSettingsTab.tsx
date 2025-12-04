@@ -995,7 +995,7 @@ export function ProjectSettingsTab({
                       <ListItem
                         key={item.name}
                         secondaryAction={
-                          isEdittingAllowed && (
+                          isEdittingAllowed && apiKeys.length > 1 && (
                             <Tooltip title="Revoke key">
                               <IconButton
                                 edge="end"
