@@ -176,7 +176,7 @@ export function useChart(options?: ChartOptions): ChartOptions {
       tickAmount: 5,
       ...options?.yaxis,
       labels : {
-        formatter : (val) => val.toFixed(0),
+        formatter : (val) => val.toFixed(4),
       }
     },
 

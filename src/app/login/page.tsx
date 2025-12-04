@@ -4,7 +4,7 @@ import { JwtSignInView } from 'src/sections/auth/jwt';
 
 // ----------------------------------------------------------------------
 
-export const metadata = { title: `Sign in | Jwt - ${CONFIG.site.name}` };
+export const metadata = { title: `Sign in ${CONFIG.site.name}` };
 
 export default function Page() {
   return <JwtSignInView />;

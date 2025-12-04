@@ -4,7 +4,7 @@ import OverviewSection from 'src/sections/dashboard/overview';
 
 // ----------------------------------------------------------------------
 
-export const metadata = { title: `Page three | Dashboard - ${CONFIG.site.name}` };
+export const metadata = { title: `Overview | Dashboard - ${CONFIG.site.name}` };
 
 export default function Page() {
   return <OverviewSection />;

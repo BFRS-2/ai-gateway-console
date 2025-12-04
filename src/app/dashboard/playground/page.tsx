@@ -4,7 +4,7 @@ import DockyardMuiPlayground from 'src/sections/dashboard/playground';
 
 // ----------------------------------------------------------------------
 
-export const metadata = { title: `Page three | Dashboard - ${CONFIG.site.name}` };
+export const metadata = { title: `Playground | Dashboard - ${CONFIG.site.name}` };
 
 export default function Page() {
   return <DockyardMuiPlayground />;

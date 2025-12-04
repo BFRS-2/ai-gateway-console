@@ -46,6 +46,7 @@
     "dayjs": "^1.11.11",
     "framer-motion": "^11.2.10",
     "generate-avatar": "^1.4.10",
+    "gsap": "^3.13.0",
     "i18next": "^25.6.0",
     "i18next-browser-languagedetector": "^8.2.0",
     "i18next-resources-to-backend": "^1.2.1",
@@ -68,6 +69,7 @@
     "styled-components": "^6.1.19",
     "stylis": "^4.3.2",
     "stylis-plugin-rtl": "^2.1.1",
+    "typed.js": "^2.1.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

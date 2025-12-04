@@ -19,7 +19,9 @@ function buildHeaders(body: any) {
   headers.set("ngrok-skip-browser-warning", "43534");
   // Auth header — add only if we actually have a token
   const token = localStorage.getItem(STORAGE_KEY);
+  
   if (token) headers.set("authorization", `Bearer ${token}`);
+  headers.set("x-api-key", "693171099f3d11b57d7ef2e4");
 
   // Misc headers
   // headers.set("ngrok-skip-browser-warning", "69420");

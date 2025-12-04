@@ -50,8 +50,8 @@ export function AppRequestsCostArea({ title, subheader, data, options, series, .
       shared: true,
       intersect: false,
       y: [
-        { formatter: (v: number) => fNumber(v) },
-        { formatter: (v: number) => `$${fNumber(v)}` },
+        { formatter: (v: number) => v.toString() },
+        { formatter: (v: number) => `$${v}` },
       ],
     },
     legend: { position: 'top' },
