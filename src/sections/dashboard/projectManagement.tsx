@@ -651,7 +651,7 @@ export function ProjectManagementRoot() {
                   setInviteRole(e.target.value as "admin" | "owner" | "member")
                 }
               >
-                <MenuItem value="admin">Admin (platform-wide)</MenuItem>
+                {/* <MenuItem value="admin">Admin (platform-wide)</MenuItem> */}
                 <MenuItem value="owner">Owner (organization)</MenuItem>
                 <MenuItem value="member">Member (project)</MenuItem>
               </Select>
@@ -924,7 +924,7 @@ export function ProjectManagementRoot() {
                 setInviteRole(e.target.value as "admin" | "owner" | "member")
               }
             >
-              <MenuItem value="admin">Admin (platform-wide)</MenuItem>
+              {/* <MenuItem value="admin">Admin (platform-wide)</MenuItem> */}
               <MenuItem value="owner">Owner (organization)</MenuItem>
               <MenuItem value="member">Member (project)</MenuItem>
             </Select>

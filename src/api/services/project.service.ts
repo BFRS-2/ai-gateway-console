@@ -124,7 +124,7 @@ export type GetProjectDetailsResponse = {
 
 /* -------------------- Base paths (NO fallbacks) -------------------- */
 const ORG_USAGE_BASE = "/api/v1/usage/organization";
-const USAGE_BASE = "/api/v1/usage/";
+const USAGE_BASE = "/api/v1/usage";
 
 /* -------------------- Service -------------------- */
 const projectService = {
