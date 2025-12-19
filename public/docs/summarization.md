@@ -8,8 +8,7 @@ This document provides detailed developer documentation for the **Summarization 
 #### Base URL
 
 ```
-http://192.168.22.193:8001
-```
+https://aigateway.shiprocket.in```
 
 ---
 
