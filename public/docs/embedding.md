@@ -7,7 +7,8 @@ This document provides detailed developer documentation for the **Embedding APIs
 #### Base URL
 
 ```
-https://aigateway.shiprocket.in```
+https://aigateway.shiprocket.in
+```
 
 ---
 

@@ -7,7 +7,8 @@ This document provides detailed developer documentation for the **Chat APIs**, w
 #### Base URL
 
 ```
-https://aigateway.shiprocket.in```
+https://aigateway.shiprocket.in
+```
 
 ---
 
