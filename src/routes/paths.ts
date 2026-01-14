@@ -46,6 +46,7 @@ export const paths = {
     projects: `${ROOTS.DASHBOARD}/projects`,
     users: `${ROOTS.DASHBOARD}/users`,
     playground: `${ROOTS.DASHBOARD}/playground`,
+    agent: `${ROOTS.DASHBOARD}/agent`,
     services: `${ROOTS.DASHBOARD}/services`,
     // group: {
     //   root: `${ROOTS.DASHBOARD}/group`,
