@@ -38,7 +38,6 @@ export interface AgentSetupPayload {
   graph_json: AgentGraphPayload;
   mcp_url?: string;
   system_prompt: string;
-  reviewer_prompt?: string;
   kb_collection?: string;
   max_steps: number;
 }

@@ -44,7 +44,7 @@ import { useSnackbar } from "notistack";
 import { useSelector } from "react-redux";
 import { DashboardContent } from "src/layouts/dashboard";
 import kbService, { KBStatusData } from "src/api/services/kb.service";
-import agentBuilderService from "src/api/services/agentBuilder.service";
+import agentBuilderService, { AgentSetupPayload } from "src/api/services/agentBuilder.service";
 import serviceManagementService from "src/api/services/serviceManagement.service";
 import { RootState } from "src/stores/store";
 import { ModelRow, ProviderRow } from "src/sections/dashboard/serviceComponents/dynamicServiceForm";
@@ -617,8 +617,6 @@ export function AgentBuilderPage() {
           (payload as any)?.name || (payload as any)?.agent_name || "";
         const nextSystemPrompt =
           (payload as any)?.system_prompt || (payload as any)?.systemPrompt || "";
-        const nextReviewerPrompt =
-          (payload as any)?.reviewer_prompt || (payload as any)?.reviewerPrompt || "";
         const nextMaxSteps =
           (payload as any)?.max_steps || (payload as any)?.maxSteps || 0;
         const nextMcpUrl = (payload as any)?.mcp_url || (payload as any)?.mcpUrl || "";
@@ -633,8 +631,6 @@ export function AgentBuilderPage() {
             ...prev.agent,
             name: nextAgentName || prev.agent.name,
             systemPrompt: nextSystemPrompt || prev.agent.systemPrompt,
-            reviewerPrompt:
-              nextReviewerPrompt !== "" ? nextReviewerPrompt : prev.agent.reviewerPrompt,
             maxSteps: Number(nextMaxSteps) > 0 ? Number(nextMaxSteps) : prev.agent.maxSteps,
           },
           tools: {
@@ -767,19 +763,19 @@ export function AgentBuilderPage() {
             kb: {
               ...prev.tools.kb,
               status:
-                res.data.status === "completed"
+                res?.data?.status === "completed"
                   ? "ready"
-                  : res.data.status === "failed"
+                  : res?.data?.status === "failed"
                   ? "failed"
-                  : res.data.status === "pending" || res.data.status === "started"
+                  : res?.data?.status === "pending" || res?.data?.status === "started"
                   ? "processing"
                   : "processing",
               collectionName:
                 prev.tools.kb.selection === "new" && prev.tools.kb.status !== "idle"
-                  ? res.data.collection_name || prev.tools.kb.collectionName
+                  ? res?.data?.collection_name || prev.tools.kb.collectionName
                   : prev.tools.kb.collectionName,
               selection:
-                res.data.collection_name && !kbSelectionTouched
+                res?.data?.collection_name && !kbSelectionTouched
                   ? "existing"
                   : prev.tools.kb.selection,
             },
@@ -968,7 +964,7 @@ export function AgentBuilderPage() {
       return false;
     }
 
-    const payload = buildAgentSetupPayload({
+    const payload: AgentSetupPayload = buildAgentSetupPayload({
       includeUiConfig: false,
       includeTools,
       includeGraphJson: includeTools,
@@ -976,7 +972,7 @@ export function AgentBuilderPage() {
 
     setAgentSaving(true);
     try {
-      const res = await agentBuilderService.setupAgent(payload);
+      const res = await agentBuilderService.setupAgent(payload as any);
       const ok = Boolean((res as any)?.success) || !(res as any)?.error;
       const returnedAgentId =
         (res as any)?.data?.id ||
@@ -1032,10 +1028,6 @@ export function AgentBuilderPage() {
 
       payload.graph_json = graphJson;
     }
-
-    if (config.agent.reviewerPrompt.trim()) {
-      payload.reviewer_prompt = config.agent.reviewerPrompt.trim();
-    }
     if (includeTools && hasValidMcp) {
       payload.mcp_url = config.tools.mcp.url.trim();
     }
@@ -1061,7 +1053,7 @@ export function AgentBuilderPage() {
         includeTools: true,
         includeGraphJson: true,
       });
-      const res = await agentBuilderService.setupAgent(payload);
+      const res = await agentBuilderService.setupAgent(payload as any);
       const ok = Boolean((res as any)?.success) || !(res as any)?.error;
       const returnedAgentId =
         (res as any)?.data?.id ||
@@ -1142,7 +1134,7 @@ export function AgentBuilderPage() {
     agentSaving ||
     previewSubmitting ||
     (activeStep === 1 && (kbLoading || mcpChecking));
-  const deployedAgentId = agentId || "shiprocket-agent";
+  const deployedAgentId = agentId;
   const deploymentSnippet = useMemo(
     () => buildIntegrationSnippet(deployedAgentId),
     [deployedAgentId]
@@ -2009,7 +2001,7 @@ function PreviewStep({
   hasValidMcp,
 }: PreviewStepProps) {
   const { enqueueSnackbar } = useSnackbar();
-  const widgetAgentId = agentId || "shiprocket-agent";
+  const widgetAgentId = agentId;
   const widgetConfig = useMemo(() => {
     const nextConfig = config as any;
     return {
@@ -4794,7 +4786,7 @@ function WidgetPreview({
   authToken: string;
 }) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const widgetAgentId = agentId || "shiprocket-agent";
+  const widgetAgentId = agentId;
   const widgetApiKey = apiKey || "YOUR_API_KEY";
   const widgetUserId = userId || "USER_ID";
   const widgetAuth = authToken ? ` x-auth-token="${authToken}"` : "";
@@ -4848,7 +4840,7 @@ function WidgetPreview({
       ? `<script${widgetScriptIsModule ? ' type="module"' : ""} src="${widgetScriptUrl}"></script>`
       : "",
     `<div id="widget-root">`,
-    `<shiprocket-agent-widget agent-id="${widgetAgentId}" api-key="${widgetApiKey}" user-id="${widgetUserId}"${widgetAuth}></shiprocket-agent-widget>`,
+    `<shiprocket-agent-widget agent-id="${widgetAgentId}" user-id="${widgetUserId}" x-auth-token="YOUR_AUTH_TOKEN"></shiprocket-agent-widget>`,
     "</div>",
     "</body>",
     "</html>",
