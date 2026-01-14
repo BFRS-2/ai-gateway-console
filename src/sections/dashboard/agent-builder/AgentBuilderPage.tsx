@@ -1721,8 +1721,8 @@ function ToolsStep({
       : config.tools.kb.status === "failed"
       ? "error"
       : "default";
-  const kbSelection = config.tools.kb.selection;
   const hasExistingKb = Boolean(existingKbCollection);
+  const kbSelection = hasExistingKb ? "existing" : "new";
 
   return (
     <Stack spacing={2.5}>
@@ -1735,24 +1735,6 @@ function ToolsStep({
               <Chip label={config.tools.kb.status} color={kbChipColor} size="small" />
             )}
           </Stack>
-
-          <FormControl fullWidth>
-            <InputLabel id="kb-selection-label">Knowledge base</InputLabel>
-            <Select
-              labelId="kb-selection-label"
-              label="Knowledge base"
-              value={kbSelection}
-              onChange={(e) =>
-                onSelectKb(e.target.value as ToolingConfig["kb"]["selection"])
-              }
-              disabled={!hasExistingKb}
-            >
-              {hasExistingKb && (
-                <MenuItem value="existing">Existing KB: {existingKbCollection}</MenuItem>
-              )}
-              <MenuItem value="new">Add new knowledge base</MenuItem>
-            </Select>
-          </FormControl>
 
           {kbSelection === "existing" && (
             <Stack spacing={2}>
