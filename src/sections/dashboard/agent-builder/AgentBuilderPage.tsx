@@ -1,6 +1,14 @@
 "use client";
 
-import { Dispatch, SetStateAction, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Dispatch,
+  SetStateAction,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Alert,
   Accordion,
@@ -474,6 +482,12 @@ type AgentNodeConfig = {
   maxSteps: number;
 };
 
+type AgentListItem = {
+  id: string;
+  name: string;
+  raw: Record<string, unknown>;
+};
+
 type BuilderConfig = {
   service: ServiceSetup;
   tools: ToolingConfig;
@@ -522,7 +536,7 @@ const defaultConfig: BuilderConfig = {
   },
 };
 
-const steps = ["Service + Agent", "Tools", "Preview"];
+const steps = ["Basics", "Tools", "Preview"];
 
 export function AgentBuilderPage() {
   const theme = useTheme();
@@ -538,7 +552,6 @@ export function AgentBuilderPage() {
   const [config, setConfig] = useState<BuilderConfig>(defaultConfig);
   const [previewConfig, setPreviewConfig] = useState<WidgetConfig>(devConfig);
   const [agentId, setAgentId] = useState("");
-  const [draftSaving, setDraftSaving] = useState(false);
   const [models, setModels] = useState<ModelRow[]>([]);
   const [providers, setProviders] = useState<ProviderRow[]>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
@@ -554,6 +567,8 @@ export function AgentBuilderPage() {
   const [agentSaving, setAgentSaving] = useState(false);
   const [previewSubmitting, setPreviewSubmitting] = useState(false);
   const [deployModalOpen, setDeployModalOpen] = useState(false);
+  const [showListView, setShowListView] = useState(false);
+  const [agentList, setAgentList] = useState<AgentListItem[]>([]);
   const loadedAgentConfigRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -571,24 +586,119 @@ export function AgentBuilderPage() {
     if (!projectId) return;
     setKbStatus(null);
     setKbSelectionTouched(false);
-    setConfig((prev) => ({
-      ...prev,
-      tools: {
-        ...prev.tools,
-        kb: {
-          ...prev.tools.kb,
-          file: null,
-          status: "idle",
-          collectionName: "",
-          selection: "new",
-        },
-        mcp: {
-          ...prev.tools.mcp,
-          status: "idle",
-        },
-      },
-    }));
+    setShowListView(false);
+    setAgentList([]);
+    setActiveStep(0);
+    setAgentId("");
+    setPreviewConfig(devConfig);
+    setConfig(defaultConfig);
   }, [projectId]);
+
+  const applyAgentConfig = useCallback(
+    (payload: Record<string, unknown>) => {
+      if (!payload || typeof payload !== "object") {
+        setConfig(defaultConfig);
+        setPreviewConfig(devConfig);
+        setAgentId("");
+        setKbStatus(null);
+        return;
+      }
+
+      const nextAgentId =
+        (payload as any)?.id ||
+        (payload as any)?.agent_id ||
+        (payload as any)?.agentId ||
+        "";
+      const nextAgentName =
+        (payload as any)?.name || (payload as any)?.agent_name || "";
+      const nextSystemPrompt =
+        (payload as any)?.system_prompt || (payload as any)?.systemPrompt || "";
+      const nextReviewerPrompt =
+        (payload as any)?.reviewer_prompt || (payload as any)?.reviewerPrompt || "";
+      const nextMaxSteps =
+        (payload as any)?.max_steps || (payload as any)?.maxSteps || 0;
+      const nextMcpUrl = (payload as any)?.mcp_url || (payload as any)?.mcpUrl || "";
+      const nextKbCollection =
+        (payload as any)?.kb_collection || (payload as any)?.kbCollection || "";
+      const nextUiConfig =
+        (payload as any)?.ui_config || (payload as any)?.uiConfig || null;
+
+      setConfig((prev) => ({
+        ...prev,
+        agent: {
+          ...prev.agent,
+          name: nextAgentName || prev.agent.name,
+          systemPrompt: nextSystemPrompt || prev.agent.systemPrompt,
+          reviewerPrompt:
+            nextReviewerPrompt !== "" ? nextReviewerPrompt : prev.agent.reviewerPrompt,
+          maxSteps: Number(nextMaxSteps) > 0 ? Number(nextMaxSteps) : prev.agent.maxSteps,
+        },
+        tools: {
+          ...prev.tools,
+          kb: {
+            ...prev.tools.kb,
+            file: null,
+            collectionName: nextKbCollection || prev.tools.kb.collectionName,
+            selection: nextKbCollection ? "existing" : prev.tools.kb.selection,
+            status: nextKbCollection ? "ready" : prev.tools.kb.status,
+          },
+          mcp: {
+            ...prev.tools.mcp,
+            url: nextMcpUrl || prev.tools.mcp.url,
+            status: nextMcpUrl ? "valid" : prev.tools.mcp.status,
+          },
+        },
+      }));
+
+      if (nextKbCollection) {
+        setKbStatus({
+          file_name: "",
+          chunking_size: 0,
+          overlapping_size: 0,
+          status: "completed",
+          collection_name: nextKbCollection,
+          chunks_created: null,
+          csv_rows_processed: null,
+          csv_columns: null,
+          jsonl_path: null,
+          error: null,
+        });
+      } else {
+        setKbStatus(null);
+      }
+
+      if (nextUiConfig) {
+        setPreviewConfig(normalizeWidgetConfig(nextUiConfig));
+      } else {
+        setPreviewConfig(devConfig);
+      }
+
+      if (nextAgentId) {
+        setAgentId(nextAgentId);
+      } else {
+        setAgentId("");
+      }
+    },
+    []
+  );
+
+  const buildAgentList = useCallback((payload: unknown) => {
+    if (!payload || typeof payload !== "object") return [] as AgentListItem[];
+    const items = Array.isArray(payload) ? payload : [payload];
+    return items
+      .map((item) => {
+        const id =
+          (item as any)?.id || (item as any)?.agent_id || (item as any)?.agentId || "";
+        const name = (item as any)?.name || (item as any)?.agent_name || "Untitled agent";
+        if (!id && !name) return null;
+        return {
+          id: String(id),
+          name: String(name),
+          raw: item as Record<string, unknown>,
+        };
+      })
+      .filter(Boolean) as AgentListItem[];
+  }, []);
 
   useEffect(() => {
     if (!projectId || loadedAgentConfigRef.current === projectId) return;
@@ -598,79 +708,34 @@ export function AgentBuilderPage() {
       try {
         const res = await agentBuilderService.getAgentConfig(projectId);
         if (!isActive) return;
-        if ((res as any)?.error) {
+        const errorPayload = (res as any)?.error;
+        if (errorPayload) {
+          const errorStatus = errorPayload?.status;
+          const errorMessage =
+            errorPayload?.payload?.message ||
+            errorPayload?.payload?.detail ||
+            errorPayload?.payload?.error ||
+            "";
+          const notFound =
+            errorStatus === 404 || /not found/i.test(String(errorMessage));
+          if (notFound) {
+            loadedAgentConfigRef.current = projectId;
+            return;
+          }
           enqueueSnackbar("Unable to load agent config", { variant: "error" });
           return;
         }
+
         const payload = (res as any)?.data ?? (res as any)?.config ?? res;
-        if (!payload || typeof payload !== "object") {
+        const list = buildAgentList(payload);
+        if (!list.length) {
           loadedAgentConfigRef.current = projectId;
           return;
         }
 
-        const nextAgentId =
-          (payload as any)?.id ||
-          (payload as any)?.agent_id ||
-          (payload as any)?.agentId ||
-          "";
-        const nextAgentName =
-          (payload as any)?.name || (payload as any)?.agent_name || "";
-        const nextSystemPrompt =
-          (payload as any)?.system_prompt || (payload as any)?.systemPrompt || "";
-        const nextMaxSteps =
-          (payload as any)?.max_steps || (payload as any)?.maxSteps || 0;
-        const nextMcpUrl = (payload as any)?.mcp_url || (payload as any)?.mcpUrl || "";
-        const nextKbCollection =
-          (payload as any)?.kb_collection || (payload as any)?.kbCollection || "";
-        const nextUiConfig =
-          (payload as any)?.ui_config || (payload as any)?.uiConfig || null;
-
-        setConfig((prev) => ({
-          ...prev,
-          agent: {
-            ...prev.agent,
-            name: nextAgentName || prev.agent.name,
-            systemPrompt: nextSystemPrompt || prev.agent.systemPrompt,
-            maxSteps: Number(nextMaxSteps) > 0 ? Number(nextMaxSteps) : prev.agent.maxSteps,
-          },
-          tools: {
-            ...prev.tools,
-            kb: {
-              ...prev.tools.kb,
-              file: null,
-              collectionName: nextKbCollection || prev.tools.kb.collectionName,
-              selection: nextKbCollection ? "existing" : prev.tools.kb.selection,
-              status: nextKbCollection ? "ready" : prev.tools.kb.status,
-            },
-            mcp: {
-              ...prev.tools.mcp,
-              url: nextMcpUrl || prev.tools.mcp.url,
-              status: nextMcpUrl ? "valid" : prev.tools.mcp.status,
-            },
-          },
-        }));
-
-        if (nextKbCollection) {
-          setKbStatus({
-            file_name: "",
-            chunking_size: 0,
-            overlapping_size: 0,
-            status: "completed",
-            collection_name: nextKbCollection,
-            chunks_created: null,
-            csv_rows_processed: null,
-            csv_columns: null,
-            jsonl_path: null,
-            error: null,
-          });
-        }
-
-        if (nextUiConfig) {
-          setPreviewConfig(normalizeWidgetConfig(nextUiConfig));
-        }
-        if (nextAgentId) {
-          setAgentId(nextAgentId);
-        }
+        setAgentList(list);
+        setShowListView(true);
+        applyAgentConfig(list[0].raw);
         loadedAgentConfigRef.current = projectId;
       } catch (error) {
         if (!isActive) return;
@@ -683,7 +748,7 @@ export function AgentBuilderPage() {
     return () => {
       isActive = false;
     };
-  }, [enqueueSnackbar, projectId]);
+  }, [applyAgentConfig, buildAgentList, enqueueSnackbar, projectId]);
 
   useEffect(() => {
     let isActive = true;
@@ -741,13 +806,6 @@ export function AgentBuilderPage() {
     setConfig((prev) => updater(prev));
   };
 
-  const handleSaveDraft = () => {
-    setDraftSaving(true);
-    setTimeout(() => {
-      setDraftSaving(false);
-      enqueueSnackbar("Draft saved", { variant: "success" });
-    }, 600);
-  };
 
   const refreshKbStatus = async () => {
     if (!projectId) return;
@@ -910,9 +968,11 @@ export function AgentBuilderPage() {
   const hasKbCollection = Boolean(selectedKbCollection);
   const hasValidMcp = config.tools.mcp.status === "valid";
 
-  const submitServiceSetup = async () => {
+  const submitServiceSetup = async (showToast = true) => {
     if (!projectId) {
-      enqueueSnackbar("Select a project first", { variant: "warning" });
+      if (showToast) {
+        enqueueSnackbar("Select a project first", { variant: "warning" });
+      }
       return false;
     }
     setServiceSaving(true);
@@ -940,27 +1000,35 @@ export function AgentBuilderPage() {
 
       const res = await agentBuilderService.addProjectService(projectId, payload);
       const ok = Boolean((res as any)?.success) || !(res as any)?.error;
-      enqueueSnackbar(ok ? "Service config saved" : "Service config failed", {
-        variant: ok ? "success" : "error",
-      });
+      if (showToast) {
+        enqueueSnackbar(ok ? "Service config saved" : "Service config failed", {
+          variant: ok ? "success" : "error",
+        });
+      }
       return ok;
     } catch (error) {
-      enqueueSnackbar("Service config failed", { variant: "error" });
+      if (showToast) {
+        enqueueSnackbar("Service config failed", { variant: "error" });
+      }
       return false;
     } finally {
       setServiceSaving(false);
     }
   };
 
-  const submitAgentSetup = async (includeTools: boolean) => {
+  const submitAgentSetup = async (includeTools: boolean, showToast = true) => {
     if (!projectId) {
-      enqueueSnackbar("Select a project first", { variant: "warning" });
+      if (showToast) {
+        enqueueSnackbar("Select a project first", { variant: "warning" });
+      }
       return false;
     }
     if (includeTools && hasValidMcp === false && hasKbCollection === false) {
-      enqueueSnackbar("Add MCP or Knowledge Base before setting up the agent", {
-        variant: "warning",
-      });
+      if (showToast) {
+        enqueueSnackbar("Add MCP or Knowledge Base before setting up the agent", {
+          variant: "warning",
+        });
+      }
       return false;
     }
 
@@ -985,12 +1053,16 @@ export function AgentBuilderPage() {
       if (returnedAgentId) {
         setAgentId(returnedAgentId);
       }
-      enqueueSnackbar(ok ? "Agent setup saved" : "Agent setup failed", {
-        variant: ok ? "success" : "error",
-      });
+      if (showToast) {
+        enqueueSnackbar(ok ? "Agent setup saved" : "Agent setup failed", {
+          variant: ok ? "success" : "error",
+        });
+      }
       return ok;
     } catch (error) {
-      enqueueSnackbar("Agent setup failed", { variant: "error" });
+      if (showToast) {
+        enqueueSnackbar("Agent setup failed", { variant: "error" });
+      }
       return false;
     } finally {
       setAgentSaving(false);
@@ -1066,6 +1138,35 @@ export function AgentBuilderPage() {
       if (returnedAgentId) {
         setAgentId(returnedAgentId);
       }
+      if (ok) {
+        const nextAgentId = returnedAgentId || agentId;
+        if (nextAgentId) {
+          const agentRaw = {
+            id: nextAgentId,
+            name: config.agent.name,
+            system_prompt: config.agent.systemPrompt,
+            reviewer_prompt: config.agent.reviewerPrompt,
+            max_steps: config.agent.maxSteps,
+            mcp_url: hasValidMcp ? config.tools.mcp.url.trim() : "",
+            kb_collection: hasKbCollection ? selectedKbCollection : "",
+            ui_config: previewConfig,
+          };
+          setAgentList((prev) => {
+            const existingIndex = prev.findIndex((item) => item.id === String(nextAgentId));
+            const nextItem = {
+              id: String(nextAgentId),
+              name: config.agent.name || "Agent",
+              raw: agentRaw,
+            };
+            if (existingIndex >= 0) {
+              const nextList = [...prev];
+              nextList[existingIndex] = nextItem;
+              return nextList;
+            }
+            return [...prev, nextItem];
+          });
+        }
+      }
       enqueueSnackbar(
         ok ? "Preview config saved" : "Preview config save failed",
         {
@@ -1084,10 +1185,17 @@ export function AgentBuilderPage() {
 
   const handleNext = async () => {
     if (activeStep === 0) {
-      const ok = await submitServiceSetup();
-      if (!ok) return;
-      const agentOk = await submitAgentSetup(false);
-      if (!agentOk) return;
+      const ok = await submitServiceSetup(false);
+      if (!ok) {
+        enqueueSnackbar("Basics setup failed", { variant: "error" });
+        return;
+      }
+      const agentOk = await submitAgentSetup(false, false);
+      if (!agentOk) {
+        enqueueSnackbar("Basics setup failed", { variant: "error" });
+        return;
+      }
+      enqueueSnackbar("Basics saved", { variant: "success" });
       setActiveStep((prev) => Math.min(prev + 1, steps.length - 1));
       return;
     }
@@ -1152,6 +1260,13 @@ export function AgentBuilderPage() {
   const handleCloseDeployModal = () => {
     setDeployModalOpen(false);
     setActiveStep(0);
+    setShowListView(true);
+  };
+
+  const handleEditAgent = (agent: AgentListItem) => {
+    applyAgentConfig(agent.raw);
+    setShowListView(false);
+    setActiveStep(0);
   };
 
   return (
@@ -1202,14 +1317,6 @@ export function AgentBuilderPage() {
                   ))}
                 </Select>
               </FormControl>
-              <Button
-                onClick={handleSaveDraft}
-                variant="outlined"
-                color="primary"
-                disabled={draftSaving}
-              >
-                {draftSaving ? "Saving..." : "Save Draft"}
-              </Button>
             </Stack>
           </Stack>
 
@@ -1219,93 +1326,137 @@ export function AgentBuilderPage() {
             </Alert>
           )}
 
-          <Stepper activeStep={activeStep} alternativeLabel>
-            {steps.map((label, index) => (
-              <Step key={label} completed={activeStep > index}>
-                <StepLabel>{label}</StepLabel>
-              </Step>
-            ))}
-          </Stepper>
-
-          <Box>
-            {activeStep === 0 && (
-              <Stack spacing={2.5}>
-                <ServiceStep
-                  config={config}
-                  onChange={updateConfig}
-                  projectId={projectId}
-                  serviceSaving={serviceSaving}
-                  models={models}
-                  providers={providers}
-                  modelsLoading={modelsLoading}
-                  providersLoading={providersLoading}
-                  modelsError={modelsError}
-                  providersError={providersError}
-                />
-                <AgentNodeStep
-                  config={config}
-                  onChange={updateConfig}
-                  hasKbCollection={hasKbCollection}
-                  hasValidMcp={hasValidMcp}
-                />
+          {showListView ? (
+            <Card sx={{ p: 2.5, borderRadius: 2 }}>
+              <Stack spacing={2}>
+                <Stack spacing={1.5}>
+                  {agentList.map((agent, index) => (
+                    <Box
+                      key={agent.id || `${agent.name}-${index}`}
+                      sx={{
+                        p: 2,
+                        borderRadius: 2,
+                        border: `1px solid ${alpha(theme.palette.divider, 0.3)}`,
+                      }}
+                    >
+                      <Stack
+                        direction={{ xs: "column", sm: "row" }}
+                        spacing={1}
+                        alignItems={{ xs: "flex-start", sm: "center" }}
+                        justifyContent="space-between"
+                      >
+                        <Stack spacing={0.5}>
+                          <Typography variant="subtitle1">{agent.name}</Typography>
+                          {agent.id && (
+                            <Typography variant="caption" color="text.secondary">
+                              ID: {agent.id}
+                            </Typography>
+                          )}
+                        </Stack>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={() => handleEditAgent(agent)}
+                        >
+                          Edit
+                        </Button>
+                      </Stack>
+                    </Box>
+                  ))}
+                </Stack>
               </Stack>
-            )}
-            {activeStep === 1 && (
-              <ToolsStep
-                config={config}
-                onChange={updateConfig}
-                kbStatus={kbStatus}
-                kbLoading={kbLoading}
-                existingKbCollection={existingKbCollection}
-                onSelectKb={handleKbSelectionChange}
-                onUploadKb={handleUploadKb}
-                onCheckKb={refreshKbStatus}
-                onCheckMcp={handleCheckMcp}
-                mcpChecking={mcpChecking}
-              />
-            )}
-            {activeStep === 2 && (
-              <PreviewStep
-                config={previewConfig}
-                onChange={setPreviewConfig}
-                agentId={agentId}
-                hasKbCollection={hasKbCollection}
-                hasValidMcp={hasValidMcp}
-              />
-            )}
-          </Box>
+            </Card>
+          ) : (
+            <>
+              <Stepper activeStep={activeStep} alternativeLabel>
+                {steps.map((label, index) => (
+                  <Step key={label} completed={activeStep > index}>
+                    <StepLabel>{label}</StepLabel>
+                  </Step>
+                ))}
+              </Stepper>
 
-          <Divider sx={{ borderColor: alpha(theme.palette.divider, 0.3) }} />
+              <Box>
+                {activeStep === 0 && (
+                  <Stack spacing={2.5}>
+                    <ServiceStep
+                      config={config}
+                      onChange={updateConfig}
+                      projectId={projectId}
+                      serviceSaving={serviceSaving}
+                      models={models}
+                      providers={providers}
+                      modelsLoading={modelsLoading}
+                      providersLoading={providersLoading}
+                      modelsError={modelsError}
+                      providersError={providersError}
+                    />
+                    <AgentNodeStep
+                      config={config}
+                      onChange={updateConfig}
+                      hasKbCollection={hasKbCollection}
+                      hasValidMcp={hasValidMcp}
+                    />
+                  </Stack>
+                )}
+                {activeStep === 1 && (
+                  <ToolsStep
+                    config={config}
+                    onChange={updateConfig}
+                    kbStatus={kbStatus}
+                    kbLoading={kbLoading}
+                    existingKbCollection={existingKbCollection}
+                    onSelectKb={handleKbSelectionChange}
+                    onUploadKb={handleUploadKb}
+                    onCheckKb={refreshKbStatus}
+                    onCheckMcp={handleCheckMcp}
+                    mcpChecking={mcpChecking}
+                  />
+                )}
+                {activeStep === 2 && (
+                  <PreviewStep
+                    config={previewConfig}
+                    onChange={setPreviewConfig}
+                    agentId={agentId}
+                    hasKbCollection={hasKbCollection}
+                    hasValidMcp={hasValidMcp}
+                  />
+                )}
+              </Box>
 
-          <Stack
-            direction={{ xs: "column", sm: "row" }}
-            spacing={1.5}
-            justifyContent="space-between"
-            alignItems={{ xs: "stretch", sm: "center" }}
-          >
-            <Button
-              startIcon={<KeyboardArrowLeftIcon />}
-              variant="text"
-              onClick={() => setActiveStep((prev) => Math.max(0, prev - 1))}
-              disabled={activeStep === 0}
-            >
-              Back
-            </Button>
-            <Button
-              endIcon={isLastStep ? <RocketLaunchIcon /> : <KeyboardArrowRightIcon />}
-              variant="contained"
-              onClick={handleNext}
-              disabled={!stepIsValid(activeStep) || stepBusy}
-            >
-              {isLastStep
-                ? previewSubmitting
-                  ? "Submitting..."
-                  : "Submit Widget Config"
-                : stepBusy
-                ? "Working..."
-                : "Next"}
-            </Button>
-          </Stack>
+              <Divider sx={{ borderColor: alpha(theme.palette.divider, 0.3) }} />
+
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={1.5}
+                justifyContent="space-between"
+                alignItems={{ xs: "stretch", sm: "center" }}
+              >
+                <Button
+                  startIcon={<KeyboardArrowLeftIcon />}
+                  variant="text"
+                  onClick={() => setActiveStep((prev) => Math.max(0, prev - 1))}
+                  disabled={activeStep === 0}
+                >
+                  Back
+                </Button>
+                <Button
+                  endIcon={isLastStep ? <RocketLaunchIcon /> : <KeyboardArrowRightIcon />}
+                  variant="contained"
+                  onClick={handleNext}
+                  disabled={!stepIsValid(activeStep) || stepBusy}
+                >
+                  {isLastStep
+                    ? previewSubmitting
+                      ? "Submitting..."
+                      : "Submit Widget Config"
+                    : stepBusy
+                    ? "Working..."
+                    : "Next"}
+                </Button>
+              </Stack>
+            </>
+          )}
         </Stack>
       </Card>
       </DashboardContent>
