@@ -964,7 +964,7 @@ export function AgentBuilderPage() {
       return false;
     }
 
-    const payload: AgentSetupPayload = buildAgentSetupPayload({
+    const payload: any = buildAgentSetupPayload({
       includeUiConfig: false,
       includeTools,
       includeGraphJson: includeTools,
