@@ -572,8 +572,7 @@ const agentBuilderHelpTexts = {
   dailyLimit:
     serviceSchemas["chat completion"]?.fields?.["limits.daily"]?.helpText || "",
   monthlyLimit:
-    serviceSchemas["chat completion"]?.fields?.["limits.monthly"]?.helpText ||
-    "",
+    "Maximum cost per month for this service",
   dailyAlert:
     serviceSchemas["chat completion"]?.fields?.["alerts.daily"]?.helpText || "",
   monthlyAlert:
@@ -1026,7 +1025,7 @@ export function AgentBuilderPage() {
       enqueueSnackbar(ok ? "MCP connection looks good" : "MCP check failed", {
         variant: ok ? "success" : "error",
       });
-      return ok;
+      return !!ok ;
     } catch (error) {
       updateConfig((prev) => ({
         ...prev,
@@ -1119,6 +1118,7 @@ export function AgentBuilderPage() {
             variant: "warning",
           }
         );
+        return false;
       }
       return false;
     }
@@ -1145,14 +1145,14 @@ export function AgentBuilderPage() {
         setAgentId(returnedAgentId);
       }
       if (showToast) {
-        enqueueSnackbar(ok ? "Agent setup saved" : "Agent setup failed", {
+        enqueueSnackbar(ok ? "Tool setup saved" : "Tool setup failed", {
           variant: ok ? "success" : "error",
         });
       }
       return ok;
     } catch (error) {
       if (showToast) {
-        enqueueSnackbar("Agent setup failed", { variant: "error" });
+        enqueueSnackbar("Tool setup failed", { variant: "error" });
       }
       return false;
     } finally {
@@ -1280,22 +1280,22 @@ export function AgentBuilderPage() {
     if (activeStep === 0) {
       const ok = await submitServiceSetup(false);
       if (!ok) {
-        enqueueSnackbar("Basics setup failed", { variant: "error" });
+        enqueueSnackbar("Agent settings failed", { variant: "error" });
         return;
       }
       const agentOk = await submitAgentSetup(false, false);
       if (!agentOk) {
-        enqueueSnackbar("Basics setup failed", { variant: "error" });
+        enqueueSnackbar("Agent settings failed", { variant: "error" });
         return;
       }
-      enqueueSnackbar("Basics saved", { variant: "success" });
+      enqueueSnackbar("Agent settings saved", { variant: "success" });
       setActiveStep((prev) => Math.min(prev + 1, steps.length - 1));
       return;
     }
     if (activeStep === 1) {
-      if (hasValidMcp === false && config.tools.mcp.url.trim()) {
+      if (config.tools.mcp.url.trim()) {
         const ok = await handleCheckMcp();
-        if (!ok && !hasKbCollection) return;
+        if (!ok) return;
       }
       if (!hasKbCollection && !hasValidMcp) {
         enqueueSnackbar("Add MCP or Knowledge Base to continue", {
@@ -1843,13 +1843,13 @@ function ServiceStep({
             <FormControl fullWidth>
               <InputLabel id="backup-model-label">
                 <LabelWithHelp
-                  label="Backup model"
+                  label="Fallback model"
                   helpText={agentBuilderHelpTexts.backupModel}
                 />
               </InputLabel>
               <Select
                 labelId="backup-model-label"
-                label="Backup model"
+                label="Fallback model"
                 value={config.service.backupModel}
                 onChange={(e) =>
                   onChange((prev) => ({
@@ -1874,13 +1874,13 @@ function ServiceStep({
             <FormControl fullWidth>
               <InputLabel id="backup-provider-label">
                 <LabelWithHelp
-                  label="Backup provider"
+                  label="Fallback provider"
                   helpText={agentBuilderHelpTexts.backupProvider}
                 />
               </InputLabel>
               <Select
                 labelId="backup-provider-label"
-                label="Backup provider"
+                label="Fallback provider"
                 value={config.service.backupProvider}
                 onChange={(e) =>
                   onChange((prev) => ({
@@ -1901,7 +1901,7 @@ function ServiceStep({
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={12}>
             <Stack spacing={1}>
               <Typography variant="subtitle2" component="div">
                 <LabelWithHelp
@@ -1924,105 +1924,119 @@ function ServiceStep({
               />
             </Stack>
           </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              label={
-                <LabelWithHelp
-                  label="Daily limit"
-                  helpText={agentBuilderHelpTexts.dailyLimit}
-                />
-              }
-              type="number"
-              value={config.service.limits.daily}
-              onChange={(e) =>
-                onChange((prev) => ({
-                  ...prev,
-                  service: {
-                    ...prev.service,
-                    limits: {
-                      ...prev.service.limits,
-                      daily: Number(e.target.value),
-                    },
-                  },
-                }))
-              }
-              fullWidth
-            />
+          <Grid item xs={12}>
+            <Stack spacing={1.5}>
+              <Typography variant="subtitle2">Limits</Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label={
+                      <LabelWithHelp
+                        label="Daily limit (in $)"
+                        helpText={agentBuilderHelpTexts.dailyLimit}
+                      />
+                    }
+                    type="number"
+                    value={config.service.limits.daily}
+                    onChange={(e) =>
+                      onChange((prev) => ({
+                        ...prev,
+                        service: {
+                          ...prev.service,
+                          limits: {
+                            ...prev.service.limits,
+                            daily: Number(e.target.value),
+                          },
+                        },
+                      }))
+                    }
+                    fullWidth
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label={
+                      <LabelWithHelp
+                        label="Monthly limit (in $)"
+                        helpText={agentBuilderHelpTexts.monthlyLimit}
+                      />
+                    }
+                    type="number"
+                    value={config.service.limits.monthly}
+                    onChange={(e) =>
+                      onChange((prev) => ({
+                        ...prev,
+                        service: {
+                          ...prev.service,
+                          limits: {
+                            ...prev.service.limits,
+                            monthly: Number(e.target.value),
+                          },
+                        },
+                      }))
+                    }
+                    fullWidth
+                  />
+                </Grid>
+              </Grid>
+            </Stack>
           </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              label={
-                <LabelWithHelp
-                  label="Monthly limit"
-                  helpText={agentBuilderHelpTexts.monthlyLimit}
-                />
-              }
-              type="number"
-              value={config.service.limits.monthly}
-              onChange={(e) =>
-                onChange((prev) => ({
-                  ...prev,
-                  service: {
-                    ...prev.service,
-                    limits: {
-                      ...prev.service.limits,
-                      monthly: Number(e.target.value),
-                    },
-                  },
-                }))
-              }
-              fullWidth
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              label={
-                <LabelWithHelp
-                  label="Daily alert limit"
-                  helpText={agentBuilderHelpTexts.dailyAlert}
-                />
-              }
-              type="number"
-              value={config.service.serviceAlertLimit.daily}
-              onChange={(e) =>
-                onChange((prev) => ({
-                  ...prev,
-                  service: {
-                    ...prev.service,
-                    serviceAlertLimit: {
-                      ...prev.service.serviceAlertLimit,
-                      daily: Number(e.target.value),
-                    },
-                  },
-                }))
-              }
-              fullWidth
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              label={
-                <LabelWithHelp
-                  label="Monthly alert limit"
-                  helpText={agentBuilderHelpTexts.monthlyAlert}
-                />
-              }
-              type="number"
-              value={config.service.serviceAlertLimit.monthly}
-              onChange={(e) =>
-                onChange((prev) => ({
-                  ...prev,
-                  service: {
-                    ...prev.service,
-                    serviceAlertLimit: {
-                      ...prev.service.serviceAlertLimit,
-                      monthly: Number(e.target.value),
-                    },
-                  },
-                }))
-              }
-              fullWidth
-            />
+          <Grid item xs={12}>
+            <Stack spacing={1.5}>
+              <Typography variant="subtitle2">Alert limits</Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label={
+                      <LabelWithHelp
+                        label="Daily alert limit (in %)"
+                        helpText={agentBuilderHelpTexts.dailyAlert}
+                      />
+                    }
+                    type="number"
+                    value={config.service.serviceAlertLimit.daily}
+                    onChange={(e) =>
+                      onChange((prev) => ({
+                        ...prev,
+                        service: {
+                          ...prev.service,
+                          serviceAlertLimit: {
+                            ...prev.service.serviceAlertLimit,
+                            daily: Number(e.target.value),
+                          },
+                        },
+                      }))
+                    }
+                    fullWidth
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label={
+                      <LabelWithHelp
+                        label="Monthly alert limit (in %)"
+                        helpText={agentBuilderHelpTexts.monthlyAlert}
+                      />
+                    }
+                    type="number"
+                    value={config.service.serviceAlertLimit.monthly}
+                    onChange={(e) =>
+                      onChange((prev) => ({
+                        ...prev,
+                        service: {
+                          ...prev.service,
+                          serviceAlertLimit: {
+                            ...prev.service.serviceAlertLimit,
+                            monthly: Number(e.target.value),
+                          },
+                        },
+                      }))
+                    }
+                    fullWidth
+                  />
+                </Grid>
+              </Grid>
+            </Stack>
           </Grid>
         </Grid>
 
@@ -5365,9 +5379,8 @@ function PreviewStep({
               fullWidth
               InputProps={{ readOnly: true, sx: { fontFamily: "monospace" } }}
             />
-            <Typography variant="caption" color="text.secondary">
-              The widget fetches UI config from the agent config API when no
-              config is provided.
+             <Typography variant="caption" color="text.secondary">
+              Note: For the widget’s full-screen mode, use a separate page URL for the implementation.
             </Typography>
           </Stack>
         </Card>
