@@ -27,6 +27,7 @@ import {
   FormControl,
   FormControlLabel,
   Grid,
+  IconButton,
   InputLabel,
   MenuItem,
   OutlinedInput,
@@ -39,6 +40,7 @@ import {
   Stepper,
   Switch,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
@@ -49,14 +51,21 @@ import UploadFileIcon from "@mui/icons-material/UploadFile";
 import LanIcon from "@mui/icons-material/Lan";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { useSnackbar } from "notistack";
 import { useSelector } from "react-redux";
 import { DashboardContent } from "src/layouts/dashboard";
 import kbService, { KBStatusData } from "src/api/services/kb.service";
-import agentBuilderService, { AgentSetupPayload } from "src/api/services/agentBuilder.service";
+import agentBuilderService, {
+  AgentSetupPayload,
+} from "src/api/services/agentBuilder.service";
 import serviceManagementService from "src/api/services/serviceManagement.service";
 import { RootState } from "src/stores/store";
-import { ModelRow, ProviderRow } from "src/sections/dashboard/serviceComponents/dynamicServiceForm";
+import {
+  ModelRow,
+  ProviderRow,
+} from "src/sections/dashboard/serviceComponents/dynamicServiceForm";
+import { serviceSchemas } from "src/sections/dashboard/serviceComponents/serviceschema";
 
 export type WidgetConfig = Record<string, unknown>;
 
@@ -83,7 +92,8 @@ const darkThemeVariant: WidgetConfig = {
     stops: ["#7720FF", "#26D07C"],
   },
   typography: {
-    fontFamily: "Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial",
+    fontFamily:
+      "Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial",
     baseFontSize: 14,
     scale: 1.0,
   },
@@ -123,7 +133,8 @@ const lightThemeVariant: WidgetConfig = {
     stops: ["#7720FF", "#26D07C"],
   },
   typography: {
-    fontFamily: "Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial",
+    fontFamily:
+      "Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial",
     baseFontSize: 14,
     scale: 1.0,
   },
@@ -164,7 +175,9 @@ const buildIntegrationSnippet = (agentId: string) => {
     shouldLoadReactUmd ? `<script src="${reactUmdUrl}"></script>` : "",
     shouldLoadReactUmd ? `<script src="${reactDomUmdUrl}"></script>` : "",
     widgetScriptUrl
-      ? `<script${widgetScriptIsModule ? ' type="module"' : ""} src="${widgetScriptUrl}"></script>`
+      ? `<script${
+          widgetScriptIsModule ? ' type="module"' : ""
+        } src="${widgetScriptUrl}"></script>`
       : "",
     "",
     widgetSnippet,
@@ -360,7 +373,9 @@ const devConfig: WidgetConfig = {
   },
 };
 
-const normalizeWidgetConfig = (incoming: WidgetConfig | null | undefined): WidgetConfig => {
+const normalizeWidgetConfig = (
+  incoming: WidgetConfig | null | undefined
+): WidgetConfig => {
   if (!incoming || typeof incoming !== "object") return devConfig;
   const base = devConfig as any;
   const next = incoming as any;
@@ -538,6 +553,33 @@ const defaultConfig: BuilderConfig = {
 };
 
 const steps = ["Basics", "Tools", "Preview"];
+const agentBuilderHelpTexts = {
+  defaultModel:
+    serviceSchemas["chat completion"]?.fields?.["config.default_model"]
+      ?.helpText || "",
+  backupModel:
+    serviceSchemas["chat completion"]?.fields?.["config.backup_model"]
+      ?.helpText || "",
+  defaultProvider:
+    serviceSchemas["chat completion"]?.fields?.["config.default_provider"]
+      ?.helpText || "",
+  backupProvider:
+    serviceSchemas["chat completion"]?.fields?.["config.backup_provider"]
+      ?.helpText || "",
+  temperature:
+    serviceSchemas["chat completion"]?.fields?.["config.temperature"]
+      ?.helpText || "",
+  dailyLimit:
+    serviceSchemas["chat completion"]?.fields?.["limits.daily"]?.helpText || "",
+  monthlyLimit:
+    serviceSchemas["chat completion"]?.fields?.["limits.monthly"]?.helpText ||
+    "",
+  dailyAlert:
+    serviceSchemas["chat completion"]?.fields?.["alerts.daily"]?.helpText || "",
+  monthlyAlert:
+    serviceSchemas["chat completion"]?.fields?.["alerts.monthly"]?.helpText ||
+    "",
+};
 
 export function AgentBuilderPage() {
   const theme = useTheme();
@@ -547,6 +589,7 @@ export function AgentBuilderPage() {
     (state: RootState) => state.orgProject.selectedOrganizationProject
   );
   const projectOptions = selectedOrg?.projects || [];
+  const projectsLoaded = selectedOrg !== null;
 
   const [projectId, setProjectId] = useState("");
   const [activeStep, setActiveStep] = useState(0);
@@ -568,7 +611,7 @@ export function AgentBuilderPage() {
   const [agentSaving, setAgentSaving] = useState(false);
   const [previewSubmitting, setPreviewSubmitting] = useState(false);
   const [deployModalOpen, setDeployModalOpen] = useState(false);
-  const [showListView, setShowListView] = useState(false);
+  const [showListView, setShowListView] = useState(true);
   const [agentList, setAgentList] = useState<AgentListItem[]>([]);
   const [agentConfigLoading, setAgentConfigLoading] = useState(false);
   const loadedAgentConfigRef = useRef<string | null>(null);
@@ -600,93 +643,96 @@ export function AgentBuilderPage() {
     setConfig(defaultConfig);
   }, [projectId]);
 
-  const applyAgentConfig = useCallback(
-    (payload: Record<string, unknown>) => {
-      if (!payload || typeof payload !== "object") {
-        setConfig(defaultConfig);
-        setPreviewConfig(devConfig);
-        setAgentId("");
-        setKbStatus(null);
-        return;
-      }
+  const applyAgentConfig = useCallback((payload: Record<string, unknown>) => {
+    if (!payload || typeof payload !== "object") {
+      setConfig(defaultConfig);
+      setPreviewConfig(devConfig);
+      setAgentId("");
+      setKbStatus(null);
+      return;
+    }
 
-      const nextAgentId =
-        (payload as any)?.id ||
-        (payload as any)?.agent_id ||
-        (payload as any)?.agentId ||
-        "";
-      const nextAgentName =
-        (payload as any)?.name || (payload as any)?.agent_name || "";
-      const nextSystemPrompt =
-        (payload as any)?.system_prompt || (payload as any)?.systemPrompt || "";
-      const nextReviewerPrompt =
-        (payload as any)?.reviewer_prompt || (payload as any)?.reviewerPrompt || "";
-      const nextMaxSteps =
-        (payload as any)?.max_steps || (payload as any)?.maxSteps || 0;
-      const nextMcpUrl = (payload as any)?.mcp_url || (payload as any)?.mcpUrl || "";
-      const nextKbCollection =
-        (payload as any)?.kb_collection || (payload as any)?.kbCollection || "";
-      const nextUiConfig =
-        (payload as any)?.ui_config || (payload as any)?.uiConfig || null;
+    const nextAgentId =
+      (payload as any)?.id ||
+      (payload as any)?.agent_id ||
+      (payload as any)?.agentId ||
+      "";
+    const nextAgentName =
+      (payload as any)?.name || (payload as any)?.agent_name || "";
+    const nextSystemPrompt =
+      (payload as any)?.system_prompt || (payload as any)?.systemPrompt || "";
+    const nextReviewerPrompt =
+      (payload as any)?.reviewer_prompt ||
+      (payload as any)?.reviewerPrompt ||
+      "";
+    const nextMaxSteps =
+      (payload as any)?.max_steps || (payload as any)?.maxSteps || 0;
+    const nextMcpUrl =
+      (payload as any)?.mcp_url || (payload as any)?.mcpUrl || "";
+    const nextKbCollection =
+      (payload as any)?.kb_collection || (payload as any)?.kbCollection || "";
+    const nextUiConfig =
+      (payload as any)?.ui_config || (payload as any)?.uiConfig || null;
 
-      setConfig((prev) => ({
-        ...prev,
-        agent: {
-          ...prev.agent,
-          name: nextAgentName || prev.agent.name,
-          systemPrompt: nextSystemPrompt || prev.agent.systemPrompt,
-          reviewerPrompt:
-            nextReviewerPrompt !== "" ? nextReviewerPrompt : prev.agent.reviewerPrompt,
-          maxSteps: Number(nextMaxSteps) > 0 ? Number(nextMaxSteps) : prev.agent.maxSteps,
+    setConfig((prev) => ({
+      ...prev,
+      agent: {
+        ...prev.agent,
+        name: nextAgentName || prev.agent.name,
+        systemPrompt: nextSystemPrompt || prev.agent.systemPrompt,
+        reviewerPrompt:
+          nextReviewerPrompt !== ""
+            ? nextReviewerPrompt
+            : prev.agent.reviewerPrompt,
+        maxSteps:
+          Number(nextMaxSteps) > 0 ? Number(nextMaxSteps) : prev.agent.maxSteps,
+      },
+      tools: {
+        ...prev.tools,
+        kb: {
+          ...prev.tools.kb,
+          file: null,
+          collectionName: nextKbCollection || prev.tools.kb.collectionName,
+          selection: nextKbCollection ? "existing" : prev.tools.kb.selection,
+          status: nextKbCollection ? "ready" : prev.tools.kb.status,
         },
-        tools: {
-          ...prev.tools,
-          kb: {
-            ...prev.tools.kb,
-            file: null,
-            collectionName: nextKbCollection || prev.tools.kb.collectionName,
-            selection: nextKbCollection ? "existing" : prev.tools.kb.selection,
-            status: nextKbCollection ? "ready" : prev.tools.kb.status,
-          },
-          mcp: {
-            ...prev.tools.mcp,
-            url: nextMcpUrl || prev.tools.mcp.url,
-            status: nextMcpUrl ? "valid" : prev.tools.mcp.status,
-          },
+        mcp: {
+          ...prev.tools.mcp,
+          url: nextMcpUrl || prev.tools.mcp.url,
+          status: nextMcpUrl ? "valid" : prev.tools.mcp.status,
         },
-      }));
+      },
+    }));
 
-      if (nextKbCollection) {
-        setKbStatus({
-          file_name: "",
-          chunking_size: 0,
-          overlapping_size: 0,
-          status: "completed",
-          collection_name: nextKbCollection,
-          chunks_created: null,
-          csv_rows_processed: null,
-          csv_columns: null,
-          jsonl_path: null,
-          error: null,
-        });
-      } else {
-        setKbStatus(null);
-      }
+    if (nextKbCollection) {
+      setKbStatus({
+        file_name: "",
+        chunking_size: 0,
+        overlapping_size: 0,
+        status: "completed",
+        collection_name: nextKbCollection,
+        chunks_created: null,
+        csv_rows_processed: null,
+        csv_columns: null,
+        jsonl_path: null,
+        error: null,
+      });
+    } else {
+      setKbStatus(null);
+    }
 
-      if (nextUiConfig) {
-        setPreviewConfig(normalizeWidgetConfig(nextUiConfig));
-      } else {
-        setPreviewConfig(devConfig);
-      }
+    if (nextUiConfig) {
+      setPreviewConfig(normalizeWidgetConfig(nextUiConfig));
+    } else {
+      setPreviewConfig(devConfig);
+    }
 
-      if (nextAgentId) {
-        setAgentId(nextAgentId);
-      } else {
-        setAgentId("");
-      }
-    },
-    []
-  );
+    if (nextAgentId) {
+      setAgentId(nextAgentId);
+    } else {
+      setAgentId("");
+    }
+  }, []);
 
   const buildAgentList = useCallback((payload: unknown) => {
     if (!payload || typeof payload !== "object") return [] as AgentListItem[];
@@ -694,8 +740,12 @@ export function AgentBuilderPage() {
     return items
       .map((item) => {
         const id =
-          (item as any)?.id || (item as any)?.agent_id || (item as any)?.agentId || "";
-        const name = (item as any)?.name || (item as any)?.agent_name || "Untitled agent";
+          (item as any)?.id ||
+          (item as any)?.agent_id ||
+          (item as any)?.agentId ||
+          "";
+        const name =
+          (item as any)?.name || (item as any)?.agent_name || "Untitled agent";
         if (!id && !name) return null;
         return {
           id: String(id),
@@ -782,13 +832,17 @@ export function AgentBuilderPage() {
       setModelsError(null);
       try {
         const res = await serviceManagementService.getAllModels();
-        if (!isActive) return;
-        if (res?.success) {
-          setModels(res.data || []);
-        } else {
-          setModels([]);
-          setModelsError("Unable to load models");
-        }
+       
+          if (!isActive) return;
+          if (res?.success) {
+              const allowedModels = res.data?.filter((model: ModelRow) => {
+                return model.allowed_services.includes("Agent Builder");
+              })
+            setModels(allowedModels || []);
+          } else {
+            setModels([]);
+            setModelsError("Unable to load models");
+          }
       } catch (error) {
         if (!isActive) return;
         setModels([]);
@@ -830,7 +884,6 @@ export function AgentBuilderPage() {
     setConfig((prev) => updater(prev));
   };
 
-
   const refreshKbStatus = async () => {
     if (!projectId) return;
     setKbLoading(true);
@@ -849,11 +902,13 @@ export function AgentBuilderPage() {
                   ? "ready"
                   : res?.data?.status === "failed"
                   ? "failed"
-                  : res?.data?.status === "pending" || res?.data?.status === "started"
+                  : res?.data?.status === "pending" ||
+                    res?.data?.status === "started"
                   ? "processing"
                   : "processing",
               collectionName:
-                prev.tools.kb.selection === "new" && prev.tools.kb.status !== "idle"
+                prev.tools.kb.selection === "new" &&
+                prev.tools.kb.status !== "idle"
                   ? res?.data?.collection_name || prev.tools.kb.collectionName
                   : prev.tools.kb.collectionName,
               selection:
@@ -892,7 +947,10 @@ export function AgentBuilderPage() {
       formData.append("file", config.tools.kb.file);
       formData.append("project_id", projectId);
       formData.append("chunking_size", String(config.tools.kb.chunkingSize));
-      formData.append("overlapping_size", String(config.tools.kb.overlappingSize));
+      formData.append(
+        "overlapping_size",
+        String(config.tools.kb.overlappingSize)
+      );
 
       const res = await kbService.initKnowledgebase(formData);
       if ((res as any)?.error) {
@@ -918,7 +976,9 @@ export function AgentBuilderPage() {
     }
   };
 
-  const handleKbSelectionChange = (selection: ToolingConfig["kb"]["selection"]) => {
+  const handleKbSelectionChange = (
+    selection: ToolingConfig["kb"]["selection"]
+  ) => {
     setKbSelectionTouched(true);
     updateConfig((prev) => ({
       ...prev,
@@ -927,7 +987,8 @@ export function AgentBuilderPage() {
         kb: {
           ...prev.tools.kb,
           selection,
-          collectionName: selection === "new" ? "" : prev.tools.kb.collectionName,
+          collectionName:
+            selection === "new" ? "" : prev.tools.kb.collectionName,
           status: selection === "new" ? "idle" : prev.tools.kb.status,
         },
       },
@@ -1022,7 +1083,10 @@ export function AgentBuilderPage() {
         enabled: true,
       };
 
-      const res = await agentBuilderService.addProjectService(projectId, payload);
+      const res = await agentBuilderService.addProjectService(
+        projectId,
+        payload
+      );
       const ok = Boolean((res as any)?.success) || !(res as any)?.error;
       if (showToast) {
         enqueueSnackbar(ok ? "Service config saved" : "Service config failed", {
@@ -1049,9 +1113,12 @@ export function AgentBuilderPage() {
     }
     if (includeTools && hasValidMcp === false && hasKbCollection === false) {
       if (showToast) {
-        enqueueSnackbar("Add MCP or Knowledge Base before setting up the agent", {
-          variant: "warning",
-        });
+        enqueueSnackbar(
+          "Add MCP or Knowledge Base before setting up the agent",
+          {
+            variant: "warning",
+          }
+        );
       }
       return false;
     }
@@ -1176,7 +1243,9 @@ export function AgentBuilderPage() {
             ui_config: previewConfig,
           };
           setAgentList((prev) => {
-            const existingIndex = prev.findIndex((item) => item.id === String(nextAgentId));
+            const existingIndex = prev.findIndex(
+              (item) => item.id === String(nextAgentId)
+            );
             const nextItem = {
               id: String(nextAgentId),
               name: config.agent.name || "Agent",
@@ -1266,6 +1335,7 @@ export function AgentBuilderPage() {
     agentSaving ||
     previewSubmitting ||
     (activeStep === 1 && (kbLoading || mcpChecking));
+  const isLoading = !projectsLoaded || agentConfigLoading;
   const deployedAgentId = agentId;
   const deploymentSnippet = useMemo(
     () => buildIntegrationSnippet(deployedAgentId),
@@ -1305,106 +1375,79 @@ export function AgentBuilderPage() {
   return (
     <>
       <DashboardContent maxWidth="xl">
-      <Card
-        sx={{
-          p: { xs: 3, md: 4 },
-          borderRadius: 2,
-          border: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
-          boxShadow: theme.customShadows?.z24,
-          overflow: "visible",
-        }}
-      >
-        <Stack spacing={3}>
-          <Stack
-            direction={{ xs: "column", md: "row" }}
-            spacing={2}
-            justifyContent="space-between"
-            alignItems={{ xs: "flex-start", md: "center" }}
-          >
-            <Box>
-              <Typography variant="h4" fontWeight={700}>
-                Agent Builder
-              </Typography>
-              <Typography color="text.secondary">
-                Configure services, tools, and your agent graph in a few steps.
-              </Typography>
-            </Box>
+        <Card
+          sx={{
+            p: { xs: 3, md: 4 },
+            borderRadius: 2,
+            border: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
+            boxShadow: theme.customShadows?.z24,
+            overflow: "visible",
+          }}
+        >
+          <Stack spacing={3}>
             <Stack
-              direction={{ xs: "column", sm: "row" }}
-              spacing={1}
-              alignItems={{ xs: "stretch", sm: "center" }}
-              sx={{ width: { xs: "100%", sm: "auto" } }}
+              direction={{ xs: "column", md: "row" }}
+              spacing={2}
+              justifyContent="space-between"
+              alignItems={{ xs: "flex-start", md: "center" }}
             >
-              <FormControl size="small" sx={{ minWidth: 220 }}>
-                <InputLabel id="project-select-label">Project</InputLabel>
-                <Select
-                  labelId="project-select-label"
-                  label="Project"
-                  value={projectId}
-                  onChange={(e) => setProjectId(e.target.value as string)}
-                >
-                  {projectOptions.map((project) => (
-                    <MenuItem key={project.id} value={project.id}>
-                      {project.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <Box>
+                <Typography variant="h4" fontWeight={700}>
+                  Agent Builder
+                </Typography>
+                <Typography color="text.secondary">
+                  Configure services, tools, and your agent graph in a few
+                  steps.
+                </Typography>
+              </Box>
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={1}
+                alignItems={{ xs: "stretch", sm: "center" }}
+                sx={{ width: { xs: "100%", sm: "auto" } }}
+              >
+                <FormControl size="small" sx={{ minWidth: 220 }}>
+                  <InputLabel id="project-select-label">Project</InputLabel>
+                  <Select
+                    labelId="project-select-label"
+                    label="Project"
+                    value={projectId}
+                    onChange={(e) => setProjectId(e.target.value as string)}
+                  >
+                    {projectOptions.map((project) => (
+                      <MenuItem key={project.id} value={project.id}>
+                        {project.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Stack>
             </Stack>
-          </Stack>
 
-          {!projectOptions.length && (
-            <Alert severity="warning">
-              Select an organization with at least one project to continue.
-            </Alert>
-          )}
+            {!projectOptions.length && projectsLoaded && (
+              <Alert severity="warning">
+                Select an organization with at least one project to continue.
+              </Alert>
+            )}
 
-          {showListView ? (
-            <Card sx={{ p: 2.5, borderRadius: 2 }}>
-              <Stack spacing={2}>
-                <Stack spacing={1.5}>
-                  {agentConfigLoading ? (
-                    <>
-                      <Skeleton variant="rounded" height={72} />
-                      <Skeleton variant="rounded" height={72} />
-                    </>
-                  ) : agentList.length === 0 ? (
-                    <Box
-                      sx={{
-                        p: 2,
-                        borderRadius: 2,
-                        border: `1px dashed ${alpha(theme.palette.divider, 0.4)}`,
-                      }}
-                    >
-                      <Stack
-                        direction={{ xs: "column", sm: "row" }}
-                        spacing={1}
-                        alignItems={{ xs: "flex-start", sm: "center" }}
-                        justifyContent="space-between"
-                      >
-                        <Stack spacing={0.5}>
-                          <Typography variant="subtitle1">No agent found</Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Start creating the agent to continue.
-                          </Typography>
-                        </Stack>
-                        <Button
-                          variant="contained"
-                          size="small"
-                          onClick={handleCreateAgent}
-                        >
-                          Create agent
-                        </Button>
-                      </Stack>
-                    </Box>
-                  ) : (
-                    agentList.map((agent, index) => (
+            {showListView ? (
+              <Card sx={{ p: 2.5, borderRadius: 2 }}>
+                <Stack spacing={2}>
+                  <Stack spacing={1.5}>
+                    {isLoading ? (
+                      <>
+                        <Skeleton variant="rounded" height={72} />
+                        <Skeleton variant="rounded" height={72} />
+                      </>
+                    ) : agentList.length === 0 ? (
                       <Box
-                        key={agent.id || `${agent.name}-${index}`}
                         sx={{
                           p: 2,
                           borderRadius: 2,
-                          border: `1px solid ${alpha(theme.palette.divider, 0.3)}`,
+                          border: `1px dashed ${alpha(
+                            theme.palette.divider,
+                            0.4
+                          )}`,
                         }}
                       >
                         <Stack
@@ -1414,120 +1457,171 @@ export function AgentBuilderPage() {
                           justifyContent="space-between"
                         >
                           <Stack spacing={0.5}>
-                            <Typography variant="subtitle1">{agent.name}</Typography>
-                            {agent.id && (
-                              <Typography variant="caption" color="text.secondary">
-                                ID: {agent.id}
-                              </Typography>
-                            )}
+                            <Typography variant="subtitle1">
+                              No agent found
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              Start creating the agent to continue.
+                            </Typography>
                           </Stack>
                           <Button
-                            variant="outlined"
+                            variant="contained"
                             size="small"
-                            onClick={() => handleEditAgent(agent)}
+                            onClick={handleCreateAgent}
                           >
-                            Edit
+                            Create agent
                           </Button>
                         </Stack>
                       </Box>
-                    ))
-                  )}
+                    ) : (
+                      agentList.map((agent, index) => (
+                        <Box
+                          key={agent.id || `${agent.name}-${index}`}
+                          sx={{
+                            p: 2,
+                            borderRadius: 2,
+                            border: `1px solid ${alpha(
+                              theme.palette.divider,
+                              0.3
+                            )}`,
+                          }}
+                        >
+                          <Stack
+                            direction={{ xs: "column", sm: "row" }}
+                            spacing={1}
+                            alignItems={{ xs: "flex-start", sm: "center" }}
+                            justifyContent="space-between"
+                          >
+                            <Stack spacing={0.5}>
+                              <Typography variant="subtitle1">
+                                {agent.name}
+                              </Typography>
+                              {agent.id && (
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
+                                  ID: {agent.id}
+                                </Typography>
+                              )}
+                            </Stack>
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              onClick={() => handleEditAgent(agent)}
+                            >
+                              Edit
+                            </Button>
+                          </Stack>
+                        </Box>
+                      ))
+                    )}
+                  </Stack>
                 </Stack>
-              </Stack>
-            </Card>
-          ) : (
-            <>
-              <Stepper activeStep={activeStep} alternativeLabel>
-                {steps.map((label, index) => (
-                  <Step key={label} completed={activeStep > index}>
-                    <StepLabel>{label}</StepLabel>
-                  </Step>
-                ))}
-              </Stepper>
+              </Card>
+            ) : (
+              <>
+                <Stepper activeStep={activeStep} alternativeLabel>
+                  {steps.map((label, index) => (
+                    <Step key={label} completed={activeStep > index}>
+                      <StepLabel>{label}</StepLabel>
+                    </Step>
+                  ))}
+                </Stepper>
 
-              <Box>
-                {activeStep === 0 && (
-                  <Stack spacing={2.5}>
-                    <AgentNodeStep
+                <Box>
+                  {activeStep === 0 && (
+                    <Stack spacing={2.5}>
+                      <AgentNodeStep
+                        config={config}
+                        onChange={updateConfig}
+                        hasKbCollection={hasKbCollection}
+                        hasValidMcp={hasValidMcp}
+                      />
+                      <ServiceStep
+                        config={config}
+                        onChange={updateConfig}
+                        projectId={projectId}
+                        serviceSaving={serviceSaving}
+                        models={models}
+                        providers={providers}
+                        modelsLoading={modelsLoading}
+                        providersLoading={providersLoading}
+                        modelsError={modelsError}
+                        providersError={providersError}
+                      />
+                    </Stack>
+                  )}
+                  {activeStep === 1 && (
+                    <ToolsStep
                       config={config}
                       onChange={updateConfig}
+                      kbStatus={kbStatus}
+                      kbLoading={kbLoading}
+                      existingKbCollection={existingKbCollection}
+                      onSelectKb={handleKbSelectionChange}
+                      onUploadKb={handleUploadKb}
+                      onCheckKb={refreshKbStatus}
+                      onCheckMcp={handleCheckMcp}
+                      mcpChecking={mcpChecking}
+                    />
+                  )}
+                  {activeStep === 2 && (
+                    <PreviewStep
+                      config={previewConfig}
+                      onChange={setPreviewConfig}
+                      agentId={agentId}
                       hasKbCollection={hasKbCollection}
                       hasValidMcp={hasValidMcp}
                     />
-                    <ServiceStep
-                      config={config}
-                      onChange={updateConfig}
-                      projectId={projectId}
-                      serviceSaving={serviceSaving}
-                      models={models}
-                      providers={providers}
-                      modelsLoading={modelsLoading}
-                      providersLoading={providersLoading}
-                      modelsError={modelsError}
-                      providersError={providersError}
-                    />
-                  </Stack>
-                )}
-                {activeStep === 1 && (
-                  <ToolsStep
-                    config={config}
-                    onChange={updateConfig}
-                    kbStatus={kbStatus}
-                    kbLoading={kbLoading}
-                    existingKbCollection={existingKbCollection}
-                    onSelectKb={handleKbSelectionChange}
-                    onUploadKb={handleUploadKb}
-                    onCheckKb={refreshKbStatus}
-                    onCheckMcp={handleCheckMcp}
-                    mcpChecking={mcpChecking}
-                  />
-                )}
-                {activeStep === 2 && (
-                  <PreviewStep
-                    config={previewConfig}
-                    onChange={setPreviewConfig}
-                    agentId={agentId}
-                    hasKbCollection={hasKbCollection}
-                    hasValidMcp={hasValidMcp}
-                  />
-                )}
-              </Box>
+                  )}
+                </Box>
 
-              <Divider sx={{ borderColor: alpha(theme.palette.divider, 0.3) }} />
+                <Divider
+                  sx={{ borderColor: alpha(theme.palette.divider, 0.3) }}
+                />
 
-              <Stack
-                direction={{ xs: "column", sm: "row" }}
-                spacing={1.5}
-                justifyContent="space-between"
-                alignItems={{ xs: "stretch", sm: "center" }}
-              >
-                <Button
-                  startIcon={<KeyboardArrowLeftIcon />}
-                  variant="text"
-                  onClick={() => setActiveStep((prev) => Math.max(0, prev - 1))}
-                  disabled={activeStep === 0}
+                <Stack
+                  direction={{ xs: "column", sm: "row" }}
+                  spacing={1.5}
+                  justifyContent="space-between"
+                  alignItems={{ xs: "stretch", sm: "center" }}
                 >
-                  Back
-                </Button>
-                <Button
-                  endIcon={isLastStep ? <RocketLaunchIcon /> : <KeyboardArrowRightIcon />}
-                  variant="contained"
-                  onClick={handleNext}
-                  disabled={!stepIsValid(activeStep) || stepBusy}
-                >
-                  {isLastStep
-                    ? previewSubmitting
-                      ? "Submitting..."
-                      : "Submit Widget Config"
-                    : stepBusy
-                    ? "Working..."
-                    : "Next"}
-                </Button>
-              </Stack>
-            </>
-          )}
-        </Stack>
-      </Card>
+                  <Button
+                    startIcon={<KeyboardArrowLeftIcon />}
+                    variant="text"
+                    onClick={() =>
+                      setActiveStep((prev) => Math.max(0, prev - 1))
+                    }
+                    disabled={activeStep === 0}
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    endIcon={
+                      isLastStep ? (
+                        <RocketLaunchIcon />
+                      ) : (
+                        <KeyboardArrowRightIcon />
+                      )
+                    }
+                    variant="contained"
+                    onClick={handleNext}
+                    disabled={!stepIsValid(activeStep) || stepBusy}
+                  >
+                    {isLastStep
+                      ? previewSubmitting
+                        ? "Submitting..."
+                        : "Submit Widget Config"
+                      : stepBusy
+                      ? "Working..."
+                      : "Next"}
+                  </Button>
+                </Stack>
+              </>
+            )}
+          </Stack>
+        </Card>
       </DashboardContent>
       <Dialog
         open={deployModalOpen}
@@ -1535,41 +1629,41 @@ export function AgentBuilderPage() {
         maxWidth="sm"
         fullWidth
       >
-      <DialogTitle>Agent deployed</DialogTitle>
-      <DialogContent dividers sx={{ pt: 1 }}>
-        <Stack spacing={2}>
-          <Stack spacing={0.5}>
-            <Typography variant="body1">
-              Your agent has been deployed successfully.
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              You can come back here again to edit the agent.
-            </Typography>
-          </Stack>
-          <Stack
-            direction="row"
-            spacing={1}
-            alignItems="center"
-            justifyContent="space-between"
-          >
-            <Typography variant="subtitle2">Widget code</Typography>
-            <Button
-              size="small"
-              startIcon={<ContentCopyIcon />}
-              onClick={handleCopyDeploySnippet}
+        <DialogTitle>Agent deployed</DialogTitle>
+        <DialogContent dividers sx={{ pt: 1 }}>
+          <Stack spacing={2}>
+            <Stack spacing={0.5}>
+              <Typography variant="body1">
+                Your agent has been deployed successfully.
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                You can come back here again to edit the agent.
+              </Typography>
+            </Stack>
+            <Stack
+              direction="row"
+              spacing={1}
+              alignItems="center"
+              justifyContent="space-between"
             >
-              Copy code
-            </Button>
+              <Typography variant="subtitle2">Widget code</Typography>
+              <Button
+                size="small"
+                startIcon={<ContentCopyIcon />}
+                onClick={handleCopyDeploySnippet}
+              >
+                Copy code
+              </Button>
+            </Stack>
+            <TextField
+              value={deploymentSnippet}
+              multiline
+              minRows={6}
+              fullWidth
+              InputProps={{ readOnly: true, sx: { fontFamily: "monospace" } }}
+            />
           </Stack>
-          <TextField
-            value={deploymentSnippet}
-            multiline
-            minRows={6}
-            fullWidth
-            InputProps={{ readOnly: true, sx: { fontFamily: "monospace" } }}
-          />
-        </Stack>
-      </DialogContent>
+        </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDeployModal} variant="contained">
             Done
@@ -1593,6 +1687,38 @@ type ServiceStepProps = {
   providersError: string | null;
 };
 
+function LabelWithHelp({
+  label,
+  helpText,
+}: {
+  label: string;
+  helpText?: string;
+}) {
+  return (
+    <Box
+      component="span"
+      sx={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 0.5,
+      }}
+    >
+      <span>{label}</span>
+      {helpText ? (
+        <Tooltip title={helpText} arrow>
+          <IconButton
+            size="small"
+            sx={{ p: 0, ml: 0.25 }}
+            aria-label={`${label} info`}
+          >
+            <InfoOutlinedIcon fontSize="inherit" />
+          </IconButton>
+        </Tooltip>
+      ) : null}
+    </Box>
+  );
+}
+
 function ServiceStep({
   config,
   onChange,
@@ -1605,8 +1731,13 @@ function ServiceStep({
   modelsError,
   providersError,
 }: ServiceStepProps) {
-  const modelOptions = models.filter((model) => model.status === "active");
-  const providerOptions = providers.filter((provider) => provider.status === "active");
+  const modelOptions = models.filter((model) => {
+    const isAgentBuilder = /agent builder/i.test(model.name);
+    return model.status === "active" && !isAgentBuilder;
+  });
+  const providerOptions = providers.filter(
+    (provider) => provider.status === "active"
+  );
 
   useEffect(() => {
     if (!modelOptions.length) return;
@@ -1640,12 +1771,6 @@ function ServiceStep({
   return (
     <Card sx={{ p: 2.5, borderRadius: 2 }}>
       <Stack spacing={2.5}>
-        <Stack spacing={0.5}>
-          <Typography variant="h6">Service setup</Typography>
-          <Typography variant="body2" color="text.secondary">
-            We will attach the LLM service to your project when you click Next.
-          </Typography>
-        </Stack>
 
         {!projectId && (
           <Alert severity="warning">Select a project to continue.</Alert>
@@ -1654,7 +1779,12 @@ function ServiceStep({
         <Grid container spacing={2}>
           <Grid item xs={12} md={6}>
             <FormControl fullWidth>
-              <InputLabel id="default-model-label">Default model</InputLabel>
+              <InputLabel id="default-model-label">
+                <LabelWithHelp
+                  label="Default model"
+                  helpText={agentBuilderHelpTexts.defaultModel}
+                />
+              </InputLabel>
               <Select
                 labelId="default-model-label"
                 label="Default model"
@@ -1662,7 +1792,10 @@ function ServiceStep({
                 onChange={(e) =>
                   onChange((prev) => ({
                     ...prev,
-                    service: { ...prev.service, defaultModel: e.target.value as string },
+                    service: {
+                      ...prev.service,
+                      defaultModel: e.target.value as string,
+                    },
                   }))
                 }
                 disabled={modelsLoading || !modelOptions.length}
@@ -1677,7 +1810,12 @@ function ServiceStep({
           </Grid>
           <Grid item xs={12} md={6}>
             <FormControl fullWidth>
-              <InputLabel id="default-provider-label">Default provider</InputLabel>
+              <InputLabel id="default-provider-label">
+                <LabelWithHelp
+                  label="Default provider"
+                  helpText={agentBuilderHelpTexts.defaultProvider}
+                />
+              </InputLabel>
               <Select
                 labelId="default-provider-label"
                 label="Default provider"
@@ -1685,7 +1823,10 @@ function ServiceStep({
                 onChange={(e) =>
                   onChange((prev) => ({
                     ...prev,
-                    service: { ...prev.service, defaultProvider: e.target.value as string },
+                    service: {
+                      ...prev.service,
+                      defaultProvider: e.target.value as string,
+                    },
                   }))
                 }
                 disabled={providersLoading || !providerOptions.length}
@@ -1700,7 +1841,12 @@ function ServiceStep({
           </Grid>
           <Grid item xs={12} md={6}>
             <FormControl fullWidth>
-              <InputLabel id="backup-model-label">Backup model</InputLabel>
+              <InputLabel id="backup-model-label">
+                <LabelWithHelp
+                  label="Backup model"
+                  helpText={agentBuilderHelpTexts.backupModel}
+                />
+              </InputLabel>
               <Select
                 labelId="backup-model-label"
                 label="Backup model"
@@ -1708,7 +1854,10 @@ function ServiceStep({
                 onChange={(e) =>
                   onChange((prev) => ({
                     ...prev,
-                    service: { ...prev.service, backupModel: e.target.value as string },
+                    service: {
+                      ...prev.service,
+                      backupModel: e.target.value as string,
+                    },
                   }))
                 }
                 disabled={modelsLoading || !modelOptions.length}
@@ -1723,7 +1872,12 @@ function ServiceStep({
           </Grid>
           <Grid item xs={12} md={6}>
             <FormControl fullWidth>
-              <InputLabel id="backup-provider-label">Backup provider</InputLabel>
+              <InputLabel id="backup-provider-label">
+                <LabelWithHelp
+                  label="Backup provider"
+                  helpText={agentBuilderHelpTexts.backupProvider}
+                />
+              </InputLabel>
               <Select
                 labelId="backup-provider-label"
                 label="Backup provider"
@@ -1731,7 +1885,10 @@ function ServiceStep({
                 onChange={(e) =>
                   onChange((prev) => ({
                     ...prev,
-                    service: { ...prev.service, backupProvider: e.target.value as string },
+                    service: {
+                      ...prev.service,
+                      backupProvider: e.target.value as string,
+                    },
                   }))
                 }
                 disabled={providersLoading || !providerOptions.length}
@@ -1744,45 +1901,14 @@ function ServiceStep({
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12}>
-            <FormControl fullWidth>
-              <InputLabel id="allowed-models-label">Allowed models</InputLabel>
-              <Select
-                labelId="allowed-models-label"
-                multiple
-                value={config.service.allowedModels}
-                onChange={(e) =>
-                  onChange((prev) => ({
-                    ...prev,
-                    service: {
-                      ...prev.service,
-                      allowedModels: Array.isArray(e.target.value)
-                        ? e.target.value
-                        : [e.target.value],
-                    },
-                  }))
-                }
-                input={<OutlinedInput label="Allowed models" />}
-                renderValue={(selected) => (
-                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                    {(selected as string[]).map((value) => (
-                      <Chip key={value} label={value} size="small" />
-                    ))}
-                  </Box>
-                )}
-                disabled={modelsLoading || !modelOptions.length}
-              >
-                {modelOptions.map((model) => (
-                  <MenuItem key={model.id} value={model.name}>
-                    {model.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
           <Grid item xs={12} md={6}>
             <Stack spacing={1}>
-              <Typography variant="subtitle2">Temperature</Typography>
+              <Typography variant="subtitle2" component="div">
+                <LabelWithHelp
+                  label="Temperature"
+                  helpText={agentBuilderHelpTexts.temperature}
+                />
+              </Typography>
               <Slider
                 value={config.service.temperature}
                 min={0}
@@ -1800,7 +1926,12 @@ function ServiceStep({
           </Grid>
           <Grid item xs={12} md={6}>
             <TextField
-              label="Daily limit"
+              label={
+                <LabelWithHelp
+                  label="Daily limit"
+                  helpText={agentBuilderHelpTexts.dailyLimit}
+                />
+              }
               type="number"
               value={config.service.limits.daily}
               onChange={(e) =>
@@ -1808,7 +1939,10 @@ function ServiceStep({
                   ...prev,
                   service: {
                     ...prev.service,
-                    limits: { ...prev.service.limits, daily: Number(e.target.value) },
+                    limits: {
+                      ...prev.service.limits,
+                      daily: Number(e.target.value),
+                    },
                   },
                 }))
               }
@@ -1817,7 +1951,12 @@ function ServiceStep({
           </Grid>
           <Grid item xs={12} md={6}>
             <TextField
-              label="Monthly limit"
+              label={
+                <LabelWithHelp
+                  label="Monthly limit"
+                  helpText={agentBuilderHelpTexts.monthlyLimit}
+                />
+              }
               type="number"
               value={config.service.limits.monthly}
               onChange={(e) =>
@@ -1825,7 +1964,10 @@ function ServiceStep({
                   ...prev,
                   service: {
                     ...prev.service,
-                    limits: { ...prev.service.limits, monthly: Number(e.target.value) },
+                    limits: {
+                      ...prev.service.limits,
+                      monthly: Number(e.target.value),
+                    },
                   },
                 }))
               }
@@ -1834,7 +1976,12 @@ function ServiceStep({
           </Grid>
           <Grid item xs={12} md={6}>
             <TextField
-              label="Daily alert limit"
+              label={
+                <LabelWithHelp
+                  label="Daily alert limit"
+                  helpText={agentBuilderHelpTexts.dailyAlert}
+                />
+              }
               type="number"
               value={config.service.serviceAlertLimit.daily}
               onChange={(e) =>
@@ -1854,7 +2001,12 @@ function ServiceStep({
           </Grid>
           <Grid item xs={12} md={6}>
             <TextField
-              label="Monthly alert limit"
+              label={
+                <LabelWithHelp
+                  label="Monthly alert limit"
+                  helpText={agentBuilderHelpTexts.monthlyAlert}
+                />
+              }
               type="number"
               value={config.service.serviceAlertLimit.monthly}
               onChange={(e) =>
@@ -1952,7 +2104,11 @@ function ToolsStep({
             <UploadFileIcon color="primary" />
             <Typography variant="h6">Knowledge Base</Typography>
             {config.tools.kb.status !== "idle" && (
-              <Chip label={config.tools.kb.status} color={kbChipColor} size="small" />
+              <Chip
+                label={config.tools.kb.status}
+                color={kbChipColor}
+                size="small"
+              />
             )}
           </Stack>
 
@@ -1967,14 +2123,20 @@ function ToolsStep({
                 }}
               >
                 <Stack spacing={0.5}>
-                  <Typography variant="subtitle2">Status: {kbStatusLabel}</Typography>
+                  <Typography variant="subtitle2">
+                    Status: {kbStatusLabel}
+                  </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Collection: {existingKbCollection || "Pending"}
                   </Typography>
                 </Stack>
               </Box>
               <Stack direction="row" spacing={1} alignItems="center">
-                <Button variant="outlined" onClick={onCheckKb} disabled={kbLoading}>
+                <Button
+                  variant="outlined"
+                  onClick={onCheckKb}
+                  disabled={kbLoading}
+                >
                   Refresh status
                 </Button>
                 {kbLoading && <CircularProgress size={20} />}
@@ -2042,11 +2204,23 @@ function ToolsStep({
                 </Grid>
               </Grid>
 
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ xs: "stretch", sm: "center" }}>
-                <Button variant="contained" onClick={onUploadKb} disabled={kbLoading}>
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={1}
+                alignItems={{ xs: "stretch", sm: "center" }}
+              >
+                <Button
+                  variant="contained"
+                  onClick={onUploadKb}
+                  disabled={kbLoading}
+                >
                   {kbLoading ? "Uploading..." : "Upload KB"}
                 </Button>
-                <Button variant="outlined" onClick={onCheckKb} disabled={kbLoading}>
+                <Button
+                  variant="outlined"
+                  onClick={onCheckKb}
+                  disabled={kbLoading}
+                >
                   Check status
                 </Button>
                 {kbLoading && <CircularProgress size={20} />}
@@ -2065,7 +2239,9 @@ function ToolsStep({
               <Chip
                 size="small"
                 label={config.tools.mcp.status}
-                color={config.tools.mcp.status === "valid" ? "success" : "default"}
+                color={
+                  config.tools.mcp.status === "valid" ? "success" : "default"
+                }
               />
             )}
           </Stack>
@@ -2079,7 +2255,11 @@ function ToolsStep({
                 ...prev,
                 tools: {
                   ...prev.tools,
-                  mcp: { ...prev.tools.mcp, url: e.target.value, status: "idle" },
+                  mcp: {
+                    ...prev.tools.mcp,
+                    url: e.target.value,
+                    status: "idle",
+                  },
                 },
               }))
             }
@@ -2087,7 +2267,11 @@ function ToolsStep({
           />
 
           <Stack direction="row" spacing={1} alignItems="center">
-            <Button variant="contained" onClick={onCheckMcp} disabled={mcpChecking}>
+            <Button
+              variant="contained"
+              onClick={onCheckMcp}
+              disabled={mcpChecking}
+            >
               {mcpChecking ? "Checking..." : "Check MCP"}
             </Button>
             {mcpChecking && <CircularProgress size={20} />}
@@ -2109,7 +2293,12 @@ type AgentNodeStepProps = {
   hasValidMcp: boolean;
 };
 
-function AgentNodeStep({ config, onChange, hasKbCollection, hasValidMcp }: AgentNodeStepProps) {
+function AgentNodeStep({
+  config,
+  onChange,
+  hasKbCollection,
+  hasValidMcp,
+}: AgentNodeStepProps) {
   return (
     <Card sx={{ p: 2.5, borderRadius: 2 }}>
       <Stack spacing={2.5}>
@@ -2181,7 +2370,6 @@ function AgentNodeStep({ config, onChange, hasKbCollection, hasValidMcp }: Agent
           </Grid>
           */}
         </Grid>
-
       </Stack>
     </Card>
   );
@@ -2241,9 +2429,18 @@ function PreviewStep({
           type: layout,
           layouts: {
             ...next.widget.layouts,
-            bubble: { ...next.widget.layouts.bubble, enabled: layout === "bubble" },
-            drawer: { ...next.widget.layouts.drawer, enabled: layout === "drawer" },
-            fullscreen: { ...next.widget.layouts.fullscreen, enabled: layout === "fullscreen" },
+            bubble: {
+              ...next.widget.layouts.bubble,
+              enabled: layout === "bubble",
+            },
+            drawer: {
+              ...next.widget.layouts.drawer,
+              enabled: layout === "drawer",
+            },
+            fullscreen: {
+              ...next.widget.layouts.fullscreen,
+              enabled: layout === "fullscreen",
+            },
           },
         },
       };
@@ -2290,7 +2487,8 @@ function PreviewStep({
   const themeEffects = widgetConfig?.widget?.theme?.dark?.effects || {};
   const themeDensity = widgetConfig?.widget?.theme?.dark?.density || "normal";
   const i18nDefaultLocale = widgetConfig?.widget?.i18n?.defaultLocale || "en";
-  const i18nStrings = widgetConfig?.widget?.i18n?.strings?.[i18nDefaultLocale] || {};
+  const i18nStrings =
+    widgetConfig?.widget?.i18n?.strings?.[i18nDefaultLocale] || {};
   const supportedLocalesList =
     widgetConfig?.widget?.i18n?.supportedLocales?.length > 0
       ? widgetConfig.widget.i18n.supportedLocales
@@ -2315,13 +2513,17 @@ function PreviewStep({
                   <Stack spacing={1.5}>
                     <Typography variant="subtitle2">Layout</Typography>
                     <FormControl fullWidth>
-                      <InputLabel id="layout-type-label">Layout type</InputLabel>
+                      <InputLabel id="layout-type-label">
+                        Layout type
+                      </InputLabel>
                       <Select
                         labelId="layout-type-label"
                         label="Layout type"
                         value={widgetConfig?.widget?.type || "bubble"}
                         onChange={(e) =>
-                          setLayout(e.target.value as "bubble" | "drawer" | "fullscreen")
+                          setLayout(
+                            e.target.value as "bubble" | "drawer" | "fullscreen"
+                          )
                         }
                       >
                         <MenuItem value="bubble">Bubble</MenuItem>
@@ -2332,11 +2534,15 @@ function PreviewStep({
                     {widgetConfig?.widget?.type === "bubble" && (
                       <Stack spacing={1.5}>
                         <FormControl fullWidth>
-                          <InputLabel id="bubble-position-label">Bubble position</InputLabel>
+                          <InputLabel id="bubble-position-label">
+                            Bubble position
+                          </InputLabel>
                           <Select
                             labelId="bubble-position-label"
                             label="Bubble position"
-                            value={widgetLayouts?.bubble?.position || "bottom-right"}
+                            value={
+                              widgetLayouts?.bubble?.position || "bottom-right"
+                            }
                             onChange={(e) =>
                               onChange((prev) => {
                                 const next = prev as any;
@@ -2356,7 +2562,9 @@ function PreviewStep({
                               })
                             }
                           >
-                            <MenuItem value="bottom-right">Bottom right</MenuItem>
+                            <MenuItem value="bottom-right">
+                              Bottom right
+                            </MenuItem>
                             <MenuItem value="bottom-left">Bottom left</MenuItem>
                           </Select>
                         </FormControl>
@@ -2437,7 +2645,10 @@ function PreviewStep({
                               ...next,
                               widget: {
                                 ...next.widget,
-                                theme: { ...next.widget.theme, mode: e.target.value },
+                                theme: {
+                                  ...next.widget.theme,
+                                  mode: e.target.value,
+                                },
                               },
                             };
                           })
@@ -2452,7 +2663,9 @@ function PreviewStep({
                       <TextField
                         label="Primary color"
                         value={themeColors.primary || ""}
-                        onChange={(e) => updateThemeColor("primary", e.target.value)}
+                        onChange={(e) =>
+                          updateThemeColor("primary", e.target.value)
+                        }
                         type="color"
                         InputLabelProps={{ shrink: true }}
                         sx={{ maxWidth: 180 }}
@@ -2461,7 +2674,9 @@ function PreviewStep({
                       <TextField
                         label="Accent color"
                         value={themeColors.accent || ""}
-                        onChange={(e) => updateThemeColor("accent", e.target.value)}
+                        onChange={(e) =>
+                          updateThemeColor("accent", e.target.value)
+                        }
                         type="color"
                         InputLabelProps={{ shrink: true }}
                         sx={{ maxWidth: 180 }}
@@ -2484,7 +2699,10 @@ function PreviewStep({
                             ...next,
                             widget: {
                               ...next.widget,
-                              header: { ...next.widget.header, title: e.target.value },
+                              header: {
+                                ...next.widget.header,
+                                title: e.target.value,
+                              },
                             },
                           };
                         })
@@ -2501,7 +2719,10 @@ function PreviewStep({
                             ...next,
                             widget: {
                               ...next.widget,
-                              header: { ...next.widget.header, subtitle: e.target.value },
+                              header: {
+                                ...next.widget.header,
+                                subtitle: e.target.value,
+                              },
                             },
                           };
                         })
@@ -2524,7 +2745,10 @@ function PreviewStep({
                             ...next,
                             widget: {
                               ...next.widget,
-                              messages: { ...next.widget.messages, welcome: e.target.value },
+                              messages: {
+                                ...next.widget.messages,
+                                welcome: e.target.value,
+                              },
                             },
                           };
                         })
@@ -2541,7 +2765,10 @@ function PreviewStep({
                             ...next,
                             widget: {
                               ...next.widget,
-                              messages: { ...next.widget.messages, placeholder: e.target.value },
+                              messages: {
+                                ...next.widget.messages,
+                                placeholder: e.target.value,
+                              },
                             },
                           };
                         })
@@ -2581,7 +2808,9 @@ function PreviewStep({
                     <FormControlLabel
                       control={
                         <Switch
-                          checked={Boolean(widgetConfig?.widget?.composer?.multiline)}
+                          checked={Boolean(
+                            widgetConfig?.widget?.composer?.multiline
+                          )}
                           onChange={(e) =>
                             onChange((prev) => {
                               const next = prev as any;
@@ -2604,7 +2833,9 @@ function PreviewStep({
                     <FormControlLabel
                       control={
                         <Switch
-                          checked={Boolean(widgetConfig?.widget?.composer?.enterToSend)}
+                          checked={Boolean(
+                            widgetConfig?.widget?.composer?.enterToSend
+                          )}
                           onChange={(e) =>
                             onChange((prev) => {
                               const next = prev as any;
@@ -2654,7 +2885,9 @@ function PreviewStep({
                     <FormControlLabel
                       control={
                         <Switch
-                          checked={Boolean(widgetConfig?.widget?.behavior?.defaultOpen)}
+                          checked={Boolean(
+                            widgetConfig?.widget?.behavior?.defaultOpen
+                          )}
                           onChange={(e) =>
                             onChange((prev) => {
                               const next = prev as any;
@@ -2677,7 +2910,9 @@ function PreviewStep({
                     <FormControlLabel
                       control={
                         <Switch
-                          checked={Boolean(widgetConfig?.widget?.behavior?.autoOpen?.enabled)}
+                          checked={Boolean(
+                            widgetConfig?.widget?.behavior?.autoOpen?.enabled
+                          )}
                           onChange={(e) =>
                             onChange((prev) => {
                               const next = prev as any;
@@ -2703,7 +2938,9 @@ function PreviewStep({
                     <TextField
                       label="Auto open delay (ms)"
                       type="number"
-                      value={widgetConfig?.widget?.behavior?.autoOpen?.delayMs || 0}
+                      value={
+                        widgetConfig?.widget?.behavior?.autoOpen?.delayMs || 0
+                      }
                       onChange={(e) =>
                         onChange((prev) => {
                           const next = prev as any;
@@ -2742,11 +2979,16 @@ function PreviewStep({
                         <Stack spacing={1}>
                           <Typography variant="subtitle2">Launcher</Typography>
                           <FormControl fullWidth>
-                            <InputLabel id="launcher-variant-label">Variant</InputLabel>
+                            <InputLabel id="launcher-variant-label">
+                              Variant
+                            </InputLabel>
                             <Select
                               labelId="launcher-variant-label"
                               label="Variant"
-                              value={widgetLayouts?.bubble?.launcher?.variant || "bubble"}
+                              value={
+                                widgetLayouts?.bubble?.launcher?.variant ||
+                                "bubble"
+                              }
                               onChange={(e) =>
                                 onChange((prev) => {
                                   const next = prev as any;
@@ -2759,7 +3001,8 @@ function PreviewStep({
                                         bubble: {
                                           ...next.widget.layouts.bubble,
                                           launcher: {
-                                            ...next.widget.layouts.bubble.launcher,
+                                            ...next.widget.layouts.bubble
+                                              .launcher,
                                             variant: e.target.value,
                                           },
                                         },
@@ -2776,7 +3019,9 @@ function PreviewStep({
                           <FormControlLabel
                             control={
                               <Switch
-                                checked={Boolean(widgetLayouts?.bubble?.launcher?.showLabel)}
+                                checked={Boolean(
+                                  widgetLayouts?.bubble?.launcher?.showLabel
+                                )}
                                 onChange={(e) =>
                                   onChange((prev) => {
                                     const next = prev as any;
@@ -2789,7 +3034,8 @@ function PreviewStep({
                                           bubble: {
                                             ...next.widget.layouts.bubble,
                                             launcher: {
-                                              ...next.widget.layouts.bubble.launcher,
+                                              ...next.widget.layouts.bubble
+                                                .launcher,
                                               showLabel: e.target.checked,
                                             },
                                           },
@@ -2817,7 +3063,8 @@ function PreviewStep({
                                       bubble: {
                                         ...next.widget.layouts.bubble,
                                         launcher: {
-                                          ...next.widget.layouts.bubble.launcher,
+                                          ...next.widget.layouts.bubble
+                                            .launcher,
                                           label: e.target.value,
                                         },
                                       },
@@ -2831,7 +3078,9 @@ function PreviewStep({
                           <Stack direction="row" spacing={2}>
                             <TextField
                               label="Icon"
-                              value={widgetLayouts?.bubble?.launcher?.icon || ""}
+                              value={
+                                widgetLayouts?.bubble?.launcher?.icon || ""
+                              }
                               onChange={(e) =>
                                 onChange((prev) => {
                                   const next = prev as any;
@@ -2844,7 +3093,8 @@ function PreviewStep({
                                         bubble: {
                                           ...next.widget.layouts.bubble,
                                           launcher: {
-                                            ...next.widget.layouts.bubble.launcher,
+                                            ...next.widget.layouts.bubble
+                                              .launcher,
                                             icon: e.target.value,
                                           },
                                         },
@@ -2856,11 +3106,15 @@ function PreviewStep({
                               fullWidth
                             />
                             <FormControl fullWidth>
-                              <InputLabel id="launcher-size-label">Size</InputLabel>
+                              <InputLabel id="launcher-size-label">
+                                Size
+                              </InputLabel>
                               <Select
                                 labelId="launcher-size-label"
                                 label="Size"
-                                value={widgetLayouts?.bubble?.launcher?.size || "md"}
+                                value={
+                                  widgetLayouts?.bubble?.launcher?.size || "md"
+                                }
                                 onChange={(e) =>
                                   onChange((prev) => {
                                     const next = prev as any;
@@ -2873,7 +3127,8 @@ function PreviewStep({
                                           bubble: {
                                             ...next.widget.layouts.bubble,
                                             launcher: {
-                                              ...next.widget.layouts.bubble.launcher,
+                                              ...next.widget.layouts.bubble
+                                                .launcher,
                                               size: e.target.value,
                                             },
                                           },
@@ -2953,7 +3208,9 @@ function PreviewStep({
                             <TextField
                               label="Min width"
                               type="number"
-                              value={widgetLayouts?.bubble?.panel?.minWidth || 0}
+                              value={
+                                widgetLayouts?.bubble?.panel?.minWidth || 0
+                              }
                               onChange={(e) =>
                                 onChange((prev) => {
                                   const next = prev as any;
@@ -2980,7 +3237,9 @@ function PreviewStep({
                             <TextField
                               label="Min height"
                               type="number"
-                              value={widgetLayouts?.bubble?.panel?.minHeight || 0}
+                              value={
+                                widgetLayouts?.bubble?.panel?.minHeight || 0
+                              }
                               onChange={(e) =>
                                 onChange((prev) => {
                                   const next = prev as any;
@@ -3009,7 +3268,9 @@ function PreviewStep({
                             <TextField
                               label="Max width"
                               type="number"
-                              value={widgetLayouts?.bubble?.panel?.maxWidth || 0}
+                              value={
+                                widgetLayouts?.bubble?.panel?.maxWidth || 0
+                              }
                               onChange={(e) =>
                                 onChange((prev) => {
                                   const next = prev as any;
@@ -3036,7 +3297,9 @@ function PreviewStep({
                             <TextField
                               label="Max height"
                               type="number"
-                              value={widgetLayouts?.bubble?.panel?.maxHeight || 0}
+                              value={
+                                widgetLayouts?.bubble?.panel?.maxHeight || 0
+                              }
                               onChange={(e) =>
                                 onChange((prev) => {
                                   const next = prev as any;
@@ -3062,11 +3325,16 @@ function PreviewStep({
                             />
                           </Stack>
                           <FormControl fullWidth>
-                            <InputLabel id="mobile-behavior-label">Mobile behavior</InputLabel>
+                            <InputLabel id="mobile-behavior-label">
+                              Mobile behavior
+                            </InputLabel>
                             <Select
                               labelId="mobile-behavior-label"
                               label="Mobile behavior"
-                              value={widgetLayouts?.bubble?.panel?.mobileBehavior || "fullscreen"}
+                              value={
+                                widgetLayouts?.bubble?.panel?.mobileBehavior ||
+                                "fullscreen"
+                              }
                               onChange={(e) =>
                                 onChange((prev) => {
                                   const next = prev as any;
@@ -3096,7 +3364,10 @@ function PreviewStep({
                           <FormControlLabel
                             control={
                               <Switch
-                                checked={Boolean(widgetLayouts?.bubble?.panel?.backdrop?.enabled)}
+                                checked={Boolean(
+                                  widgetLayouts?.bubble?.panel?.backdrop
+                                    ?.enabled
+                                )}
                                 onChange={(e) =>
                                   onChange((prev) => {
                                     const next = prev as any;
@@ -3109,9 +3380,11 @@ function PreviewStep({
                                           bubble: {
                                             ...next.widget.layouts.bubble,
                                             panel: {
-                                              ...next.widget.layouts.bubble.panel,
+                                              ...next.widget.layouts.bubble
+                                                .panel,
                                               backdrop: {
-                                                ...next.widget.layouts.bubble.panel.backdrop,
+                                                ...next.widget.layouts.bubble
+                                                  .panel.backdrop,
                                                 enabled: e.target.checked,
                                               },
                                             },
@@ -3129,7 +3402,10 @@ function PreviewStep({
                             <TextField
                               label="Backdrop blur"
                               type="number"
-                              value={widgetLayouts?.bubble?.panel?.backdrop?.blur ?? 0}
+                              value={
+                                widgetLayouts?.bubble?.panel?.backdrop?.blur ??
+                                0
+                              }
                               onChange={(e) =>
                                 onChange((prev) => {
                                   const next = prev as any;
@@ -3144,7 +3420,8 @@ function PreviewStep({
                                           panel: {
                                             ...next.widget.layouts.bubble.panel,
                                             backdrop: {
-                                              ...next.widget.layouts.bubble.panel.backdrop,
+                                              ...next.widget.layouts.bubble
+                                                .panel.backdrop,
                                               blur: Number(e.target.value),
                                             },
                                           },
@@ -3267,7 +3544,9 @@ function PreviewStep({
                         <FormControlLabel
                           control={
                             <Switch
-                              checked={Boolean(widgetLayouts?.drawer?.backdrop?.enabled)}
+                              checked={Boolean(
+                                widgetLayouts?.drawer?.backdrop?.enabled
+                              )}
                               onChange={(e) =>
                                 onChange((prev) => {
                                   const next = prev as any;
@@ -3280,7 +3559,8 @@ function PreviewStep({
                                         drawer: {
                                           ...next.widget.layouts.drawer,
                                           backdrop: {
-                                            ...next.widget.layouts.drawer.backdrop,
+                                            ...next.widget.layouts.drawer
+                                              .backdrop,
                                             enabled: e.target.checked,
                                           },
                                         },
@@ -3311,7 +3591,8 @@ function PreviewStep({
                                         drawer: {
                                           ...next.widget.layouts.drawer,
                                           backdrop: {
-                                            ...next.widget.layouts.drawer.backdrop,
+                                            ...next.widget.layouts.drawer
+                                              .backdrop,
                                             blur: Number(e.target.value),
                                           },
                                         },
@@ -3325,7 +3606,10 @@ function PreviewStep({
                             <FormControlLabel
                               control={
                                 <Switch
-                                  checked={Boolean(widgetLayouts?.drawer?.backdrop?.closeOnClick)}
+                                  checked={Boolean(
+                                    widgetLayouts?.drawer?.backdrop
+                                      ?.closeOnClick
+                                  )}
                                   onChange={(e) =>
                                     onChange((prev) => {
                                       const next = prev as any;
@@ -3338,7 +3622,8 @@ function PreviewStep({
                                             drawer: {
                                               ...next.widget.layouts.drawer,
                                               backdrop: {
-                                                ...next.widget.layouts.drawer.backdrop,
+                                                ...next.widget.layouts.drawer
+                                                  .backdrop,
                                                 closeOnClick: e.target.checked,
                                               },
                                             },
@@ -3355,11 +3640,16 @@ function PreviewStep({
                         )}
                         <Stack direction="row" spacing={2}>
                           <FormControl fullWidth>
-                            <InputLabel id="drawer-animation-label">Animation</InputLabel>
+                            <InputLabel id="drawer-animation-label">
+                              Animation
+                            </InputLabel>
                             <Select
                               labelId="drawer-animation-label"
                               label="Animation"
-                              value={widgetLayouts?.drawer?.animation?.type || "slide"}
+                              value={
+                                widgetLayouts?.drawer?.animation?.type ||
+                                "slide"
+                              }
                               onChange={(e) =>
                                 onChange((prev) => {
                                   const next = prev as any;
@@ -3372,7 +3662,8 @@ function PreviewStep({
                                         drawer: {
                                           ...next.widget.layouts.drawer,
                                           animation: {
-                                            ...next.widget.layouts.drawer.animation,
+                                            ...next.widget.layouts.drawer
+                                              .animation,
                                             type: e.target.value,
                                           },
                                         },
@@ -3389,7 +3680,9 @@ function PreviewStep({
                           <TextField
                             label="Duration (ms)"
                             type="number"
-                            value={widgetLayouts?.drawer?.animation?.durationMs ?? 0}
+                            value={
+                              widgetLayouts?.drawer?.animation?.durationMs ?? 0
+                            }
                             onChange={(e) =>
                               onChange((prev) => {
                                 const next = prev as any;
@@ -3402,7 +3695,8 @@ function PreviewStep({
                                       drawer: {
                                         ...next.widget.layouts.drawer,
                                         animation: {
-                                          ...next.widget.layouts.drawer.animation,
+                                          ...next.widget.layouts.drawer
+                                            .animation,
                                           durationMs: Number(e.target.value),
                                         },
                                       },
@@ -3444,7 +3738,9 @@ function PreviewStep({
                         <FormControlLabel
                           control={
                             <Switch
-                              checked={Boolean(widgetLayouts?.fullscreen?.backdrop?.enabled)}
+                              checked={Boolean(
+                                widgetLayouts?.fullscreen?.backdrop?.enabled
+                              )}
                               onChange={(e) =>
                                 onChange((prev) => {
                                   const next = prev as any;
@@ -3457,7 +3753,8 @@ function PreviewStep({
                                         fullscreen: {
                                           ...next.widget.layouts.fullscreen,
                                           backdrop: {
-                                            ...next.widget.layouts.fullscreen.backdrop,
+                                            ...next.widget.layouts.fullscreen
+                                              .backdrop,
                                             enabled: e.target.checked,
                                           },
                                         },
@@ -3474,7 +3771,9 @@ function PreviewStep({
                           <TextField
                             label="Backdrop blur"
                             type="number"
-                            value={widgetLayouts?.fullscreen?.backdrop?.blur ?? 0}
+                            value={
+                              widgetLayouts?.fullscreen?.backdrop?.blur ?? 0
+                            }
                             onChange={(e) =>
                               onChange((prev) => {
                                 const next = prev as any;
@@ -3487,7 +3786,8 @@ function PreviewStep({
                                       fullscreen: {
                                         ...next.widget.layouts.fullscreen,
                                         backdrop: {
-                                          ...next.widget.layouts.fullscreen.backdrop,
+                                          ...next.widget.layouts.fullscreen
+                                            .backdrop,
                                           blur: Number(e.target.value),
                                         },
                                       },
@@ -3501,7 +3801,10 @@ function PreviewStep({
                           <FormControlLabel
                             control={
                               <Switch
-                                checked={Boolean(widgetLayouts?.fullscreen?.backdrop?.closeOnClick)}
+                                checked={Boolean(
+                                  widgetLayouts?.fullscreen?.backdrop
+                                    ?.closeOnClick
+                                )}
                                 onChange={(e) =>
                                   onChange((prev) => {
                                     const next = prev as any;
@@ -3514,7 +3817,8 @@ function PreviewStep({
                                           fullscreen: {
                                             ...next.widget.layouts.fullscreen,
                                             backdrop: {
-                                              ...next.widget.layouts.fullscreen.backdrop,
+                                              ...next.widget.layouts.fullscreen
+                                                .backdrop,
                                               closeOnClick: e.target.checked,
                                             },
                                           },
@@ -3530,11 +3834,16 @@ function PreviewStep({
                         </Stack>
                         <Stack direction="row" spacing={2}>
                           <FormControl fullWidth>
-                            <InputLabel id="fullscreen-animation-label">Animation</InputLabel>
+                            <InputLabel id="fullscreen-animation-label">
+                              Animation
+                            </InputLabel>
                             <Select
                               labelId="fullscreen-animation-label"
                               label="Animation"
-                              value={widgetLayouts?.fullscreen?.animation?.type || "fade"}
+                              value={
+                                widgetLayouts?.fullscreen?.animation?.type ||
+                                "fade"
+                              }
                               onChange={(e) =>
                                 onChange((prev) => {
                                   const next = prev as any;
@@ -3547,7 +3856,8 @@ function PreviewStep({
                                         fullscreen: {
                                           ...next.widget.layouts.fullscreen,
                                           animation: {
-                                            ...next.widget.layouts.fullscreen.animation,
+                                            ...next.widget.layouts.fullscreen
+                                              .animation,
                                             type: e.target.value,
                                           },
                                         },
@@ -3564,7 +3874,10 @@ function PreviewStep({
                           <TextField
                             label="Duration (ms)"
                             type="number"
-                            value={widgetLayouts?.fullscreen?.animation?.durationMs ?? 0}
+                            value={
+                              widgetLayouts?.fullscreen?.animation
+                                ?.durationMs ?? 0
+                            }
                             onChange={(e) =>
                               onChange((prev) => {
                                 const next = prev as any;
@@ -3577,7 +3890,8 @@ function PreviewStep({
                                       fullscreen: {
                                         ...next.widget.layouts.fullscreen,
                                         animation: {
-                                          ...next.widget.layouts.fullscreen.animation,
+                                          ...next.widget.layouts.fullscreen
+                                            .animation,
                                           durationMs: Number(e.target.value),
                                         },
                                       },
@@ -3603,7 +3917,8 @@ function PreviewStep({
                     <Box
                       sx={{
                         display: "grid",
-                        gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                        gridTemplateColumns:
+                          "repeat(auto-fit, minmax(140px, 1fr))",
                         gap: 2,
                       }}
                     >
@@ -3611,7 +3926,9 @@ function PreviewStep({
                         label="Background"
                         type="color"
                         value={themeColors.background || ""}
-                        onChange={(e) => updateThemeColor("background", e.target.value)}
+                        onChange={(e) =>
+                          updateThemeColor("background", e.target.value)
+                        }
                         InputLabelProps={{ shrink: true }}
                         fullWidth
                       />
@@ -3619,7 +3936,9 @@ function PreviewStep({
                         label="Surface"
                         type="color"
                         value={themeColors.surface || ""}
-                        onChange={(e) => updateThemeColor("surface", e.target.value)}
+                        onChange={(e) =>
+                          updateThemeColor("surface", e.target.value)
+                        }
                         InputLabelProps={{ shrink: true }}
                         fullWidth
                       />
@@ -3627,7 +3946,9 @@ function PreviewStep({
                         label="Surface alt"
                         type="color"
                         value={themeColors.surfaceAlt || ""}
-                        onChange={(e) => updateThemeColor("surfaceAlt", e.target.value)}
+                        onChange={(e) =>
+                          updateThemeColor("surfaceAlt", e.target.value)
+                        }
                         InputLabelProps={{ shrink: true }}
                         fullWidth
                       />
@@ -3635,7 +3956,9 @@ function PreviewStep({
                         label="Text"
                         type="color"
                         value={themeColors.text || ""}
-                        onChange={(e) => updateThemeColor("text", e.target.value)}
+                        onChange={(e) =>
+                          updateThemeColor("text", e.target.value)
+                        }
                         InputLabelProps={{ shrink: true }}
                         fullWidth
                       />
@@ -3643,7 +3966,9 @@ function PreviewStep({
                         label="Muted text"
                         type="color"
                         value={themeColors.mutedText || ""}
-                        onChange={(e) => updateThemeColor("mutedText", e.target.value)}
+                        onChange={(e) =>
+                          updateThemeColor("mutedText", e.target.value)
+                        }
                         InputLabelProps={{ shrink: true }}
                         fullWidth
                       />
@@ -3651,7 +3976,9 @@ function PreviewStep({
                         label="Border"
                         type="color"
                         value={themeColors.border || ""}
-                        onChange={(e) => updateThemeColor("border", e.target.value)}
+                        onChange={(e) =>
+                          updateThemeColor("border", e.target.value)
+                        }
                         InputLabelProps={{ shrink: true }}
                         fullWidth
                       />
@@ -3659,7 +3986,9 @@ function PreviewStep({
                         label="Danger"
                         type="color"
                         value={themeColors.danger || ""}
-                        onChange={(e) => updateThemeColor("danger", e.target.value)}
+                        onChange={(e) =>
+                          updateThemeColor("danger", e.target.value)
+                        }
                         InputLabelProps={{ shrink: true }}
                         fullWidth
                       />
@@ -3667,7 +3996,9 @@ function PreviewStep({
                         label="Warning"
                         type="color"
                         value={themeColors.warning || ""}
-                        onChange={(e) => updateThemeColor("warning", e.target.value)}
+                        onChange={(e) =>
+                          updateThemeColor("warning", e.target.value)
+                        }
                         InputLabelProps={{ shrink: true }}
                         fullWidth
                       />
@@ -3675,7 +4006,9 @@ function PreviewStep({
                         label="Success"
                         type="color"
                         value={themeColors.success || ""}
-                        onChange={(e) => updateThemeColor("success", e.target.value)}
+                        onChange={(e) =>
+                          updateThemeColor("success", e.target.value)
+                        }
                         InputLabelProps={{ shrink: true }}
                         fullWidth
                       />
@@ -3700,7 +4033,9 @@ function PreviewStep({
                     />
                     <Stack direction="row" spacing={2}>
                       <FormControl fullWidth>
-                        <InputLabel id="gradient-type-label">Gradient type</InputLabel>
+                        <InputLabel id="gradient-type-label">
+                          Gradient type
+                        </InputLabel>
                         <Select
                           labelId="gradient-type-label"
                           label="Gradient type"
@@ -3886,7 +4221,9 @@ function PreviewStep({
                       <FormControlLabel
                         control={
                           <Switch
-                            checked={Boolean(themeEffects?.reducedMotionRespect)}
+                            checked={Boolean(
+                              themeEffects?.reducedMotionRespect
+                            )}
                             onChange={(e) =>
                               updateThemeVariant((variant) => ({
                                 ...variant,
@@ -3931,7 +4268,9 @@ function PreviewStep({
                     <FormControlLabel
                       control={
                         <Switch
-                          checked={Boolean(widgetConfig?.widget?.header?.logo?.enabled)}
+                          checked={Boolean(
+                            widgetConfig?.widget?.header?.logo?.enabled
+                          )}
                           onChange={(e) =>
                             onChange((prev) => {
                               const next = prev as any;
@@ -3981,7 +4320,9 @@ function PreviewStep({
                       <FormControlLabel
                         control={
                           <Switch
-                            checked={Boolean(widgetConfig?.widget?.header?.actions?.showClose)}
+                            checked={Boolean(
+                              widgetConfig?.widget?.header?.actions?.showClose
+                            )}
                             onChange={(e) =>
                               onChange((prev) => {
                                 const next = prev as any;
@@ -4007,7 +4348,10 @@ function PreviewStep({
                       <FormControlLabel
                         control={
                           <Switch
-                            checked={Boolean(widgetConfig?.widget?.header?.actions?.showMinimize)}
+                            checked={Boolean(
+                              widgetConfig?.widget?.header?.actions
+                                ?.showMinimize
+                            )}
                             onChange={(e) =>
                               onChange((prev) => {
                                 const next = prev as any;
@@ -4033,7 +4377,9 @@ function PreviewStep({
                       <FormControlLabel
                         control={
                           <Switch
-                            checked={Boolean(widgetConfig?.widget?.header?.actions?.showReset)}
+                            checked={Boolean(
+                              widgetConfig?.widget?.header?.actions?.showReset
+                            )}
                             onChange={(e) =>
                               onChange((prev) => {
                                 const next = prev as any;
@@ -4059,7 +4405,9 @@ function PreviewStep({
                       <FormControlLabel
                         control={
                           <Switch
-                            checked={Boolean(widgetConfig?.widget?.header?.actions?.showPopout)}
+                            checked={Boolean(
+                              widgetConfig?.widget?.header?.actions?.showPopout
+                            )}
                             onChange={(e) =>
                               onChange((prev) => {
                                 const next = prev as any;
@@ -4091,11 +4439,16 @@ function PreviewStep({
                     <Typography variant="subtitle2">Message details</Typography>
                     <Stack direction="row" spacing={2}>
                       <FormControl fullWidth>
-                        <InputLabel id="timestamp-format-label">Timestamp format</InputLabel>
+                        <InputLabel id="timestamp-format-label">
+                          Timestamp format
+                        </InputLabel>
                         <Select
                           labelId="timestamp-format-label"
                           label="Timestamp format"
-                          value={widgetConfig?.widget?.messages?.timestamp?.format || "relative"}
+                          value={
+                            widgetConfig?.widget?.messages?.timestamp?.format ||
+                            "relative"
+                          }
                           onChange={(e) =>
                             onChange((prev) => {
                               const next = prev as any;
@@ -4120,11 +4473,16 @@ function PreviewStep({
                         </Select>
                       </FormControl>
                       <FormControl fullWidth>
-                        <InputLabel id="typing-style-label">Typing style</InputLabel>
+                        <InputLabel id="typing-style-label">
+                          Typing style
+                        </InputLabel>
                         <Select
                           labelId="typing-style-label"
                           label="Typing style"
-                          value={widgetConfig?.widget?.messages?.typingIndicator?.style || "dots"}
+                          value={
+                            widgetConfig?.widget?.messages?.typingIndicator
+                              ?.style || "dots"
+                          }
                           onChange={(e) =>
                             onChange((prev) => {
                               const next = prev as any;
@@ -4153,7 +4511,9 @@ function PreviewStep({
                       <FormControlLabel
                         control={
                           <Switch
-                            checked={Boolean(widgetConfig?.widget?.messages?.timestamp?.enabled)}
+                            checked={Boolean(
+                              widgetConfig?.widget?.messages?.timestamp?.enabled
+                            )}
                             onChange={(e) =>
                               onChange((prev) => {
                                 const next = prev as any;
@@ -4179,7 +4539,10 @@ function PreviewStep({
                       <FormControlLabel
                         control={
                           <Switch
-                            checked={Boolean(widgetConfig?.widget?.messages?.typingIndicator?.enabled)}
+                            checked={Boolean(
+                              widgetConfig?.widget?.messages?.typingIndicator
+                                ?.enabled
+                            )}
                             onChange={(e) =>
                               onChange((prev) => {
                                 const next = prev as any;
@@ -4205,7 +4568,10 @@ function PreviewStep({
                       <FormControlLabel
                         control={
                           <Switch
-                            checked={Boolean(widgetConfig?.widget?.messages?.readReceipts?.enabled)}
+                            checked={Boolean(
+                              widgetConfig?.widget?.messages?.readReceipts
+                                ?.enabled
+                            )}
                             onChange={(e) =>
                               onChange((prev) => {
                                 const next = prev as any;
@@ -4215,7 +4581,9 @@ function PreviewStep({
                                     ...next.widget,
                                     messages: {
                                       ...next.widget.messages,
-                                      readReceipts: { enabled: e.target.checked },
+                                      readReceipts: {
+                                        enabled: e.target.checked,
+                                      },
                                     },
                                   },
                                 };
@@ -4231,7 +4599,8 @@ function PreviewStep({
                         control={
                           <Switch
                             checked={Boolean(
-                              widgetConfig?.widget?.messages?.messageStyles?.user?.avatar?.enabled
+                              widgetConfig?.widget?.messages?.messageStyles
+                                ?.user?.avatar?.enabled
                             )}
                             onChange={(e) =>
                               onChange((prev) => {
@@ -4243,11 +4612,15 @@ function PreviewStep({
                                     messages: {
                                       ...next.widget.messages,
                                       messageStyles: {
-                                        ...(next.widget.messages.messageStyles || {}),
+                                        ...(next.widget.messages
+                                          .messageStyles || {}),
                                         user: {
-                                          ...(next.widget.messages.messageStyles?.user || {}),
+                                          ...(next.widget.messages.messageStyles
+                                            ?.user || {}),
                                           avatar: {
-                                            ...(next.widget.messages.messageStyles?.user?.avatar || {}),
+                                            ...(next.widget.messages
+                                              .messageStyles?.user?.avatar ||
+                                              {}),
                                             enabled: e.target.checked,
                                           },
                                         },
@@ -4267,12 +4640,16 @@ function PreviewStep({
                   <Divider />
 
                   <Stack spacing={1.5}>
-                    <Typography variant="subtitle2">Behavior details</Typography>
+                    <Typography variant="subtitle2">
+                      Behavior details
+                    </Typography>
                     <Stack direction="row" spacing={2} flexWrap="wrap">
                       <FormControlLabel
                         control={
                           <Switch
-                            checked={Boolean(widgetConfig?.widget?.behavior?.closeOnEsc)}
+                            checked={Boolean(
+                              widgetConfig?.widget?.behavior?.closeOnEsc
+                            )}
                             onChange={(e) =>
                               onChange((prev) => {
                                 const next = prev as any;
@@ -4295,7 +4672,10 @@ function PreviewStep({
                       <FormControlLabel
                         control={
                           <Switch
-                            checked={Boolean(widgetConfig?.widget?.behavior?.closeOnOutsideClick)}
+                            checked={Boolean(
+                              widgetConfig?.widget?.behavior
+                                ?.closeOnOutsideClick
+                            )}
                             onChange={(e) =>
                               onChange((prev) => {
                                 const next = prev as any;
@@ -4318,7 +4698,9 @@ function PreviewStep({
                       <FormControlLabel
                         control={
                           <Switch
-                            checked={Boolean(widgetConfig?.widget?.behavior?.focusTrap)}
+                            checked={Boolean(
+                              widgetConfig?.widget?.behavior?.focusTrap
+                            )}
                             onChange={(e) =>
                               onChange((prev) => {
                                 const next = prev as any;
@@ -4341,7 +4723,10 @@ function PreviewStep({
                       <FormControlLabel
                         control={
                           <Switch
-                            checked={Boolean(widgetConfig?.widget?.behavior?.autoOpen?.oncePerSession)}
+                            checked={Boolean(
+                              widgetConfig?.widget?.behavior?.autoOpen
+                                ?.oncePerSession
+                            )}
                             onChange={(e) =>
                               onChange((prev) => {
                                 const next = prev as any;
@@ -4367,7 +4752,10 @@ function PreviewStep({
                       <FormControlLabel
                         control={
                           <Switch
-                            checked={Boolean(widgetConfig?.widget?.behavior?.persistConversation?.enabled)}
+                            checked={Boolean(
+                              widgetConfig?.widget?.behavior
+                                ?.persistConversation?.enabled
+                            )}
                             onChange={(e) =>
                               onChange((prev) => {
                                 const next = prev as any;
@@ -4378,7 +4766,8 @@ function PreviewStep({
                                     behavior: {
                                       ...next.widget.behavior,
                                       persistConversation: {
-                                        ...next.widget.behavior.persistConversation,
+                                        ...next.widget.behavior
+                                          .persistConversation,
                                         enabled: e.target.checked,
                                       },
                                     },
@@ -4393,11 +4782,16 @@ function PreviewStep({
                     </Stack>
                     <Stack direction="row" spacing={2}>
                       <FormControl fullWidth>
-                        <InputLabel id="persist-storage-label">Storage</InputLabel>
+                        <InputLabel id="persist-storage-label">
+                          Storage
+                        </InputLabel>
                         <Select
                           labelId="persist-storage-label"
                           label="Storage"
-                          value={widgetConfig?.widget?.behavior?.persistConversation?.storage || "localStorage"}
+                          value={
+                            widgetConfig?.widget?.behavior?.persistConversation
+                              ?.storage || "localStorage"
+                          }
                           onChange={(e) =>
                             onChange((prev) => {
                               const next = prev as any;
@@ -4408,7 +4802,8 @@ function PreviewStep({
                                   behavior: {
                                     ...next.widget.behavior,
                                     persistConversation: {
-                                      ...next.widget.behavior.persistConversation,
+                                      ...next.widget.behavior
+                                        .persistConversation,
                                       storage: e.target.value,
                                     },
                                   },
@@ -4417,13 +4812,20 @@ function PreviewStep({
                             })
                           }
                         >
-                          <MenuItem value="localStorage">Local storage</MenuItem>
-                          <MenuItem value="sessionStorage">Session storage</MenuItem>
+                          <MenuItem value="localStorage">
+                            Local storage
+                          </MenuItem>
+                          <MenuItem value="sessionStorage">
+                            Session storage
+                          </MenuItem>
                         </Select>
                       </FormControl>
                       <TextField
                         label="Storage key"
-                        value={widgetConfig?.widget?.behavior?.persistConversation?.key || ""}
+                        value={
+                          widgetConfig?.widget?.behavior?.persistConversation
+                            ?.key || ""
+                        }
                         onChange={(e) =>
                           onChange((prev) => {
                             const next = prev as any;
@@ -4449,7 +4851,10 @@ function PreviewStep({
                       <TextField
                         label="TTL (days)"
                         type="number"
-                        value={widgetConfig?.widget?.behavior?.persistConversation?.ttlDays || 0}
+                        value={
+                          widgetConfig?.widget?.behavior?.persistConversation
+                            ?.ttlDays || 0
+                        }
                         onChange={(e) =>
                           onChange((prev) => {
                             const next = prev as any;
@@ -4473,7 +4878,10 @@ function PreviewStep({
                       <TextField
                         label="Rate limit (per min)"
                         type="number"
-                        value={widgetConfig?.widget?.behavior?.rateLimit?.maxMessagesPerMinute || 0}
+                        value={
+                          widgetConfig?.widget?.behavior?.rateLimit
+                            ?.maxMessagesPerMinute || 0
+                        }
                         onChange={(e) =>
                           onChange((prev) => {
                             const next = prev as any;
@@ -4485,7 +4893,9 @@ function PreviewStep({
                                   ...next.widget.behavior,
                                   rateLimit: {
                                     ...next.widget.behavior.rateLimit,
-                                    maxMessagesPerMinute: Number(e.target.value),
+                                    maxMessagesPerMinute: Number(
+                                      e.target.value
+                                    ),
                                   },
                                 },
                               },
@@ -4498,7 +4908,9 @@ function PreviewStep({
                     <FormControlLabel
                       control={
                         <Switch
-                          checked={Boolean(widgetConfig?.widget?.behavior?.rateLimit?.enabled)}
+                          checked={Boolean(
+                            widgetConfig?.widget?.behavior?.rateLimit?.enabled
+                          )}
                           onChange={(e) =>
                             onChange((prev) => {
                               const next = prev as any;
@@ -4530,7 +4942,9 @@ function PreviewStep({
                     <FormControlLabel
                       control={
                         <Switch
-                          checked={Boolean(widgetConfig?.widget?.analytics?.enabled)}
+                          checked={Boolean(
+                            widgetConfig?.widget?.analytics?.enabled
+                          )}
                           onChange={(e) =>
                             onChange((prev) => {
                               const next = prev as any;
@@ -4554,7 +4968,9 @@ function PreviewStep({
                       <FormControlLabel
                         control={
                           <Switch
-                            checked={Boolean(widgetConfig?.widget?.analytics?.ga4?.enabled)}
+                            checked={Boolean(
+                              widgetConfig?.widget?.analytics?.ga4?.enabled
+                            )}
                             onChange={(e) =>
                               onChange((prev) => {
                                 const next = prev as any;
@@ -4580,7 +4996,9 @@ function PreviewStep({
                       <FormControlLabel
                         control={
                           <Switch
-                            checked={Boolean(widgetConfig?.widget?.analytics?.ga4?.debug)}
+                            checked={Boolean(
+                              widgetConfig?.widget?.analytics?.ga4?.debug
+                            )}
                             onChange={(e) =>
                               onChange((prev) => {
                                 const next = prev as any;
@@ -4606,7 +5024,9 @@ function PreviewStep({
                       <FormControlLabel
                         control={
                           <Switch
-                            checked={Boolean(widgetConfig?.widget?.analytics?.clarity?.enabled)}
+                            checked={Boolean(
+                              widgetConfig?.widget?.analytics?.clarity?.enabled
+                            )}
                             onChange={(e) =>
                               onChange((prev) => {
                                 const next = prev as any;
@@ -4632,7 +5052,10 @@ function PreviewStep({
                     </Stack>
                     <TextField
                       label="GA4 measurement ID"
-                      value={widgetConfig?.widget?.analytics?.ga4?.measurementId || ""}
+                      value={
+                        widgetConfig?.widget?.analytics?.ga4?.measurementId ||
+                        ""
+                      }
                       onChange={(e) =>
                         onChange((prev) => {
                           const next = prev as any;
@@ -4655,7 +5078,10 @@ function PreviewStep({
                     />
                     <TextField
                       label="Clarity project ID"
-                      value={widgetConfig?.widget?.analytics?.clarity?.projectId || ""}
+                      value={
+                        widgetConfig?.widget?.analytics?.clarity?.projectId ||
+                        ""
+                      }
                       onChange={(e) =>
                         onChange((prev) => {
                           const next = prev as any;
@@ -4681,7 +5107,9 @@ function PreviewStep({
                   <Divider />
 
                   <Stack spacing={1.5}>
-                    <Typography variant="subtitle2">Internationalization</Typography>
+                    <Typography variant="subtitle2">
+                      Internationalization
+                    </Typography>
                     <FormControlLabel
                       control={
                         <Switch
@@ -4693,7 +5121,10 @@ function PreviewStep({
                                 ...next,
                                 widget: {
                                   ...next.widget,
-                                  i18n: { ...next.widget.i18n, enabled: e.target.checked },
+                                  i18n: {
+                                    ...next.widget.i18n,
+                                    enabled: e.target.checked,
+                                  },
                                 },
                               };
                             })
@@ -4727,7 +5158,9 @@ function PreviewStep({
                       fullWidth
                     />
                     <FormControl fullWidth>
-                      <InputLabel id="default-locale-label">Default locale</InputLabel>
+                      <InputLabel id="default-locale-label">
+                        Default locale
+                      </InputLabel>
                       <Select
                         labelId="default-locale-label"
                         label="Default locale"
@@ -4770,7 +5203,9 @@ function PreviewStep({
                                 strings: {
                                   ...next.widget.i18n.strings,
                                   [i18nDefaultLocale]: {
-                                    ...next.widget.i18n.strings?.[i18nDefaultLocale],
+                                    ...next.widget.i18n.strings?.[
+                                      i18nDefaultLocale
+                                    ],
                                     title: e.target.value,
                                   },
                                 },
@@ -4797,7 +5232,9 @@ function PreviewStep({
                                   strings: {
                                     ...next.widget.i18n.strings,
                                     [i18nDefaultLocale]: {
-                                      ...next.widget.i18n.strings?.[i18nDefaultLocale],
+                                      ...next.widget.i18n.strings?.[
+                                        i18nDefaultLocale
+                                      ],
                                       inputPlaceholder: e.target.value,
                                     },
                                   },
@@ -4823,7 +5260,9 @@ function PreviewStep({
                                   strings: {
                                     ...next.widget.i18n.strings,
                                     [i18nDefaultLocale]: {
-                                      ...next.widget.i18n.strings?.[i18nDefaultLocale],
+                                      ...next.widget.i18n.strings?.[
+                                        i18nDefaultLocale
+                                      ],
                                       send: e.target.value,
                                     },
                                   },
@@ -4851,7 +5290,9 @@ function PreviewStep({
                                   strings: {
                                     ...next.widget.i18n.strings,
                                     [i18nDefaultLocale]: {
-                                      ...next.widget.i18n.strings?.[i18nDefaultLocale],
+                                      ...next.widget.i18n.strings?.[
+                                        i18nDefaultLocale
+                                      ],
                                       close: e.target.value,
                                     },
                                   },
@@ -4877,7 +5318,9 @@ function PreviewStep({
                                   strings: {
                                     ...next.widget.i18n.strings,
                                     [i18nDefaultLocale]: {
-                                      ...next.widget.i18n.strings?.[i18nDefaultLocale],
+                                      ...next.widget.i18n.strings?.[
+                                        i18nDefaultLocale
+                                      ],
                                       reset: e.target.value,
                                     },
                                   },
@@ -4908,7 +5351,9 @@ function PreviewStep({
               <Button
                 size="small"
                 startIcon={<ContentCopyIcon />}
-                onClick={() => handleCopySnippet(integrationSnippet, "Integration code")}
+                onClick={() =>
+                  handleCopySnippet(integrationSnippet, "Integration code")
+                }
               >
                 Copy code
               </Button>
@@ -4921,8 +5366,8 @@ function PreviewStep({
               InputProps={{ readOnly: true, sx: { fontFamily: "monospace" } }}
             />
             <Typography variant="caption" color="text.secondary">
-              The widget fetches UI config from the agent config API when no config is
-              provided.
+              The widget fetches UI config from the agent config API when no
+              config is provided.
             </Typography>
           </Stack>
         </Card>
@@ -4961,7 +5406,11 @@ function PaperInput({ label, file, onSelect, accept }: PaperInputProps) {
         onChange={(e) => onSelect(e.target.files?.[0] || null)}
       />
       <label htmlFor="kb-upload">
-        <Button variant="outlined" startIcon={<UploadFileIcon />} component="span">
+        <Button
+          variant="outlined"
+          startIcon={<UploadFileIcon />}
+          component="span"
+        >
           {label}
         </Button>
       </label>
@@ -5005,8 +5454,9 @@ function WidgetPreview({
       const targetWindow = frame.contentWindow;
       if (!targetWindow) return;
       (targetWindow as any).ShiprocketAgentWidgetConfig = config;
-      const widgetElement =
-        frame.contentDocument?.querySelector("shiprocket-agent-widget");
+      const widgetElement = frame.contentDocument?.querySelector(
+        "shiprocket-agent-widget"
+      );
       if (widgetElement) {
         widgetElement.setAttribute("config", configPayload);
         widgetElement.setAttribute("agent-id", widgetAgentId);
@@ -5021,7 +5471,14 @@ function WidgetPreview({
     } catch (error) {
       // Ignore cross-origin access errors for the preview iframe.
     }
-  }, [authToken, config, configPayload, widgetAgentId, widgetApiKey, widgetUserId]);
+  }, [
+    authToken,
+    config,
+    configPayload,
+    widgetAgentId,
+    widgetApiKey,
+    widgetUserId,
+  ]);
   const iframeHtml = [
     "<!doctype html>",
     "<html>",
@@ -5039,7 +5496,9 @@ function WidgetPreview({
     shouldLoadReactUmd ? `<script src="${reactUmdUrl}"></script>` : "",
     shouldLoadReactUmd ? `<script src="${reactDomUmdUrl}"></script>` : "",
     widgetScriptUrl
-      ? `<script${widgetScriptIsModule ? ' type="module"' : ""} src="${widgetScriptUrl}"></script>`
+      ? `<script${
+          widgetScriptIsModule ? ' type="module"' : ""
+        } src="${widgetScriptUrl}"></script>`
       : "",
     `<div id="widget-root">`,
     `<shiprocket-agent-widget agent-id="${widgetAgentId}" user-id="${widgetUserId}" x-auth-token="YOUR_AUTH_TOKEN"></shiprocket-agent-widget>`,
@@ -5051,24 +5510,29 @@ function WidgetPreview({
     .join("\n");
 
   return (
-      <Box
-        sx={{
-          height: "calc(100vh - 60px)",
-          minHeight: 520,
-          borderRadius: 2,
-          border: (theme) => `1px dashed ${alpha(theme.palette.divider, 0.6)}`,
-          background: (theme) => alpha(theme.palette.background.default, 0.6),
-          position: "relative",
-          overflow: "hidden",
-          p: 2,
-        }}
-      >
+    <Box
+      sx={{
+        height: "calc(100vh - 60px)",
+        minHeight: 520,
+        borderRadius: 2,
+        border: (theme) => `1px dashed ${alpha(theme.palette.divider, 0.6)}`,
+        background: (theme) => alpha(theme.palette.background.default, 0.6),
+        position: "relative",
+        overflow: "hidden",
+        p: 2,
+      }}
+    >
       <iframe
         ref={iframeRef}
         title="Widget preview"
         srcDoc={iframeHtml}
         sandbox="allow-scripts allow-same-origin"
-        style={{ width: "100%", height: "100%", border: "none", display: "block" }}
+        style={{
+          width: "100%",
+          height: "100%",
+          border: "none",
+          display: "block",
+        }}
       />
     </Box>
   );
