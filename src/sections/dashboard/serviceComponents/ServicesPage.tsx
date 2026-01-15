@@ -257,6 +257,8 @@ export function ServicesPage({ projectId: projectIdProp }: ServicesPageProps) {
   const filtered = useMemo(() => {
     const s = debouncedSearch.trim().toLowerCase();
     return services.filter((svc) => {
+      const isAgentBuilder = /agent builder/i.test(svc.name);
+      if (isAgentBuilder) return false;
       const textOk =
         !s ||
         svc.name.toLowerCase().includes(s) ||
