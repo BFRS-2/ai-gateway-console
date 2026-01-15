@@ -31,6 +31,7 @@ import {
   MenuItem,
   OutlinedInput,
   Select,
+  Skeleton,
   Slider,
   Stack,
   Step,
@@ -569,6 +570,7 @@ export function AgentBuilderPage() {
   const [deployModalOpen, setDeployModalOpen] = useState(false);
   const [showListView, setShowListView] = useState(false);
   const [agentList, setAgentList] = useState<AgentListItem[]>([]);
+  const [agentConfigLoading, setAgentConfigLoading] = useState(false);
   const loadedAgentConfigRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -583,11 +585,15 @@ export function AgentBuilderPage() {
   }, [projectId, projectOptions]);
 
   useEffect(() => {
-    if (!projectId) return;
+    if (!projectId) {
+      setAgentConfigLoading(false);
+      return;
+    }
     setKbStatus(null);
     setKbSelectionTouched(false);
-    setShowListView(false);
+    setShowListView(true);
     setAgentList([]);
+    setAgentConfigLoading(false);
     setActiveStep(0);
     setAgentId("");
     setPreviewConfig(devConfig);
@@ -705,6 +711,8 @@ export function AgentBuilderPage() {
     let isActive = true;
 
     const loadAgentConfig = async () => {
+      setAgentConfigLoading(true);
+      setShowListView(true);
       try {
         const res = await agentBuilderService.getAgentConfig(projectId);
         if (!isActive) return;
@@ -719,6 +727,12 @@ export function AgentBuilderPage() {
           const notFound =
             errorStatus === 404 || /not found/i.test(String(errorMessage));
           if (notFound) {
+            setConfig(defaultConfig);
+            setPreviewConfig(devConfig);
+            setAgentId("");
+            setKbStatus(null);
+            setAgentList([]);
+            setShowListView(true);
             loadedAgentConfigRef.current = projectId;
             return;
           }
@@ -729,6 +743,12 @@ export function AgentBuilderPage() {
         const payload = (res as any)?.data ?? (res as any)?.config ?? res;
         const list = buildAgentList(payload);
         if (!list.length) {
+          setConfig(defaultConfig);
+          setPreviewConfig(devConfig);
+          setAgentId("");
+          setKbStatus(null);
+          setAgentList([]);
+          setShowListView(true);
           loadedAgentConfigRef.current = projectId;
           return;
         }
@@ -740,6 +760,10 @@ export function AgentBuilderPage() {
       } catch (error) {
         if (!isActive) return;
         enqueueSnackbar("Unable to load agent config", { variant: "error" });
+      } finally {
+        if (isActive) {
+          setAgentConfigLoading(false);
+        }
       }
     };
 
@@ -1269,6 +1293,15 @@ export function AgentBuilderPage() {
     setActiveStep(0);
   };
 
+  const handleCreateAgent = () => {
+    setConfig(defaultConfig);
+    setPreviewConfig(devConfig);
+    setAgentId("");
+    setKbStatus(null);
+    setShowListView(false);
+    setActiveStep(0);
+  };
+
   return (
     <>
       <DashboardContent maxWidth="xl">
@@ -1330,13 +1363,17 @@ export function AgentBuilderPage() {
             <Card sx={{ p: 2.5, borderRadius: 2 }}>
               <Stack spacing={2}>
                 <Stack spacing={1.5}>
-                  {agentList.map((agent, index) => (
+                  {agentConfigLoading ? (
+                    <>
+                      <Skeleton variant="rounded" height={72} />
+                      <Skeleton variant="rounded" height={72} />
+                    </>
+                  ) : agentList.length === 0 ? (
                     <Box
-                      key={agent.id || `${agent.name}-${index}`}
                       sx={{
                         p: 2,
                         borderRadius: 2,
-                        border: `1px solid ${alpha(theme.palette.divider, 0.3)}`,
+                        border: `1px dashed ${alpha(theme.palette.divider, 0.4)}`,
                       }}
                     >
                       <Stack
@@ -1346,23 +1383,55 @@ export function AgentBuilderPage() {
                         justifyContent="space-between"
                       >
                         <Stack spacing={0.5}>
-                          <Typography variant="subtitle1">{agent.name}</Typography>
-                          {agent.id && (
-                            <Typography variant="caption" color="text.secondary">
-                              ID: {agent.id}
-                            </Typography>
-                          )}
+                          <Typography variant="subtitle1">No agent found</Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Start creating the agent to continue.
+                          </Typography>
                         </Stack>
                         <Button
-                          variant="outlined"
+                          variant="contained"
                           size="small"
-                          onClick={() => handleEditAgent(agent)}
+                          onClick={handleCreateAgent}
                         >
-                          Edit
+                          Create agent
                         </Button>
                       </Stack>
                     </Box>
-                  ))}
+                  ) : (
+                    agentList.map((agent, index) => (
+                      <Box
+                        key={agent.id || `${agent.name}-${index}`}
+                        sx={{
+                          p: 2,
+                          borderRadius: 2,
+                          border: `1px solid ${alpha(theme.palette.divider, 0.3)}`,
+                        }}
+                      >
+                        <Stack
+                          direction={{ xs: "column", sm: "row" }}
+                          spacing={1}
+                          alignItems={{ xs: "flex-start", sm: "center" }}
+                          justifyContent="space-between"
+                        >
+                          <Stack spacing={0.5}>
+                            <Typography variant="subtitle1">{agent.name}</Typography>
+                            {agent.id && (
+                              <Typography variant="caption" color="text.secondary">
+                                ID: {agent.id}
+                              </Typography>
+                            )}
+                          </Stack>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={() => handleEditAgent(agent)}
+                          >
+                            Edit
+                          </Button>
+                        </Stack>
+                      </Box>
+                    ))
+                  )}
                 </Stack>
               </Stack>
             </Card>
@@ -1379,6 +1448,12 @@ export function AgentBuilderPage() {
               <Box>
                 {activeStep === 0 && (
                   <Stack spacing={2.5}>
+                    <AgentNodeStep
+                      config={config}
+                      onChange={updateConfig}
+                      hasKbCollection={hasKbCollection}
+                      hasValidMcp={hasValidMcp}
+                    />
                     <ServiceStep
                       config={config}
                       onChange={updateConfig}
@@ -1390,12 +1465,6 @@ export function AgentBuilderPage() {
                       providersLoading={providersLoading}
                       modelsError={modelsError}
                       providersError={providersError}
-                    />
-                    <AgentNodeStep
-                      config={config}
-                      onChange={updateConfig}
-                      hasKbCollection={hasKbCollection}
-                      hasValidMcp={hasValidMcp}
                     />
                   </Stack>
                 )}
