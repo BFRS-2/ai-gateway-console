@@ -17,9 +17,7 @@ export default function Layout({ children }: Props) {
 
   return (
     <AuthGuard>
-      <SnackbarProvider>
-      {children}
-      </SnackbarProvider>
+        {children}
     </AuthGuard>
   );
 }
