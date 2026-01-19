@@ -150,12 +150,51 @@ export default function DynamicServiceForm({
     allowedModels,
   ]);
 
-  const fieldOptions = (f: FieldSchema) => {
+  const fieldOptions = (fieldPath: Path, f: FieldSchema) => {
     if (f.options?.length) return f.options;
-    if (f.dynamic === "models")
-      return allowedModels.map(({ label, value }) => ({ label, value }));
+    if (f.dynamic === "models") {
+      const providerPath = modelProviderMap[fieldPath];
+      const providerValue = providerPath ? getByPath(value, providerPath) : "";
+      const filteredModels = providerValue
+        ? allowedModels.filter((m) => m.provider === providerValue)
+        : allowedModels;
+      return filteredModels.map(({ label, value }) => ({ label, value }));
+    }
     if (f.dynamic === "providers") return providerOptions;
     return [];
+  };
+
+  const providerModelMap: Record<Path, Path> = {
+    "config.default_provider": "config.default_model",
+    "config.backup_provider": "config.backup_model",
+  };
+  const modelProviderMap: Record<Path, Path> = {
+    "config.default_model": "config.default_provider",
+    "config.backup_model": "config.backup_provider",
+  };
+
+  const handleProviderChange = (providerPath: Path, providerValue: string) => {
+    const modelPath = providerModelMap[providerPath];
+    let next = setByPath(value, providerPath, providerValue);
+
+    if (!modelPath) {
+      onChange(next);
+      return;
+    }
+
+    const currentModel = getByPath(value, modelPath);
+    const currentModelProvider = allowedModels.find(
+      (m) => m.value === currentModel
+    )?.provider;
+    const nextModel = allowedModels.find(
+      (m) => m.provider === providerValue
+    )?.value;
+
+    if (!currentModel || currentModelProvider !== providerValue) {
+      next = setByPath(next, modelPath, nextModel ?? "");
+    }
+
+    onChange(next);
   };
 
   const validate = () => {
@@ -193,7 +232,7 @@ export default function DynamicServiceForm({
   const renderField = (path: Path, f: FieldSchema) => {
     const v = getByPath(value, path);
     const label = f.label || path.split(".").slice(-1)[0];
-    const opts = fieldOptions(f);
+    const opts = fieldOptions(path, f);
 
     switch (f.type) {
       case "text":
@@ -336,7 +375,14 @@ export default function DynamicServiceForm({
               />
             }
             value={v ?? f.default ?? ""}
-            onChange={(e) => onChange(setByPath(value, path, e.target.value))}
+            onChange={(e) => {
+              const nextValue = e.target.value;
+              if (f.dynamic === "providers") {
+                handleProviderChange(path, String(nextValue));
+                return;
+              }
+              onChange(setByPath(value, path, nextValue));
+            }}
             error={!!errors[path]}
             helperText={helper(path, f)}
           >

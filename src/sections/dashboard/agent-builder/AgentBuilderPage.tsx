@@ -26,6 +26,7 @@ import {
   Divider,
   FormControl,
   FormControlLabel,
+  FormHelperText,
   Grid,
   IconButton,
   InputLabel,
@@ -465,6 +466,35 @@ const normalizeWidgetConfig = (
   };
 };
 
+const SERVICE_FIELD_ERROR_MAP: Record<string, string> = {
+  default_model: "defaultModel",
+  backup_model: "backupModel",
+  default_provider: "defaultProvider",
+  backup_provider: "backupProvider",
+  allowed_models: "allowedModels",
+  temperature: "temperature",
+  "limits.daily": "dailyLimit",
+  "limits.monthly": "monthlyLimit",
+  "service_alert_limit.daily": "dailyAlert",
+  "service_alert_limit.monthly": "monthlyAlert",
+};
+
+const mapServiceValidationErrors = (errors: Record<string, unknown>) => {
+  const next: Record<string, string> = {};
+  Object.entries(errors).forEach(([rawKey, value]) => {
+    const key = rawKey.replace(/^config\./, "");
+    const message = Array.isArray(value)
+      ? value.filter(Boolean).join(", ")
+      : value
+      ? String(value)
+      : "";
+    if (!message) return;
+    const mappedKey = SERVICE_FIELD_ERROR_MAP[key] || SERVICE_FIELD_ERROR_MAP[rawKey] || key;
+    next[mappedKey] = message;
+  });
+  return next;
+};
+
 type ServiceSetup = {
   serviceId: string;
   defaultModel: string;
@@ -610,6 +640,9 @@ export function AgentBuilderPage() {
   const [providersError, setProvidersError] = useState<string | null>(null);
 
   const [serviceSaving, setServiceSaving] = useState(false);
+  const [serviceFieldErrors, setServiceFieldErrors] = useState<
+    Record<string, string>
+  >({});
   const [kbLoading, setKbLoading] = useState(false);
   const [kbStatus, setKbStatus] = useState<KBStatusData | null>(null);
   const [kbSelectionTouched, setKbSelectionTouched] = useState(false);
@@ -647,6 +680,7 @@ export function AgentBuilderPage() {
     setAgentId("");
     setPreviewConfig(devConfig);
     setConfig(defaultConfig);
+    setServiceFieldErrors({});
   }, [projectId]);
 
   const applyAgentConfig = useCallback((payload: Record<string, unknown>) => {
@@ -890,6 +924,15 @@ export function AgentBuilderPage() {
     setConfig((prev) => updater(prev));
   };
 
+  const clearServiceFieldError = useCallback((fieldKey: string) => {
+    setServiceFieldErrors((prev) => {
+      if (!prev[fieldKey]) return prev;
+      const next = { ...prev };
+      delete next[fieldKey];
+      return next;
+    });
+  }, []);
+
   const refreshKbStatus = async () => {
     if (!projectId) return;
     setKbLoading(true);
@@ -1067,6 +1110,7 @@ export function AgentBuilderPage() {
       return false;
     }
     setServiceSaving(true);
+    setServiceFieldErrors({});
     try {
       const payload = {
         service_id: config.service.serviceId,
@@ -1093,6 +1137,21 @@ export function AgentBuilderPage() {
         projectId,
         payload
       );
+      const errorPayload =
+        (res as any)?.error?.payload ??
+        (res as any)?.error ??
+        (res as any)?.payload ??
+        null;
+      const validationErrors =
+        (res as any)?.errors || errorPayload?.errors || null;
+      if (validationErrors && typeof validationErrors === "object") {
+        const mapped = mapServiceValidationErrors(
+          validationErrors as Record<string, unknown>
+        );
+        if (Object.keys(mapped).length) {
+          setServiceFieldErrors(mapped);
+        }
+      }
       const ok = Boolean((res as any)?.success) || !(res as any)?.error;
       if (showToast) {
         enqueueSnackbar(ok ? "Service config saved" : "Service config failed", {
@@ -1375,6 +1434,7 @@ export function AgentBuilderPage() {
     setPreviewConfig(devConfig);
     setAgentId("");
     setKbStatus(null);
+    setServiceFieldErrors({});
     setShowListView(false);
     setActiveStep(0);
   };
@@ -1556,6 +1616,8 @@ export function AgentBuilderPage() {
                         providersLoading={providersLoading}
                         modelsError={modelsError}
                         providersError={providersError}
+                        fieldErrors={serviceFieldErrors}
+                        onClearFieldError={clearServiceFieldError}
                       />
                     </Stack>
                   )}
@@ -1692,6 +1754,8 @@ type ServiceStepProps = {
   providersLoading: boolean;
   modelsError: string | null;
   providersError: string | null;
+  fieldErrors: Record<string, string>;
+  onClearFieldError: (fieldKey: string) => void;
 };
 
 function LabelWithHelp({
@@ -1737,6 +1801,8 @@ function ServiceStep({
   providersLoading,
   modelsError,
   providersError,
+  fieldErrors,
+  onClearFieldError,
 }: ServiceStepProps) {
   const modelOptions = models.filter((model) => {
     const isAgentBuilder = /agent builder/i.test(model.name);
@@ -1745,6 +1811,71 @@ function ServiceStep({
   const providerOptions = providers.filter(
     (provider) => provider.status === "active"
   );
+  const defaultProviderError = fieldErrors.defaultProvider || "";
+  const defaultModelError = fieldErrors.defaultModel || "";
+  const backupProviderError = fieldErrors.backupProvider || "";
+  const backupModelError = fieldErrors.backupModel || "";
+  const temperatureError = fieldErrors.temperature || "";
+  const dailyLimitError = fieldErrors.dailyLimit || "";
+  const monthlyLimitError = fieldErrors.monthlyLimit || "";
+  const dailyAlertError = fieldErrors.dailyAlert || "";
+  const monthlyAlertError = fieldErrors.monthlyAlert || "";
+  const defaultModelOptions = config.service.defaultProvider
+    ? modelOptions.filter(
+        (model) => model.provider === config.service.defaultProvider
+      )
+    : modelOptions;
+  const backupModelOptions = config.service.backupProvider
+    ? modelOptions.filter(
+        (model) => model.provider === config.service.backupProvider
+      )
+    : modelOptions;
+
+  const handleDefaultProviderChange = (nextProvider: string) => {
+    onChange((prev) => {
+      const currentModel = prev.service.defaultModel;
+      const currentProvider = modelOptions.find(
+        (model) => model.name === currentModel
+      )?.provider;
+      const nextModel = modelOptions.find(
+        (model) => model.provider === nextProvider
+      )?.name;
+      return {
+        ...prev,
+        service: {
+          ...prev.service,
+          defaultProvider: nextProvider,
+          defaultModel:
+            !currentModel || currentProvider !== nextProvider
+              ? nextModel || ""
+              : currentModel,
+        },
+      };
+    });
+  };
+
+  const handleBackupProviderChange = (nextProvider: string) => {
+    onChange((prev) => {
+      const currentModel = prev.service.backupModel;
+      const currentProvider = modelOptions.find(
+        (model) => model.name === currentModel
+      )?.provider;
+      const nextModel = modelOptions.find(
+        (model) => model.provider === nextProvider
+      )?.name;
+      return {
+        ...prev,
+        service: {
+          ...prev.service,
+          backupProvider: nextProvider,
+          backupModel:
+            !currentModel || currentProvider !== nextProvider
+              ? nextModel || ""
+              : currentModel,
+        },
+      };
+    });
+  };
 
   useEffect(() => {
     if (!modelOptions.length) return;
@@ -1785,38 +1916,7 @@ function ServiceStep({
 
         <Grid container spacing={2}>
           <Grid item xs={12} md={6}>
-            <FormControl fullWidth>
-              <InputLabel id="default-model-label">
-                <LabelWithHelp
-                  label="Default model"
-                  helpText={agentBuilderHelpTexts.defaultModel}
-                />
-              </InputLabel>
-              <Select
-                labelId="default-model-label"
-                label="Default model"
-                value={config.service.defaultModel}
-                onChange={(e) =>
-                  onChange((prev) => ({
-                    ...prev,
-                    service: {
-                      ...prev.service,
-                      defaultModel: e.target.value as string,
-                    },
-                  }))
-                }
-                disabled={modelsLoading || !modelOptions.length}
-              >
-                {modelOptions.map((model) => (
-                  <MenuItem key={model.id} value={model.name}>
-                    {model.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <FormControl fullWidth>
+            <FormControl fullWidth error={Boolean(defaultProviderError)}>
               <InputLabel id="default-provider-label">
                 <LabelWithHelp
                   label="Default provider"
@@ -1827,15 +1927,11 @@ function ServiceStep({
                 labelId="default-provider-label"
                 label="Default provider"
                 value={config.service.defaultProvider}
-                onChange={(e) =>
-                  onChange((prev) => ({
-                    ...prev,
-                    service: {
-                      ...prev.service,
-                      defaultProvider: e.target.value as string,
-                    },
-                  }))
-                }
+                onChange={(e) => {
+                  onClearFieldError("defaultProvider");
+                  onClearFieldError("defaultModel");
+                  handleDefaultProviderChange(e.target.value as string);
+                }}
                 disabled={providersLoading || !providerOptions.length}
               >
                 {providerOptions.map((provider) => (
@@ -1844,41 +1940,48 @@ function ServiceStep({
                   </MenuItem>
                 ))}
               </Select>
+              {defaultProviderError ? (
+                <FormHelperText>{defaultProviderError}</FormHelperText>
+              ) : null}
             </FormControl>
           </Grid>
           <Grid item xs={12} md={6}>
-            <FormControl fullWidth>
-              <InputLabel id="backup-model-label">
+            <FormControl fullWidth error={Boolean(defaultModelError)}>
+              <InputLabel id="default-model-label">
                 <LabelWithHelp
-                  label="Fallback model"
-                  helpText={agentBuilderHelpTexts.backupModel}
+                  label="Default model"
+                  helpText={agentBuilderHelpTexts.defaultModel}
                 />
               </InputLabel>
               <Select
-                labelId="backup-model-label"
-                label="Fallback model"
-                value={config.service.backupModel}
-                onChange={(e) =>
+                labelId="default-model-label"
+                label="Default model"
+                value={config.service.defaultModel}
+                onChange={(e) => {
+                  onClearFieldError("defaultModel");
                   onChange((prev) => ({
                     ...prev,
                     service: {
                       ...prev.service,
-                      backupModel: e.target.value as string,
+                      defaultModel: e.target.value as string,
                     },
-                  }))
-                }
-                disabled={modelsLoading || !modelOptions.length}
+                  }));
+                }}
+                disabled={modelsLoading || !defaultModelOptions.length}
               >
-                {modelOptions.map((model) => (
+                {defaultModelOptions.map((model) => (
                   <MenuItem key={model.id} value={model.name}>
                     {model.name}
                   </MenuItem>
                 ))}
               </Select>
+              {defaultModelError ? (
+                <FormHelperText>{defaultModelError}</FormHelperText>
+              ) : null}
             </FormControl>
           </Grid>
           <Grid item xs={12} md={6}>
-            <FormControl fullWidth>
+            <FormControl fullWidth error={Boolean(backupProviderError)}>
               <InputLabel id="backup-provider-label">
                 <LabelWithHelp
                   label="Fallback provider"
@@ -1889,15 +1992,11 @@ function ServiceStep({
                 labelId="backup-provider-label"
                 label="Fallback provider"
                 value={config.service.backupProvider}
-                onChange={(e) =>
-                  onChange((prev) => ({
-                    ...prev,
-                    service: {
-                      ...prev.service,
-                      backupProvider: e.target.value as string,
-                    },
-                  }))
-                }
+                onChange={(e) => {
+                  onClearFieldError("backupProvider");
+                  onClearFieldError("backupModel");
+                  handleBackupProviderChange(e.target.value as string);
+                }}
                 disabled={providersLoading || !providerOptions.length}
               >
                 {providerOptions.map((provider) => (
@@ -1906,6 +2005,44 @@ function ServiceStep({
                   </MenuItem>
                 ))}
               </Select>
+              {backupProviderError ? (
+                <FormHelperText>{backupProviderError}</FormHelperText>
+              ) : null}
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <FormControl fullWidth error={Boolean(backupModelError)}>
+              <InputLabel id="backup-model-label">
+                <LabelWithHelp
+                  label="Fallback model"
+                  helpText={agentBuilderHelpTexts.backupModel}
+                />
+              </InputLabel>
+              <Select
+                labelId="backup-model-label"
+                label="Fallback model"
+                value={config.service.backupModel}
+                onChange={(e) => {
+                  onClearFieldError("backupModel");
+                  onChange((prev) => ({
+                    ...prev,
+                    service: {
+                      ...prev.service,
+                      backupModel: e.target.value as string,
+                    },
+                  }));
+                }}
+                disabled={modelsLoading || !backupModelOptions.length}
+              >
+                {backupModelOptions.map((model) => (
+                  <MenuItem key={model.id} value={model.name}>
+                    {model.name}
+                  </MenuItem>
+                ))}
+              </Select>
+              {backupModelError ? (
+                <FormHelperText>{backupModelError}</FormHelperText>
+              ) : null}
             </FormControl>
           </Grid>
           <Grid item xs={12} md={12}>
@@ -1921,14 +2058,21 @@ function ServiceStep({
                 min={0}
                 max={1}
                 step={0.05}
-                onChange={(_, value) =>
+                color={temperatureError ? "error" : "primary"}
+                onChange={(_, value) => {
+                  onClearFieldError("temperature");
                   onChange((prev) => ({
                     ...prev,
                     service: { ...prev.service, temperature: value as number },
-                  }))
-                }
+                  }));
+                }}
                 valueLabelDisplay="auto"
               />
+              {temperatureError ? (
+                <Typography variant="caption" color="error">
+                  {temperatureError}
+                </Typography>
+              ) : null}
             </Stack>
           </Grid>
           <Grid item xs={12}>
@@ -1945,7 +2089,8 @@ function ServiceStep({
                     }
                     type="number"
                     value={config.service.limits.daily}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      onClearFieldError("dailyLimit");
                       onChange((prev) => ({
                         ...prev,
                         service: {
@@ -1955,8 +2100,10 @@ function ServiceStep({
                             daily: Number(e.target.value),
                           },
                         },
-                      }))
-                    }
+                      }));
+                    }}
+                    error={Boolean(dailyLimitError)}
+                    helperText={dailyLimitError}
                     fullWidth
                   />
                 </Grid>
@@ -1970,7 +2117,8 @@ function ServiceStep({
                     }
                     type="number"
                     value={config.service.limits.monthly}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      onClearFieldError("monthlyLimit");
                       onChange((prev) => ({
                         ...prev,
                         service: {
@@ -1980,8 +2128,10 @@ function ServiceStep({
                             monthly: Number(e.target.value),
                           },
                         },
-                      }))
-                    }
+                      }));
+                    }}
+                    error={Boolean(monthlyLimitError)}
+                    helperText={monthlyLimitError}
                     fullWidth
                   />
                 </Grid>
@@ -2002,7 +2152,8 @@ function ServiceStep({
                     }
                     type="number"
                     value={config.service.serviceAlertLimit.daily}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      onClearFieldError("dailyAlert");
                       onChange((prev) => ({
                         ...prev,
                         service: {
@@ -2012,8 +2163,10 @@ function ServiceStep({
                             daily: Number(e.target.value),
                           },
                         },
-                      }))
-                    }
+                      }));
+                    }}
+                    error={Boolean(dailyAlertError)}
+                    helperText={dailyAlertError}
                     fullWidth
                   />
                 </Grid>
@@ -2027,7 +2180,8 @@ function ServiceStep({
                     }
                     type="number"
                     value={config.service.serviceAlertLimit.monthly}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      onClearFieldError("monthlyAlert");
                       onChange((prev) => ({
                         ...prev,
                         service: {
@@ -2037,8 +2191,10 @@ function ServiceStep({
                             monthly: Number(e.target.value),
                           },
                         },
-                      }))
-                    }
+                      }));
+                    }}
+                    error={Boolean(monthlyAlertError)}
+                    helperText={monthlyAlertError}
                     fullWidth
                   />
                 </Grid>
