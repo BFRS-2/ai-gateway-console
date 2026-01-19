@@ -43,6 +43,15 @@ type ServicesPageProps = {
   projectId?: string;
 };
 
+const DOC_API_PLACEHOLDERS = [
+  "http://192.168.22.193:8001",
+  "https://aigateway.shiprocket.in",
+] as const;
+const DOC_API_BASE_URL = (process.env.NEXT_PUBLIC_BASE_API_URL || "").replace(
+  /\/$/,
+  ""
+);
+
 /* ------------------------------ Helper: debounce --------------------------- */
 
 function useDebounced<T>(value: T, delay = 250) {
@@ -77,8 +86,14 @@ function useMarkdown(path?: string) {
         const res = await fetch(path, { cache: "no-store" });
         if (!res.ok) throw new Error("Failed to load documentation");
         const text = await res.text();
+        const normalizedText = DOC_API_BASE_URL
+          ? DOC_API_PLACEHOLDERS.reduce(
+              (acc, placeholder) => acc.replaceAll(placeholder, DOC_API_BASE_URL),
+              text
+            )
+          : text;
         if (!cancelled) {
-          setContent(text);
+          setContent(normalizedText);
           setLoading(false);
         }
       } catch (e) {

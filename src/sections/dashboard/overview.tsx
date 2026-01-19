@@ -441,7 +441,7 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
         <Grid container spacing={2}>
           <Grid item xs={12} sm={4}>
             <DataCard
-              title="Total Cost (Month to Date)"
+              title="Total Cost (Month till Date)"
               value={formatINR(kpiTotals.cost_used || 0)}
               icon="/assets/icons/navbar/ic-invoice.svg"
               loading={loading}
@@ -458,7 +458,7 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
           </Grid>
           <Grid item xs={12} sm={4}>
             <DataCard
-              title="API Requests (Month to Date)"
+              title="API Requests (Month till Date)"
               value={Number(kpiTotals.requests || 0).toLocaleString("en-IN")}
               icon="/assets/icons/navbar/ic-menu-item.svg"
               loading={loading}
@@ -475,7 +475,7 @@ const OverviewSection = ({ projectId, projectName }: OverviewSectionProps) => {
           </Grid>
           <Grid item xs={12} sm={4}>
             <DataCard
-              title="Tokens Used (Month to Date)"
+              title="Tokens Used (Month till Date)"
               value={Number(kpiTotals.tokens_used || 0).toLocaleString("en-IN")}
               icon="/assets/icons/navbar/ic-job.svg"
               loading={loading}
