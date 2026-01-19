@@ -11,13 +11,14 @@ interface ReduxProviderProps {
 
 export default function ReduxProvider({ children }: ReduxProviderProps) {
   return (
-    <Provider store={store}>
-      <SnackbarProvider
+    <SnackbarProvider
         maxSnack={1}
         anchorOrigin={{ vertical: "top", horizontal: "right" }}
       >
+    <Provider store={store}>
+      
         {children}
-      </SnackbarProvider>
     </Provider>
+      </SnackbarProvider>
   );
 }

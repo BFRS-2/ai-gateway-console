@@ -143,10 +143,11 @@ export function ProjectSettingsTab({
   const [creatingKey, setCreatingKey] = useState(false);
   const [createErr, setCreateErr] = useState<string>("");
 
-  const orgName = useSelector(
-    (state: RootState) =>
-      state.orgProject.selectedOrganizationProject?.organizationName
+  const selectedOrg = useSelector(
+    (state: RootState) => state.orgProject.selectedOrganizationProject
   );
+  const orgName = selectedOrg?.organizationName;
+  const projectsLoaded = selectedOrg !== null;
 
   // One-time reveal modal
   const [showKeyModal, setShowKeyModal] = useState(false);
@@ -647,6 +648,17 @@ export function ProjectSettingsTab({
 
   // ---------- Render ----------
   if (!projectId) {
+    if (!projectsLoaded) {
+      return (
+        <Box sx={{ mt: 2 }}>
+          <Stack spacing={2}>
+            <Skeleton variant="text" width={220} height={32} />
+            <Skeleton variant="rounded" height={140} />
+            <Skeleton variant="rounded" height={140} />
+          </Stack>
+        </Box>
+      );
+    }
     return (
       <Box sx={{ mt: 2 }}>
         <Alert severity="info">Select a project to edit settings.</Alert>
@@ -892,7 +904,7 @@ export function ProjectSettingsTab({
                   sx={{ mt: 2 }}
                 >
                   <TextField
-                    label="Daily budget"
+                    label="Daily budget (in $)"
                     size="small"
                     type="number"
                     inputProps={{ min: 0 }}
@@ -914,7 +926,7 @@ export function ProjectSettingsTab({
                     }}
                   />
                   <TextField
-                    label="Monthly budget"
+                    label="Monthly budget (in $)"
                     size="small"
                     type="number"
                     inputProps={{ min: 0 }}

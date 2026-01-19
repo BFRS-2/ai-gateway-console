@@ -381,6 +381,8 @@ const normalizeWidgetConfig = (
   const next = incoming as any;
   const baseWidget = base.widget || {};
   const nextWidget = next.widget || {};
+  const baseComposer = baseWidget.composer || {};
+  const nextComposer = nextWidget.composer || {};
   const baseTheme = baseWidget.theme || {};
   const nextTheme = nextWidget.theme || {};
   const baseLayouts = baseWidget.layouts || {};
@@ -453,6 +455,11 @@ const normalizeWidgetConfig = (
             ...(nextFullscreen.backdrop || {}),
           },
         },
+      },
+      composer: {
+        ...baseComposer,
+        ...nextComposer,
+        multiline: true,
       },
     },
   };
@@ -543,7 +550,7 @@ const defaultConfig: BuilderConfig = {
     },
   },
   agent: {
-    name: "Shiprocket LLM Agent Graph",
+    name: "",
     systemPrompt:
       "You are an AI agent that helps users with their queries. Use the available tools to provide accurate responses.",
     reviewerPrompt:
@@ -2109,6 +2116,10 @@ function ToolsStep({
       : "default";
   const hasExistingKb = Boolean(existingKbCollection);
   const kbSelection = hasExistingKb ? "existing" : "new";
+  const showKbStatusCheck =
+    config.tools.kb.status !== "idle" &&
+    config.tools.kb.status !== "ready" &&
+    kbStatus?.status !== "completed";
 
   return (
     <Stack spacing={2.5}>
@@ -2230,13 +2241,15 @@ function ToolsStep({
                 >
                   {kbLoading ? "Uploading..." : "Upload KB"}
                 </Button>
-                <Button
-                  variant="outlined"
-                  onClick={onCheckKb}
-                  disabled={kbLoading}
-                >
-                  Check status
-                </Button>
+                {showKbStatusCheck && (
+                  <Button
+                    variant="outlined"
+                    onClick={onCheckKb}
+                    disabled={kbLoading}
+                  >
+                    Check status
+                  </Button>
+                )}
                 {kbLoading && <CircularProgress size={20} />}
               </Stack>
             </Stack>
@@ -2819,31 +2832,6 @@ function PreviewStep({
 
                   <Stack spacing={1.5}>
                     <Typography variant="subtitle2">Message input</Typography>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={Boolean(
-                            widgetConfig?.widget?.composer?.multiline
-                          )}
-                          onChange={(e) =>
-                            onChange((prev) => {
-                              const next = prev as any;
-                              return {
-                                ...next,
-                                widget: {
-                                  ...next.widget,
-                                  composer: {
-                                    ...next.widget.composer,
-                                    multiline: e.target.checked,
-                                  },
-                                },
-                              };
-                            })
-                          }
-                        />
-                      }
-                      label="Multiline input"
-                    />
                     <FormControlLabel
                       control={
                         <Switch
