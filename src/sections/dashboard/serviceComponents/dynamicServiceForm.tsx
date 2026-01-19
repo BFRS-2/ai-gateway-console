@@ -156,7 +156,7 @@ export default function DynamicServiceForm({
       const providerPath = modelProviderMap[fieldPath];
       const providerValue = providerPath ? getByPath(value, providerPath) : "";
       const filteredModels = providerValue
-        ? allowedModels.filter((m) => m.provider === providerValue)
+        ? allowedModels.filter((m) => m.provider === providerValue.toString())
         : allowedModels;
       return filteredModels.map(({ label, value }) => ({ label, value }));
     }
@@ -184,7 +184,7 @@ export default function DynamicServiceForm({
 
     const currentModel = getByPath(value, modelPath);
     const currentModelProvider = allowedModels.find(
-      (m) => m.value === currentModel
+      (m) => m.value === currentModel.toString()
     )?.provider;
     const nextModel = allowedModels.find(
       (m) => m.provider === providerValue
