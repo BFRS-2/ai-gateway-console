@@ -24,6 +24,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Skeleton,
 } from "@mui/material";
 import FolderIcon from "@mui/icons-material/Folder";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
@@ -82,6 +83,7 @@ export function ProjectManagementRoot() {
   const selectedOrgFromStore = useSelector(
     (state: RootState) => state.orgProject.selectedOrganizationProject
   );
+  const projectsLoaded = selectedOrgFromStore !== null;
 
   const projectList =
     selectedOrgFromStore?.projects && selectedOrgFromStore.projects.length
@@ -735,7 +737,17 @@ export function ProjectManagementRoot() {
           <Divider />
 
           <Box sx={{ flex: 1, overflowY: "auto", mt: 1 }}>
-            {projectList.length ? (
+            {!projectsLoaded ? (
+              <Stack spacing={1} sx={{ px: 1.5, py: 1 }}>
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <Skeleton
+                    key={`project-skeleton-${index}`}
+                    variant="rounded"
+                    height={28}
+                  />
+                ))}
+              </Stack>
+            ) : projectList.length ? (
               projectList.map((p) => (
                 <Tooltip key={p.id} title={p.name}>
                   <Box

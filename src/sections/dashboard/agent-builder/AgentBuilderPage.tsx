@@ -626,6 +626,11 @@ export function AgentBuilderPage() {
   );
   const projectOptions = selectedOrg?.projects || [];
   const projectsLoaded = selectedOrg !== null;
+  const projectStorageKey = useMemo(
+    () =>
+      `agent_builder_project_id:${selectedOrg?.organizationId || "default"}`,
+    [selectedOrg?.organizationId]
+  );
 
   const [projectId, setProjectId] = useState("");
   const [activeStep, setActiveStep] = useState(0);
@@ -660,11 +665,24 @@ export function AgentBuilderPage() {
       setProjectId("");
       return;
     }
-    const exists = projectOptions.some((project) => project.id === projectId);
-    if (!exists) {
-      setProjectId(projectOptions[0].id);
-    }
-  }, [projectId, projectOptions]);
+    setProjectId((prev) => {
+      const prevValid = prev && projectOptions.some((p) => p.id === prev);
+      if (prevValid) return prev;
+      const storedId =
+        typeof window !== "undefined"
+          ? localStorage.getItem(projectStorageKey)
+          : null;
+      const storedValid =
+        storedId && projectOptions.some((p) => p.id === storedId);
+      if (storedValid) return storedId as string;
+      return projectOptions[0].id;
+    });
+  }, [projectOptions, projectStorageKey]);
+
+  useEffect(() => {
+    if (!projectId || typeof window === "undefined") return;
+    localStorage.setItem(projectStorageKey, projectId);
+  }, [projectId, projectStorageKey]);
 
   useEffect(() => {
     if (!projectId) {
@@ -1680,8 +1698,8 @@ export function AgentBuilderPage() {
                   >
                     {isLastStep
                       ? previewSubmitting
-                        ? "Submitting..."
-                        : "Submit Widget Config"
+                        ? "Deploying..."
+                        : "Deploy Agent"
                       : stepBusy
                       ? "Working..."
                       : "Next"}
@@ -2276,10 +2294,14 @@ function ToolsStep({
     config.tools.kb.status !== "idle" &&
     config.tools.kb.status !== "ready" &&
     kbStatus?.status !== "completed";
+  const kbIsProcessing = config.tools.kb.status === "processing";
 
   return (
     <Stack spacing={2.5}>
-      <Card sx={{ p: 2.5, borderRadius: 2 }}>
+      <Typography variant="h6">Tools</Typography>
+      <Grid container spacing={2.5}>
+      <Grid item xs={12} md={6}>
+        <Card sx={{ p: 2.5, borderRadius: 2, height: "100%" }}>
         <Stack spacing={2}>
           <Stack direction="row" spacing={1} alignItems="center">
             <UploadFileIcon color="primary" />
@@ -2322,6 +2344,12 @@ function ToolsStep({
                 </Button>
                 {kbLoading && <CircularProgress size={20} />}
               </Stack>
+              {kbIsProcessing && (
+                <Alert severity="info">
+                  Knowledge base is processing. You can continue and refresh the
+                  status later.
+                </Alert>
+              )}
             </Stack>
           )}
 
@@ -2408,12 +2436,20 @@ function ToolsStep({
                 )}
                 {kbLoading && <CircularProgress size={20} />}
               </Stack>
+              {kbIsProcessing && (
+                <Alert severity="info">
+                  Knowledge base is processing. You can continue and refresh the
+                  status later.
+                </Alert>
+              )}
             </Stack>
           )}
         </Stack>
-      </Card>
+        </Card>
+      </Grid>
 
-      <Card sx={{ p: 2.5, borderRadius: 2 }}>
+      <Grid item xs={12} md={6}>
+        <Card sx={{ p: 2.5, borderRadius: 2, height: "100%" }}>
         <Stack spacing={2}>
           <Stack direction="row" spacing={1} alignItems="center">
             <LanIcon color="info" />
@@ -2464,7 +2500,9 @@ function ToolsStep({
             We validate the MCP URL before moving to the next step.
           </Typography>
         </Stack>
-      </Card>
+        </Card>
+      </Grid>
+      </Grid>
     </Stack>
   );
 }
@@ -2508,7 +2546,12 @@ function AgentNodeStep({
           </Grid>
           <Grid item xs={12} md={6}>
             <TextField
-              label="Max steps"
+              label={
+                <LabelWithHelp
+                  label="Max Execution Step"
+                  helpText="Maximum number of reasoning/tool steps the agent can take before stopping."
+                />
+              }
               type="number"
               value={config.agent.maxSteps}
               onChange={(e) =>
