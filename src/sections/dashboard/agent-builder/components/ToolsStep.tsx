@@ -6,11 +6,14 @@ import {
   Chip,
   CircularProgress,
   Grid,
+  Link,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import LanIcon from "@mui/icons-material/Lan";
 import { KBStatusData } from "src/api/services/kb.service";
@@ -89,13 +92,45 @@ export default function ToolsStep({
     config.tools.kb.status !== "ready" &&
     kbStatus?.status !== "completed";
   const kbIsProcessing = config.tools.kb.status === "processing";
+  const canUploadKb =
+    (config.tools.kb.status === "idle" || config.tools.kb.status === "failed") &&
+    Boolean(config.tools.kb.file);
+
+  const handleDownloadSampleCsv = () => {
+    const sample = `text,label
+"What is Shiprocket?","Shiprocket is a logistics and fulfillment platform."
+"How to contact support?","You can reach us at support@example.com."
+`;
+    const blob = new Blob([sample], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "kb_sample.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <Stack spacing={2.5}>
-      <Typography variant="h6">Tools</Typography>
+      <Stack spacing={0.5}>
+        <Typography variant="h6">Data Connections</Typography>
+        <Typography variant="body2" color="text.secondary">
+          Connect your custom data sources.
+        </Typography>
+      </Stack>
       <Grid container spacing={2.5}>
         <Grid item xs={12} md={6}>
-          <Card sx={{ p: 2.5, borderRadius: 2, height: "100%" }}>
+          <Card
+            sx={{
+              p: 2.5,
+              borderRadius: 2,
+              height: "100%",
+              border: `1px solid ${alpha(theme.palette.common.white, 0.6)}`,
+              boxShadow: `0 0 0 1px ${alpha(theme.palette.common.white, 0.25)}`,
+            }}
+          >
             <Stack spacing={2}>
               <Stack direction="row" spacing={1} alignItems="center">
                 <UploadFileIcon color="primary" />
@@ -214,10 +249,24 @@ export default function ToolsStep({
                     <Button
                       variant="contained"
                       onClick={onUploadKb}
-                      disabled={kbLoading}
+                      disabled={kbLoading || !canUploadKb}
                     >
                       {kbLoading ? "Uploading..." : "Upload KB"}
                     </Button>
+                    <Stack direction="row" spacing={0.5} alignItems="center">
+                      <Link
+                        component="button"
+                        type="button"
+                        underline="always"
+                        onClick={handleDownloadSampleCsv}
+                        sx={{ fontSize: 14 }}
+                      >
+                        Download sample CSV
+                      </Link>
+                      <Tooltip title="Download a sample CSV template to prepare your knowledge data.">
+                        <InfoOutlinedIcon fontSize="small" color="action" />
+                      </Tooltip>
+                    </Stack>
                     {showKbStatusCheck && (
                       <Button
                         variant="outlined"
@@ -241,7 +290,15 @@ export default function ToolsStep({
         </Grid>
 
         <Grid item xs={12} md={6}>
-          <Card sx={{ p: 2.5, borderRadius: 2, height: "100%" }}>
+          <Card
+            sx={{
+              p: 2.5,
+              borderRadius: 2,
+              height: "100%",
+              border: `1px solid ${alpha(theme.palette.common.white, 0.6)}`,
+              boxShadow: `0 0 0 1px ${alpha(theme.palette.common.white, 0.25)}`,
+            }}
+          >
             <Stack spacing={2}>
               <Stack direction="row" spacing={1} alignItems="center">
                 <LanIcon color="info" />

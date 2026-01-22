@@ -43,7 +43,11 @@ export const defaultConfig: BuilderConfig = {
   },
 };
 
-export const steps = ["Basics", "Tools", "Preview"] as const;
+export const steps = [
+  "Agent Setup",
+  "Data Connections",
+  "Configuration",
+] as const;
 
 export const agentBuilderHelpTexts = {
   defaultModel:

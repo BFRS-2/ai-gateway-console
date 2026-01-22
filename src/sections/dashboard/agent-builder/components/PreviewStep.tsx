@@ -148,9 +148,9 @@ export default function PreviewStep({
       <Grid item xs={12} md={5}>
         <Card sx={{ p: 2.5, borderRadius: 2 }}>
           <Stack spacing={2}>
-            <Typography variant="h6">Widget settings</Typography>
+            <Typography variant="h6">Configuration</Typography>
             <Typography variant="body2" color="text.secondary">
-              Update the configuration and watch the widget update in real time.
+              Customize agent behavior, settings, and preferences.
             </Typography>
 
             <Accordion defaultExpanded>

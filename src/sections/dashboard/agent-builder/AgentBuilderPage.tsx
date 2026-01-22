@@ -904,8 +904,8 @@ export function AgentBuilderPage() {
                   Agent Builder
                 </Typography>
                 <Typography color="text.secondary">
-                  Configure services, tools, and your agent graph in a few
-                  steps.
+                  Build and configure your agents by providing details,
+                  connecting data, and defining behavior.
                 </Typography>
               </Box>
               <Stack
