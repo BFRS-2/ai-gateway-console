@@ -692,7 +692,7 @@ export function AgentBuilderPage() {
       };
 
       if (includeTools && hasValidMcp) {
-        graphJson.nodes.push({ id: "tool", type: "tool", config: {} });
+        // graphJson.nodes.push({ id: "tool", type: "tool", config: {} });
         graphJson.edges.push({ from: "agent", to: "tool" });
       }
 
