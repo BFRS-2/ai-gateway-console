@@ -8,6 +8,10 @@ import {
   Grid,
   Link,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableRow,
   TextField,
   Tooltip,
   Typography,
@@ -89,6 +93,10 @@ export default function ToolsStep({
   const theme = useTheme();
 
   const kbStatusLabel = kbStatus?.status || "unknown";
+  const kbFileName = kbStatus?.file_name || config.tools.kb.file?.name || "";
+  const kbCollectionName =
+    existingKbCollection || config.tools.kb.collectionName || "";
+  const showKbSummary = Boolean(kbFileName || kbCollectionName);
   const kbChipColor =
     config.tools.kb.status === "ready"
       ? "success"
@@ -111,6 +119,9 @@ export default function ToolsStep({
   const canUploadKb =
     (config.tools.kb.status === "idle" || config.tools.kb.status === "failed") &&
     Boolean(config.tools.kb.file);
+  const showUploadControls =
+    config.tools.kb.status === "failed" ||
+    (config.tools.kb.status === "idle" && !config.tools.kb.file);
 
   const handleDownloadSampleCsv = () => {
     const sample = `text,label
@@ -159,31 +170,53 @@ export default function ToolsStep({
                   <Typography variant="h6">Knowledge Base</Typography>
                 </Stack>
                 <Stack direction="row" spacing={1} alignItems="center">
-                {kbIsReady && (
-                  <CheckCircleRoundedIcon fontSize="small" color="success" />
-                )}
+                  {kbIsReady && (
+                    <CheckCircleRoundedIcon fontSize="medium" color="success" />
+                  )}
+                </Stack>
               </Stack>
-              </Stack>
+
+              {showKbSummary && (
+                <Box
+                  sx={{
+                    borderRadius: 1.5,
+                    border: `1px solid ${alpha(theme.palette.divider, 0.4)}`,
+                    bgcolor: alpha(theme.palette.background.default, 0.6),
+                  }}
+                >
+                  <Table size="small">
+                    <TableBody>
+                      <TableRow>
+                        <TableCell sx={{ color: "text.secondary", width: 140 }}>
+                          File
+                        </TableCell>
+                        <TableCell>{kbFileName || "—"}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ color: "text.secondary" }}>
+                          Status
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={config.tools.kb.status || "idle"}
+                            color={kbChipColor}
+                            size="small"
+                          />
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ color: "text.secondary" }}>
+                          Collection
+                        </TableCell>
+                        <TableCell>{kbCollectionName || "—"}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </Box>
+              )}
 
               {kbSelection === "existing" && (
                 <Stack spacing={2}>
-                  <Box
-                    sx={{
-                      p: 2,
-                      borderRadius: 2,
-                      background: alpha(theme.palette.info.main, 0.08),
-                      border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
-                    }}
-                  >
-                    <Stack spacing={0.5}>
-                      <Typography variant="subtitle2">
-                        Status: {kbStatusLabel}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Collection: {existingKbCollection || "Pending"}
-                      </Typography>
-                    </Stack>
-                  </Box>
                   {showKbRefresh && (
                     <Stack direction="row" spacing={1} alignItems="center">
                       <Button
@@ -213,119 +246,139 @@ export default function ToolsStep({
 
               {kbSelection === "new" && (
                 <Stack spacing={2}>
-                  <PaperInput
-                    label="Upload CSV"
-                    file={config.tools.kb.file}
-                    accept=".csv,text/csv"
-                    onSelect={(file) =>
-                      {
-                        onDirty();
-                        onChange((prev) => ({
-                          ...prev,
-                          tools: {
-                            ...prev.tools,
-                            kb: { ...prev.tools.kb, file },
-                          },
-                        }));
+                  {showUploadControls && (
+                    <PaperInput
+                      label="Upload CSV"
+                      file={config.tools.kb.file}
+                      accept=".csv,text/csv"
+                      onSelect={(file) =>
+                        {
+                          onDirty();
+                          onChange((prev) => ({
+                            ...prev,
+                            tools: {
+                              ...prev.tools,
+                              kb: { ...prev.tools.kb, file },
+                            },
+                          }));
+                        }
                       }
-                    }
-                  />
+                    />
+                  )}
 
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        label="Chunking size"
-                        type="number"
-                        value={config.tools.kb.chunkingSize}
-                        onChange={(e) =>
-                          {
-                            onDirty();
-                            onChange((prev) => ({
-                              ...prev,
-                              tools: {
-                                ...prev.tools,
-                                kb: {
-                                  ...prev.tools.kb,
-                                  chunkingSize: Number(e.target.value),
-                                },
-                              },
-                            }));
+                  {showUploadControls && (
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          label={
+                            <Stack direction="row" spacing={0.5} alignItems="center">
+                              <span>Chunking size</span>
+                              <Tooltip title="Number of characters per chunk when splitting your document. Smaller chunks improve recall but increase total chunks.">
+                                <InfoOutlinedIcon fontSize="small" color="action" />
+                              </Tooltip>
+                            </Stack>
                           }
-                        }
-                        fullWidth
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        label="Overlapping size"
-                        type="number"
-                        value={config.tools.kb.overlappingSize}
-                        onChange={(e) =>
-                          {
-                            onDirty();
-                            onChange((prev) => ({
-                              ...prev,
-                              tools: {
-                                ...prev.tools,
-                                kb: {
-                                  ...prev.tools.kb,
-                                  overlappingSize: Number(e.target.value),
+                          type="number"
+                          value={config.tools.kb.chunkingSize}
+                          onChange={(e) =>
+                            {
+                              onDirty();
+                              onChange((prev) => ({
+                                ...prev,
+                                tools: {
+                                  ...prev.tools,
+                                  kb: {
+                                    ...prev.tools.kb,
+                                    chunkingSize: Number(e.target.value),
+                                  },
                                 },
-                              },
-                            }));
+                              }));
+                            }
                           }
-                        }
-                        fullWidth
-                      />
+                          fullWidth
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          label={
+                            <Stack direction="row" spacing={0.5} alignItems="center">
+                              <span>Overlapping size</span>
+                              <Tooltip title="Number of characters shared between consecutive chunks to preserve context across boundaries.">
+                                <InfoOutlinedIcon fontSize="small" color="action" />
+                              </Tooltip>
+                            </Stack>
+                          }
+                          type="number"
+                          value={config.tools.kb.overlappingSize}
+                          onChange={(e) =>
+                            {
+                              onDirty();
+                              onChange((prev) => ({
+                                ...prev,
+                                tools: {
+                                  ...prev.tools,
+                                  kb: {
+                                    ...prev.tools.kb,
+                                    overlappingSize: Number(e.target.value),
+                                  },
+                                },
+                              }));
+                            }
+                          }
+                          fullWidth
+                        />
+                      </Grid>
                     </Grid>
-                  </Grid>
+                  )}
 
-                  <Stack
-                    direction={{ xs: "column", sm: "row" }}
-                    spacing={1}
-                    alignItems={{ xs: "stretch", sm: "center" }}
-                  >
-                    <Button
-                      variant="contained"
-                      onClick={onUploadKb}
-                      disabled={kbLoading || !canUploadKb}
+                  {showUploadControls && (
+                    <Stack
+                      direction={{ xs: "column", sm: "row" }}
+                      spacing={1}
+                      alignItems={{ xs: "stretch", sm: "center" }}
                     >
-                      {kbLoading ? "Uploading..." : "Upload KB"}
-                    </Button>
-                    <Stack direction="row" spacing={0.5} alignItems="center">
-                      <Link
-                        component="button"
-                        type="button"
-                        underline="always"
-                        onClick={handleDownloadSampleCsv}
-                        sx={{ fontSize: 14 }}
+                      <Button
+                        variant="contained"
+                        onClick={onUploadKb}
+                        disabled={kbLoading || !canUploadKb}
                       >
-                        Download sample CSV
-                      </Link>
-                      <Tooltip title="Download a sample CSV template to prepare your knowledge data.">
-                        <InfoOutlinedIcon fontSize="small" color="action" />
-                      </Tooltip>
-                    </Stack>
-                    {showKbStatusCheck && (
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <Button
-                          variant="outlined"
-                          onClick={onCheckKb}
-                          disabled={kbLoading}
+                        {kbLoading ? "Uploading..." : "Upload KB"}
+                      </Button>
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Link
+                          component="button"
+                          type="button"
+                          underline="always"
+                          onClick={handleDownloadSampleCsv}
+                          sx={{ fontSize: 14 }}
                         >
-                          Check status
-                        </Button>
-                        {config.tools.kb.status !== "idle" && (
-                          <Chip
-                            label={config.tools.kb.status}
-                            color={kbChipColor}
-                            size="small"
-                          />
-                        )}
+                          Download sample CSV
+                        </Link>
+                        <Tooltip title="Download a sample CSV template to prepare your knowledge data.">
+                          <InfoOutlinedIcon fontSize="small" color="action" />
+                        </Tooltip>
                       </Stack>
-                    )}
-                    {kbLoading && <CircularProgress size={20} />}
-                  </Stack>
+                      {showKbStatusCheck && (
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Button
+                            variant="outlined"
+                            onClick={onCheckKb}
+                            disabled={kbLoading}
+                          >
+                            Refresh status
+                          </Button>
+                          {config.tools.kb.status !== "idle" && (
+                            <Chip
+                              label={config.tools.kb.status}
+                              color={kbChipColor}
+                              size="small"
+                            />
+                          )}
+                        </Stack>
+                      )}
+                      {kbLoading && <CircularProgress size={20} />}
+                    </Stack>
+                  )}
                   {kbIsProcessing && (
                     <Alert severity="info">
                       Knowledge base is processing. You can continue when the upload is complete.
@@ -364,7 +417,7 @@ export default function ToolsStep({
                       size="small"
                       label={
                         config.tools.mcp.status === "valid"
-                          ? "connected"
+                          ? "Validated"
                           : config.tools.mcp.status
                       }
                       color={
@@ -375,7 +428,7 @@ export default function ToolsStep({
                     />
                   )}
                   {mcpIsConnected && (
-                    <CheckCircleRoundedIcon fontSize="small" color="success" />
+                    <CheckCircleRoundedIcon fontSize="medium" color="success" />
                   )}
                 </Stack>
               </Stack>
@@ -409,7 +462,7 @@ export default function ToolsStep({
                   onClick={onCheckMcp}
                   disabled={mcpChecking}
                 >
-                  {mcpChecking ? "Checking..." : "Check MCP"}
+                  {mcpChecking ? "Checking..." : "Verify MCP"}
                 </Button>
                 {mcpChecking && <CircularProgress size={20} />}
               </Stack>
