@@ -98,6 +98,7 @@ export function ProjectManagementRoot() {
   // create project
   const [createOpen, setCreateOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
+  const [projectNameError, setProjectNameError] = useState("");
   const [creating, setCreating] = useState(false);
   const tabParamToValue = (param: string | null): 0 | 1 | 2 => {
     switch (param) {
@@ -121,6 +122,8 @@ export function ProjectManagementRoot() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteName, setInviteName] = useState("");
+  const [inviteNameError, setInviteNameError] = useState("");
+  const [inviteEmailError, setInviteEmailError] = useState("");
   const [inviteRole, setInviteRole] = useState<"admin" | "owner" | "member">(
     "member"
   );
@@ -200,6 +203,8 @@ export function ProjectManagementRoot() {
     setInviteName("");
     setInviteRole("member");
     setInviteAccess("read");
+    setInviteNameError("");
+    setInviteEmailError("");
     setInviteOpen(true);
   };
 
@@ -209,41 +214,39 @@ export function ProjectManagementRoot() {
   };
 
   const handleInviteSubmit = async () => {
+    setInviteNameError("");
+    setInviteEmailError("");
     const trimmedName = inviteName.trim();
     if (!trimmedName) {
-      enqueueSnackbar("Name is required", { variant: "warning" });
+      setInviteNameError("Name is required");
       return;
     }
     if (trimmedName.length < 2) {
-      enqueueSnackbar("Name should be atleast of 2 characters", {
-        variant: "warning",
-      });
+      setInviteNameError("Name should be atleast of 2 characters");
       return;
     }
     if (trimmedName.length > 50) {
-      enqueueSnackbar("Name should be atmost of 50 characters", {
-        variant: "warning",
-      });
+      setInviteNameError("Name should be atmost of 50 characters");
       return;
     }
 
     // Allow only letters and spaces (no numbers or special characters)
     const nameRegex = /^[A-Za-z\s]+$/;
     if (!nameRegex.test(trimmedName)) {
-      enqueueSnackbar(
-        "Name should contain only letters and spaces (no numbers or special characters)",
-        { variant: "warning" }
+      setInviteNameError(
+        "Name should contain only letters and spaces (no numbers or special characters)"
       );
       return;
     }
     if (!inviteEmail.trim()) {
-      enqueueSnackbar("Email is required", { variant: "warning" });
+      setInviteEmailError("Email is required");
       return;
     }
     const email = inviteEmail.trim();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex =
+      /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/;
     if (!emailRegex.test(email)) {
-      enqueueSnackbar("Enter a valid email address", { variant: "warning" });
+      setInviteEmailError("Enter a valid email address");
       return;
     }
 
@@ -312,6 +315,7 @@ export function ProjectManagementRoot() {
   // ----------------------------
   const handleOpenCreate = () => {
     setProjectName("");
+    setProjectNameError("");
     setCreateOpen(true);
   };
 
@@ -325,27 +329,23 @@ export function ProjectManagementRoot() {
       enqueueSnackbar("No organization selected", { variant: "error" });
       return;
     }
+    setProjectNameError("");
     if (!projectName.trim()) {
-      enqueueSnackbar("Project name is required", { variant: "warning" });
+      setProjectNameError("Project name is required");
       return;
     }
 
     if (projectName.trim().length < 2) {
-      enqueueSnackbar("Project name should be atleast of 2 characters", {
-        variant: "warning",
-      });
+      setProjectNameError("Project name should be atleast of 2 characters");
       return;
     }
     if (projectName.trim().length > 45) {
-      enqueueSnackbar("Project name should atmost be of 45 characters", {
-        variant: "warning",
-      });
+      setProjectNameError("Project name should atmost be of 45 characters");
       return;
     }
     if (hasValidCharacter(projectName.trim()) === false) {
-      enqueueSnackbar(
-        "Project name should not contain special characters except (-) and (_) and atleast 1 alphabet.",
-        { variant: "warning" }
+      setProjectNameError(
+        "Project name should not contain special characters except (-) and (_) and atleast 1 alphabet."
       );
       return;
     }
@@ -557,7 +557,12 @@ export function ProjectManagementRoot() {
               margin="dense"
               label="Project name"
               value={projectName}
-              onChange={(e) => setProjectName(e.target.value)}
+              onChange={(e) => {
+                setProjectName(e.target.value);
+                if (projectNameError) setProjectNameError("");
+              }}
+              error={Boolean(projectNameError)}
+              helperText={projectNameError}
             />
           </DialogContent>
           <DialogActions>
@@ -625,22 +630,32 @@ export function ProjectManagementRoot() {
               label="Name"
               type="email"
               value={inviteName}
-              onChange={(e) => setInviteName(e.target.value)}
+              onChange={(e) => {
+                setInviteName(e.target.value);
+                if (inviteNameError) setInviteNameError("");
+              }}
               fullWidth
               sx={{
                 mt: 2,
               }}
+              error={Boolean(inviteNameError)}
+              helperText={inviteNameError}
             />
 
             <TextField
               label="Email"
               type="email"
               value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
+              onChange={(e) => {
+                setInviteEmail(e.target.value);
+                if (inviteEmailError) setInviteEmailError("");
+              }}
               fullWidth
               sx={{
                 mt: 2,
               }}
+              error={Boolean(inviteEmailError)}
+              helperText={inviteEmailError}
             />
 
             <FormControl fullWidth size="small">
@@ -843,7 +858,12 @@ export function ProjectManagementRoot() {
             margin="dense"
             label="Project name"
             value={projectName}
-            onChange={(e) => setProjectName(e.target.value)}
+            onChange={(e) => {
+              setProjectName(e.target.value);
+              if (projectNameError) setProjectNameError("");
+            }}
+            error={Boolean(projectNameError)}
+            helperText={projectNameError}
           />
         </DialogContent>
         <DialogActions>
@@ -911,19 +931,29 @@ export function ProjectManagementRoot() {
             label="Name"
             type="email"
             value={inviteName}
-            onChange={(e) => setInviteName(e.target.value)}
+            onChange={(e) => {
+              setInviteName(e.target.value);
+              if (inviteNameError) setInviteNameError("");
+            }}
             fullWidth
             sx={{
               mt: 2,
             }}
+            error={Boolean(inviteNameError)}
+            helperText={inviteNameError}
           />
 
           <TextField
             label="Email"
             type="email"
             value={inviteEmail}
-            onChange={(e) => setInviteEmail(e.target.value)}
+            onChange={(e) => {
+              setInviteEmail(e.target.value);
+              if (inviteEmailError) setInviteEmailError("");
+            }}
             fullWidth
+            error={Boolean(inviteEmailError)}
+            helperText={inviteEmailError}
           />
 
           <FormControl fullWidth size="small">

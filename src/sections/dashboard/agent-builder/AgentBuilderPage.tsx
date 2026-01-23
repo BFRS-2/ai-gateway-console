@@ -21,6 +21,7 @@ import {
   StepLabel,
   Stepper,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
@@ -97,6 +98,7 @@ export function AgentBuilderPage() {
   const [kbStatus, setKbStatus] = useState<KBStatusData | null>(null);
   const [kbSelectionTouched, setKbSelectionTouched] = useState(false);
   const [mcpChecking, setMcpChecking] = useState(false);
+  const [toolsSaved, setToolsSaved] = useState(false);
   const [agentSaving, setAgentSaving] = useState(false);
   const [previewSubmitting, setPreviewSubmitting] = useState(false);
   const [deployModalOpen, setDeployModalOpen] = useState(false);
@@ -112,6 +114,7 @@ export function AgentBuilderPage() {
     }
     setKbStatus(null);
     setKbSelectionTouched(false);
+    setToolsSaved(false);
     setShowListView(true);
     setAgentList([]);
     setAgentConfigLoading(false);
@@ -128,6 +131,7 @@ export function AgentBuilderPage() {
       setPreviewConfig(devConfig);
       setAgentId("");
       setKbStatus(null);
+      setToolsSaved(false);
       return;
     }
 
@@ -211,6 +215,7 @@ export function AgentBuilderPage() {
     } else {
       setAgentId("");
     }
+    setToolsSaved(true);
   }, []);
 
   const buildAgentList = useCallback((payload: unknown) => {
@@ -812,6 +817,7 @@ export function AgentBuilderPage() {
       }
       const ok = await submitAgentSetup(true);
       if (!ok) return;
+      setToolsSaved(true);
       setActiveStep((prev) => Math.min(prev + 1, steps.length - 1));
       return;
     }
@@ -831,7 +837,7 @@ export function AgentBuilderPage() {
       );
     }
     if (stepIndex === 1) {
-      return hasKbCollection || Boolean(config.tools.mcp.url.trim());
+      return hasKbCollection || hasValidMcp;
     }
     return true;
   };
@@ -842,6 +848,11 @@ export function AgentBuilderPage() {
     agentSaving ||
     previewSubmitting ||
     (activeStep === 1 && (kbLoading || mcpChecking));
+  const nextDisabled = !stepIsValid(activeStep) || stepBusy;
+  const nextTooltip =
+    activeStep === 1 && !hasKbCollection && !hasValidMcp
+      ? "You cannot proceed until either KB or MCP is connected."
+      : "";
   const isLoading = !projectsLoaded || agentConfigLoading;
   const deployedAgentId = agentId;
   const deploymentSnippet = useMemo(
@@ -875,6 +886,7 @@ export function AgentBuilderPage() {
     setPreviewConfig(devConfig);
     setAgentId("");
     setKbStatus(null);
+    setToolsSaved(false);
     resetFieldErrors();
     setShowListView(false);
     setActiveStep(0);
@@ -1069,6 +1081,8 @@ export function AgentBuilderPage() {
                       onCheckKb={refreshKbStatus}
                       onCheckMcp={handleCheckMcp}
                       mcpChecking={mcpChecking}
+                      mcpSaved={toolsSaved && hasValidMcp}
+                      onDirty={() => setToolsSaved((prev) => (prev ? false : prev))}
                     />
                   )}
                   {activeStep === 2 && (
@@ -1100,26 +1114,30 @@ export function AgentBuilderPage() {
                   >
                     Back
                   </Button>
-                  <Button
-                    endIcon={
-                      isLastStep ? (
-                        <RocketLaunchIcon />
-                      ) : (
-                        <KeyboardArrowRightIcon />
-                      )
-                    }
-                    variant="contained"
-                    onClick={handleNext}
-                    disabled={!stepIsValid(activeStep) || stepBusy}
-                  >
-                    {isLastStep
-                      ? previewSubmitting
-                        ? "Deploying..."
-                        : "Deploy Agent"
-                      : stepBusy
-                      ? "Working..."
-                      : "Next"}
-                  </Button>
+                  <Tooltip title={nextTooltip} arrow disableInteractive={!nextTooltip}>
+                    <span>
+                      <Button
+                        endIcon={
+                          isLastStep ? (
+                            <RocketLaunchIcon />
+                          ) : (
+                            <KeyboardArrowRightIcon />
+                          )
+                        }
+                        variant="contained"
+                        onClick={handleNext}
+                        disabled={nextDisabled}
+                      >
+                        {isLastStep
+                          ? previewSubmitting
+                            ? "Deploying..."
+                            : "Deploy Agent"
+                          : stepBusy
+                          ? "Working..."
+                          : "Next"}
+                      </Button>
+                    </span>
+                  </Tooltip>
                 </Stack>
               </>
             )}

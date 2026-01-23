@@ -47,7 +47,7 @@ export const navData = [
    * Overview
    */
   {
-    subheader: 'Dockyard',
+    subheader: '',
     items: [
       { title: 'Usage', path: paths.dashboard.overview, icon: ICONS.analytics },
       { title: 'Projects', path: paths.dashboard.projects, icon: ICONS.dashboard },

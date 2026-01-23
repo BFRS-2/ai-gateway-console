@@ -29,7 +29,7 @@ export default function SetPasswordView() {
   const router = useRouter();
   const params = useSearchParams();
 
-  const prefillEmail = params.get("email") || "";
+  const prefillEmail = (params.get("email") || "").toLowerCase();
   // If you later add invite tokens:
   // const inviteToken = params.get("token") || "";
 
@@ -54,8 +54,9 @@ export default function SetPasswordView() {
   const onSubmit = handleSubmit(async (data) => {
     setErrorMsg("");
     try {
+      const normalizedEmail = data.email.trim().toLowerCase();
       const res = await authService.setPassword({
-        email: data.email,
+        email: normalizedEmail,
         password: data.password,
         // invite_token: inviteToken,
       });
@@ -78,7 +79,9 @@ export default function SetPasswordView() {
       );
       // Give the user a moment to read, then go to login with email prefilled
       setTimeout(() => {
-        router.push(`/login?email=${encodeURIComponent(data.email)}&set=ok`);
+        router.push(
+          `/login?email=${encodeURIComponent(normalizedEmail)}&set=ok`
+        );
       }, 800);
     } catch (e: any) {
       console.error(e);

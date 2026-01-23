@@ -14,6 +14,7 @@ import {
 } from "@mui/material";
 import { alpha, useTheme } from "@mui/material/styles";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import LanIcon from "@mui/icons-material/Lan";
 import { KBStatusData } from "src/api/services/kb.service";
@@ -39,8 +40,13 @@ function PaperInput({
         style={{ display: "none" }}
         onChange={(e) => onSelect(e.target.files?.[0] || null)}
       />
-      <label htmlFor="kb-upload">
-        <Button variant="outlined" startIcon={<UploadFileIcon />} component="span">
+      <label htmlFor="kb-upload" style={{ width: "100%", display: "block" }}>
+        <Button
+          variant="outlined"
+          startIcon={<UploadFileIcon />}
+          component="span"
+          fullWidth
+        >
           {label}
         </Button>
       </label>
@@ -64,6 +70,8 @@ export default function ToolsStep({
   onCheckKb,
   onCheckMcp,
   mcpChecking,
+  mcpSaved,
+  onDirty,
 }: {
   config: BuilderConfig;
   onChange: (updater: (prev: BuilderConfig) => BuilderConfig) => void;
@@ -75,6 +83,8 @@ export default function ToolsStep({
   onCheckKb: () => void;
   onCheckMcp: () => void;
   mcpChecking: boolean;
+  mcpSaved: boolean;
+  onDirty: () => void;
 }) {
   const theme = useTheme();
 
@@ -84,6 +94,8 @@ export default function ToolsStep({
       ? "success"
       : config.tools.kb.status === "failed"
       ? "error"
+      : config.tools.kb.status === "processing"
+      ? "warning"
       : "default";
   const hasExistingKb = Boolean(existingKbCollection);
   const kbSelection = hasExistingKb ? "existing" : "new";
@@ -91,7 +103,11 @@ export default function ToolsStep({
     config.tools.kb.status !== "idle" &&
     config.tools.kb.status !== "ready" &&
     kbStatus?.status !== "completed";
+  const showKbRefresh =
+    config.tools.kb.status !== "ready" && kbStatus?.status !== "completed";
   const kbIsProcessing = config.tools.kb.status === "processing";
+  const kbIsReady = config.tools.kb.status === "ready";
+  const mcpIsConnected = mcpSaved;
   const canUploadKb =
     (config.tools.kb.status === "idle" || config.tools.kb.status === "failed") &&
     Boolean(config.tools.kb.file);
@@ -132,16 +148,21 @@ export default function ToolsStep({
             }}
           >
             <Stack spacing={2}>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <UploadFileIcon color="primary" />
-                <Typography variant="h6">Knowledge Base</Typography>
-                {config.tools.kb.status !== "idle" && (
-                  <Chip
-                    label={config.tools.kb.status}
-                    color={kbChipColor}
-                    size="small"
-                  />
+              <Stack
+                direction="row"
+                alignItems="center"
+                justifyContent="space-between"
+                spacing={2}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <UploadFileIcon color="primary" />
+                  <Typography variant="h6">Knowledge Base</Typography>
+                </Stack>
+                <Stack direction="row" spacing={1} alignItems="center">
+                {kbIsReady && (
+                  <CheckCircleRoundedIcon fontSize="small" color="success" />
                 )}
+              </Stack>
               </Stack>
 
               {kbSelection === "existing" && (
@@ -163,16 +184,25 @@ export default function ToolsStep({
                       </Typography>
                     </Stack>
                   </Box>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Button
-                      variant="outlined"
-                      onClick={onCheckKb}
-                      disabled={kbLoading}
-                    >
-                      Refresh status
-                    </Button>
-                    {kbLoading && <CircularProgress size={20} />}
-                  </Stack>
+                  {showKbRefresh && (
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Button
+                        variant="outlined"
+                        onClick={onCheckKb}
+                        disabled={kbLoading}
+                      >
+                        Refresh status
+                      </Button>
+                      {config.tools.kb.status !== "idle" && (
+                        <Chip
+                          label={config.tools.kb.status}
+                          color={kbChipColor}
+                          size="small"
+                        />
+                      )}
+                      {kbLoading && <CircularProgress size={20} />}
+                    </Stack>
+                  )}
                   {kbIsProcessing && (
                     <Alert severity="info">
                       Knowledge base is processing. You can continue when the upload is complete.
@@ -188,13 +218,16 @@ export default function ToolsStep({
                     file={config.tools.kb.file}
                     accept=".csv,text/csv"
                     onSelect={(file) =>
-                      onChange((prev) => ({
-                        ...prev,
-                        tools: {
-                          ...prev.tools,
-                          kb: { ...prev.tools.kb, file },
-                        },
-                      }))
+                      {
+                        onDirty();
+                        onChange((prev) => ({
+                          ...prev,
+                          tools: {
+                            ...prev.tools,
+                            kb: { ...prev.tools.kb, file },
+                          },
+                        }));
+                      }
                     }
                   />
 
@@ -205,16 +238,19 @@ export default function ToolsStep({
                         type="number"
                         value={config.tools.kb.chunkingSize}
                         onChange={(e) =>
-                          onChange((prev) => ({
-                            ...prev,
-                            tools: {
-                              ...prev.tools,
-                              kb: {
-                                ...prev.tools.kb,
-                                chunkingSize: Number(e.target.value),
+                          {
+                            onDirty();
+                            onChange((prev) => ({
+                              ...prev,
+                              tools: {
+                                ...prev.tools,
+                                kb: {
+                                  ...prev.tools.kb,
+                                  chunkingSize: Number(e.target.value),
+                                },
                               },
-                            },
-                          }))
+                            }));
+                          }
                         }
                         fullWidth
                       />
@@ -225,16 +261,19 @@ export default function ToolsStep({
                         type="number"
                         value={config.tools.kb.overlappingSize}
                         onChange={(e) =>
-                          onChange((prev) => ({
-                            ...prev,
-                            tools: {
-                              ...prev.tools,
-                              kb: {
-                                ...prev.tools.kb,
-                                overlappingSize: Number(e.target.value),
+                          {
+                            onDirty();
+                            onChange((prev) => ({
+                              ...prev,
+                              tools: {
+                                ...prev.tools,
+                                kb: {
+                                  ...prev.tools.kb,
+                                  overlappingSize: Number(e.target.value),
+                                },
                               },
-                            },
-                          }))
+                            }));
+                          }
                         }
                         fullWidth
                       />
@@ -268,13 +307,22 @@ export default function ToolsStep({
                       </Tooltip>
                     </Stack>
                     {showKbStatusCheck && (
-                      <Button
-                        variant="outlined"
-                        onClick={onCheckKb}
-                        disabled={kbLoading}
-                      >
-                        Check status
-                      </Button>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Button
+                          variant="outlined"
+                          onClick={onCheckKb}
+                          disabled={kbLoading}
+                        >
+                          Check status
+                        </Button>
+                        {config.tools.kb.status !== "idle" && (
+                          <Chip
+                            label={config.tools.kb.status}
+                            color={kbChipColor}
+                            size="small"
+                          />
+                        )}
+                      </Stack>
                     )}
                     {kbLoading && <CircularProgress size={20} />}
                   </Stack>
@@ -300,18 +348,36 @@ export default function ToolsStep({
             }}
           >
             <Stack spacing={2}>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <LanIcon color="info" />
-                <Typography variant="h6">MCP Tools</Typography>
-                {config.tools.mcp.status !== "idle" && (
-                  <Chip
-                    size="small"
-                    label={config.tools.mcp.status}
-                    color={
-                      config.tools.mcp.status === "valid" ? "success" : "default"
-                    }
-                  />
-                )}
+              <Stack
+                direction="row"
+                alignItems="center"
+                justifyContent="space-between"
+                spacing={2}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <LanIcon color="info" />
+                  <Typography variant="h6">MCP Tools</Typography>
+                </Stack>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  {config.tools.mcp.status !== "idle" && (
+                    <Chip
+                      size="small"
+                      label={
+                        config.tools.mcp.status === "valid"
+                          ? "connected"
+                          : config.tools.mcp.status
+                      }
+                      color={
+                        config.tools.mcp.status === "valid"
+                          ? "success"
+                          : "default"
+                      }
+                    />
+                  )}
+                  {mcpIsConnected && (
+                    <CheckCircleRoundedIcon fontSize="small" color="success" />
+                  )}
+                </Stack>
               </Stack>
 
               <TextField
@@ -319,17 +385,20 @@ export default function ToolsStep({
                 placeholder="https://shiprocket-mcp.shiprocket.in/mcp"
                 value={config.tools.mcp.url}
                 onChange={(e) =>
-                  onChange((prev) => ({
-                    ...prev,
-                    tools: {
-                      ...prev.tools,
-                      mcp: {
-                        ...prev.tools.mcp,
-                        url: e.target.value,
-                        status: "idle",
+                  {
+                    onDirty();
+                    onChange((prev) => ({
+                      ...prev,
+                      tools: {
+                        ...prev.tools,
+                        mcp: {
+                          ...prev.tools.mcp,
+                          url: e.target.value,
+                          status: "idle",
+                        },
                       },
-                    },
-                  }))
+                    }));
+                  }
                 }
                 fullWidth
               />
