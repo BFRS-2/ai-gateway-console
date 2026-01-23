@@ -362,6 +362,8 @@ export default function DynamicServiceForm({
       }
 
       case "dropdown":
+        const isModelDropdown = f.dynamic === "models";
+        const noModelAvailable = isModelDropdown && opts.length === 0;
         return (
           <TextField
             select
@@ -383,14 +385,36 @@ export default function DynamicServiceForm({
               }
               onChange(setByPath(value, path, nextValue));
             }}
+            disabled={noModelAvailable}
+            SelectProps={
+              isModelDropdown
+                ? {
+                    displayEmpty: true,
+                    renderValue: (selected) => {
+                      if (!selected) {
+                        return noModelAvailable
+                          ? "No model available"
+                          : "Select…";
+                      }
+                      return selected as string;
+                    },
+                  }
+                : undefined
+            }
             error={!!errors[path]}
             helperText={helper(path, f)}
           >
-            {opts.map((opt) => (
-              <MenuItem key={opt.value} value={opt.value}>
-                {opt.label}
+            {opts.length ? (
+              opts.map((opt) => (
+                <MenuItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </MenuItem>
+              ))
+            ) : (
+              <MenuItem value="" disabled>
+                No model available
               </MenuItem>
-            ))}
+            )}
           </TextField>
         );
 
