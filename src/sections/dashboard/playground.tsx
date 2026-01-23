@@ -34,7 +34,6 @@ import ChatBubbleOutlineRoundedIcon from "@mui/icons-material/ChatBubbleOutlineR
 import SummarizeRoundedIcon from "@mui/icons-material/SummarizeRounded";
 import TitleRoundedIcon from "@mui/icons-material/TitleRounded";
 import ImageRoundedIcon from "@mui/icons-material/ImageRounded";
-import SettingsBackupRestoreRoundedIcon from "@mui/icons-material/SettingsBackupRestoreRounded";
 
 import serviceManagementService from "src/api/services/serviceManagement.service";
 import playgroundService from "src/api/services/playground.service";
@@ -533,6 +532,7 @@ function SummarizationPanel({
               setRaw(null);
               setError(null);
             }}
+            variant="outlined"
             startIcon={<RestartAltRoundedIcon />}
           >
             Reset
@@ -706,7 +706,8 @@ function ChatCompletionPanel({
               setRaw(null);
               setError(null);
             }}
-            startIcon={<SettingsBackupRestoreRoundedIcon />}
+            variant="outlined"
+            startIcon={<RestartAltRoundedIcon />}
           >
             Reset
           </Button>
@@ -1024,6 +1025,8 @@ function EmbeddingPanel({
               setRaw(null);
               setError(null);
             }}
+            variant="outlined"
+            startIcon={<RestartAltRoundedIcon />}
           >
             Reset
           </Button>
@@ -1185,6 +1188,8 @@ function OcrPanel({ provider, model }: { provider: string; model: string }) {
                 setRaw(null);
                 setError(null);
               }}
+              variant="outlined"
+              startIcon={<RestartAltRoundedIcon />}
             >
               Reset
             </Button>

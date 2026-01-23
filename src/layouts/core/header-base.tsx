@@ -52,6 +52,7 @@ import AccountPopover from "../components/account-popover";
 import { enqueueSnackbar } from "notistack";
 import { setUser } from "src/stores/slicers/user";
 import { hasValidCharacter } from "src/utils/hasValidCharacter";
+import { SettingsButton } from "../components/settings-button";
 
 // ----------------------------------------------------------------------
 
@@ -474,7 +475,7 @@ const handleCreateOrgFromDialog = async () => {
 
               {/* Org selector */}
               <AppSelector />
-
+              {/* <SettingsButton data-slot="settings" /> */}
               {/* Create org button */}
               {isAuthenticated && user?.is_admin && <Button
                 size="small"
