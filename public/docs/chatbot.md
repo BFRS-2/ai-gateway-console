@@ -35,7 +35,7 @@ Content-Type: application/json
 
 **Endpoint:**
 ```
-POST http://192.168.22.193:8001/api/v1/chat
+POST https://aigateway.shiprocket.in/api/v1/chat
 ```
 
 **Description:**
@@ -54,7 +54,7 @@ Sends a chat query and receives a complete response. The response is always retu
 
 #### Example cURL
 ```bash
-curl -X POST "http://192.168.22.193:8001/api/v1/chat" \
+curl -X POST "https://aigateway.shiprocket.in/api/v1/chat" \
   -H "Content-Type: application/json" \
   -H "x-api-key: {{project_api_key}}" \
   -H "X-User-Id: {{user_id}}" \
@@ -80,7 +80,7 @@ data: {"type":"complete","success":true,"data":{"input":{...},"output":{"respons
 
 **Endpoint:**
 ```
-POST http://192.168.22.193:8001/api/v1/chat
+POST https://aigateway.shiprocket.in/api/v1/chat
 ```
 
 **Description:**
@@ -100,7 +100,7 @@ Streams the chat response progressively for real-time display. Ideal for chat-ba
 
 #### Example cURL
 ```bash
-curl -X POST "http://192.168.22.193:8001/api/v1/chat" \
+curl -X POST "https://aigateway.shiprocket.in/api/v1/chat" \
   -H "Content-Type: application/json" \
   -H "x-api-key: {{project_api_key}}" \
   -H "X-User-Id: {{user_id}}" \
@@ -135,7 +135,7 @@ data: {"type":"complete","success":true,"data":{...}}
 
 **Endpoint:**
 ```
-POST http://192.168.22.193:8001/api/v1/chat
+POST https://aigateway.shiprocket.in/api/v1/chat
 ```
 
 **Description:**
@@ -155,7 +155,7 @@ Sends a chat query with session ID to maintain conversation context across multi
 
 #### Example cURL
 ```bash
-curl -X POST "http://192.168.22.193:8001/api/v1/chat" \
+curl -X POST "https://aigateway.shiprocket.in/api/v1/chat" \
   -H "Content-Type: application/json" \
   -H "x-api-key: {{project_api_key}}" \
   -H "X-User-Id: {{user_id}}" \
@@ -175,7 +175,7 @@ curl -X POST "http://192.168.22.193:8001/api/v1/chat" \
 
 **Endpoint:**
 ```
-GET http://192.168.22.193:8001/api/v1/chat/sessions
+GET https://aigateway.shiprocket.in/api/v1/chat/sessions
 ```
 
 **Description:**
@@ -191,7 +191,7 @@ Retrieves all chat sessions for a user with pagination support. Sessions are ord
 
 #### Example cURL
 ```bash
-curl -X GET "http://192.168.22.193:8001/api/v1/chat/sessions?page=1&limit=20" \
+curl -X GET "https://aigateway.shiprocket.in/api/v1/chat/sessions?page=1&limit=20" \
   -H "X-User-Id: {{user_id}}"
 ```
 
@@ -228,7 +228,7 @@ curl -X GET "http://192.168.22.193:8001/api/v1/chat/sessions?page=1&limit=20" \
 
 **Endpoint:**
 ```
-GET http://192.168.22.193:8001/api/v1/chat/chats
+GET https://aigateway.shiprocket.in/api/v1/chat/chats
 ```
 
 **Description:**
@@ -244,7 +244,7 @@ Retrieves all chat messages for a specific session with pagination support. Mess
 
 #### Example cURL
 ```bash
-curl -X GET "http://192.168.22.193:8001/api/v1/chat/chats?session_id=session_12345&page=1&limit=50" \
+curl -X GET "https://aigateway.shiprocket.in/api/v1/chat/chats?session_id=session_12345&page=1&limit=50" \
   -H "X-User-Id: {{user_id}}"
 ```
 

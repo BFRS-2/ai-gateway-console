@@ -35,7 +35,7 @@ Content-Type: application/json
 
 **Endpoint:**
 ```
-POST http://192.168.22.193:8001/api/v1/summarization
+POST https://aigateway.shiprocket.in/api/v1/summarization
 ```
 
 **Description:**
@@ -51,7 +51,7 @@ Generates a concise summary for the provided text input based on the specified `
 
 #### Example cURL
 ```bash
-curl -X POST "http://192.168.22.193:8001/api/v1/summarization" \
+curl -X POST "https://aigateway.shiprocket.in/api/v1/summarization" \
   -H "Content-Type: application/json" \
   -H "x-api-key: {{project_api_key}}" \
   -d '{
@@ -84,7 +84,7 @@ curl -X POST "http://192.168.22.193:8001/api/v1/summarization" \
 
 **Endpoint:**
 ```
-POST http://192.168.22.193:8001/api/v1/summarization
+POST https://aigateway.shiprocket.in/api/v1/summarization
 ```
 
 **Description:**
@@ -104,7 +104,7 @@ Provides more control over summarization parameters, including model, provider, 
 
 #### Example cURL
 ```bash
-curl -X POST "http://192.168.22.193:8001/api/v1/summarization" \
+curl -X POST "https://aigateway.shiprocket.in/api/v1/summarization" \
   -H "Content-Type: application/json" \
   -H "x-api-key: {{project_api_key}}" \
   -d '{
@@ -141,7 +141,7 @@ curl -X POST "http://192.168.22.193:8001/api/v1/summarization" \
 
 **Endpoint:**
 ```
-POST http://192.168.22.193:8001/api/v1/summarization
+POST https://aigateway.shiprocket.in/api/v1/summarization
 ```
 
 **Description:**
@@ -162,7 +162,7 @@ Streams the summary content progressively for real-time display. Ideal for chat-
 
 #### Example cURL
 ```bash
-curl -X POST "http://192.168.22.193:8001/api/v1/summarization" \
+curl -X POST "https://aigateway.shiprocket.in/api/v1/summarization" \
   -H "Content-Type: application/json" \
   -H "x-api-key: {{project_api_key}}" \
   -d '{
@@ -190,7 +190,7 @@ data: {"status":"completed","summary":"The input text outlines how to summarize 
 
 **Endpoint:**
 ```
-POST http://192.168.22.193:8001/api/v1/summarization?debug=true
+POST https://aigateway.shiprocket.in/api/v1/summarization?debug=true
 ```
 
 **Description:**
@@ -210,7 +210,7 @@ Enables detailed debug information in the response, including input data, config
 
 #### Example cURL
 ```bash
-curl -X POST "http://192.168.22.193:8001/api/v1/summarization?debug=true" \
+curl -X POST "https://aigateway.shiprocket.in/api/v1/summarization?debug=true" \
   -H "Content-Type: application/json" \
   -H "x-api-key: {{project_api_key}}" \
   -d '{
@@ -271,7 +271,7 @@ curl -X POST "http://192.168.22.193:8001/api/v1/summarization?debug=true" \
 
 **Endpoint:**
 ```
-POST http://192.168.22.193:8001/api/v1/summarization?debug=true
+POST https://aigateway.shiprocket.in/api/v1/summarization?debug=true
 ```
 
 **Description:**

@@ -13,9 +13,9 @@ export default function AgentNodeStep({
     <Card sx={{ p: 2.5, borderRadius: 2 }}>
       <Stack spacing={2.5}>
         <Stack spacing={0.5}>
-          <Typography variant="h6">Basic Settings</Typography>
+          <Typography variant="h6">Agent Setup</Typography>
           <Typography variant="body2" color="text.secondary">
-            Define the system prompt and execution limits for your agent.
+            Define the purpose and basic details of your agent.
           </Typography>
         </Stack>
 

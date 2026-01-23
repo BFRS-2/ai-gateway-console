@@ -51,6 +51,17 @@ const DOC_API_BASE_URL = (process.env.NEXT_PUBLIC_BASE_API_URL || "").replace(
   /\/$/,
   ""
 );
+const DOC_API_ENDPOINT_ORIGIN = /https?:\/\/[^\s"')]+(?=\/api\/v1)/g;
+
+function normalizeDocContent(text: string) {
+  if (!DOC_API_BASE_URL) return text;
+
+  let normalized = text.replace(DOC_API_ENDPOINT_ORIGIN, DOC_API_BASE_URL);
+  for (const placeholder of DOC_API_PLACEHOLDERS) {
+    normalized = normalized.replaceAll(placeholder, DOC_API_BASE_URL);
+  }
+  return normalized;
+}
 
 /* ------------------------------ Helper: debounce --------------------------- */
 
@@ -86,12 +97,7 @@ function useMarkdown(path?: string) {
         const res = await fetch(path, { cache: "no-store" });
         if (!res.ok) throw new Error("Failed to load documentation");
         const text = await res.text();
-        const normalizedText = DOC_API_BASE_URL
-          ? DOC_API_PLACEHOLDERS.reduce(
-              (acc, placeholder) => acc.replaceAll(placeholder, DOC_API_BASE_URL),
-              text
-            )
-          : text;
+        const normalizedText = normalizeDocContent(text);
         if (!cancelled) {
           setContent(normalizedText);
           setLoading(false);

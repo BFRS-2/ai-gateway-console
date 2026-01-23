@@ -34,7 +34,7 @@ Content-Type: multipart/form-data
 
 **Endpoint:**
 ```
-POST http://192.168.22.193:8001/api/v1/ocr
+POST https://aigateway.shiprocket.in/api/v1/ocr
 ```
 
 **Description:**
@@ -51,7 +51,7 @@ Extracts text content from uploaded image files using OCR technology. Supports c
 
 #### Example cURL
 ```bash
-curl -X POST "http://192.168.22.193:8001/api/v1/ocr" \
+curl -X POST "https://aigateway.shiprocket.in/api/v1/ocr" \
   -H "x-api-key: {{project_api_key}}" \
   -F "file=@/path/to/image.jpg" \
   -F "file_type=image" \
@@ -86,7 +86,7 @@ curl -X POST "http://192.168.22.193:8001/api/v1/ocr" \
 
 **Endpoint:**
 ```
-POST http://192.168.22.193:8001/api/v1/ocr
+POST https://aigateway.shiprocket.in/api/v1/ocr
 ```
 
 **Description:**
@@ -103,7 +103,7 @@ Extracts text content from uploaded PDF documents. **Note: PDF files are limited
 
 #### Example cURL
 ```bash
-curl -X POST "http://192.168.22.193:8001/api/v1/ocr" \
+curl -X POST "https://aigateway.shiprocket.in/api/v1/ocr" \
   -H "x-api-key: {{project_api_key}}" \
   -F "file=@/path/to/document.pdf" \
   -F "file_type=pdf" \
@@ -144,7 +144,7 @@ curl -X POST "http://192.168.22.193:8001/api/v1/ocr" \
 
 **Endpoint:**
 ```
-POST http://192.168.22.193:8001/api/v1/ocr
+POST https://aigateway.shiprocket.in/api/v1/ocr
 ```
 
 **Description:**
@@ -159,7 +159,7 @@ Extracts text using default model and provider from project configuration. Simpl
 
 #### Example cURL
 ```bash
-curl -X POST "http://192.168.22.193:8001/api/v1/ocr" \
+curl -X POST "https://aigateway.shiprocket.in/api/v1/ocr" \
   -H "x-api-key: {{project_api_key}}" \
   -F "file=@/path/to/document.pdf" \
   -F "file_type=pdf"

@@ -34,7 +34,7 @@ Content-Type: application/json
 
 **Endpoint:**
 ```
-POST http://192.168.22.193:8001/api/v1/embedding
+POST https://aigateway.shiprocket.in/api/v1/embedding
 ```
 
 **Description:**
@@ -49,7 +49,7 @@ Generates vector embeddings for the provided text input using the default model 
 
 #### Example cURL
 ```bash
-curl -X POST "http://192.168.22.193:8001/api/v1/embedding" \
+curl -X POST "https://aigateway.shiprocket.in/api/v1/embedding" \
   -H "Content-Type: application/json" \
   -H "x-api-key: {{project_api_key}}" \
   -d '{
@@ -82,7 +82,7 @@ curl -X POST "http://192.168.22.193:8001/api/v1/embedding" \
 
 **Endpoint:**
 ```
-POST http://192.168.22.193:8001/api/v1/embedding
+POST https://aigateway.shiprocket.in/api/v1/embedding
 ```
 
 **Description:**
@@ -99,7 +99,7 @@ Generates embeddings with specified model and provider. Overrides default projec
 
 #### Example cURL
 ```bash
-curl -X POST "http://192.168.22.193:8001/api/v1/embedding" \
+curl -X POST "https://aigateway.shiprocket.in/api/v1/embedding" \
   -H "Content-Type: application/json" \
   -H "x-api-key: {{project_api_key}}" \
   -d '{
@@ -134,7 +134,7 @@ curl -X POST "http://192.168.22.193:8001/api/v1/embedding" \
 
 **Endpoint:**
 ```
-POST http://192.168.22.193:8001/api/v1/embedding
+POST https://aigateway.shiprocket.in/api/v1/embedding
 ```
 
 **Description:**
@@ -151,7 +151,7 @@ Generates embeddings using the Shunya provider. Useful for cost-effective embedd
 
 #### Example cURL
 ```bash
-curl -X POST "http://192.168.22.193:8001/api/v1/embedding" \
+curl -X POST "https://aigateway.shiprocket.in/api/v1/embedding" \
   -H "Content-Type: application/json" \
   -H "x-api-key: {{project_api_key}}" \
   -d '{

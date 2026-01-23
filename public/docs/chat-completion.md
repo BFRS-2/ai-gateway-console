@@ -34,7 +34,7 @@ Content-Type: application/json
 
 **Endpoint:**
 ```
-POST http://192.168.22.193:8001/api/v1/chat/completion
+POST https://aigateway.shiprocket.in/api/v1/chat/completion
 ```
 
 **Description:**
@@ -49,7 +49,7 @@ Generates AI responses for user prompts. Uses default system prompt from project
 
 #### Example cURL
 ```bash
-curl -X POST "http://192.168.22.193:8001/api/v1/chat/completion" \
+curl -X POST "https://aigateway.shiprocket.in/api/v1/chat/completion" \
   -H "Content-Type: application/json" \
   -H "x-api-key: {{project_api_key}}" \
   -d '{
@@ -81,7 +81,7 @@ curl -X POST "http://192.168.22.193:8001/api/v1/chat/completion" \
 
 **Endpoint:**
 ```
-POST http://192.168.22.193:8001/api/v1/chat/completion
+POST https://aigateway.shiprocket.in/api/v1/chat/completion
 ```
 
 **Description:**
@@ -101,7 +101,7 @@ Provides more control over chat completion parameters, including system prompt, 
 
 #### Example cURL
 ```bash
-curl -X POST "http://192.168.22.193:8001/api/v1/chat/completion" \
+curl -X POST "https://aigateway.shiprocket.in/api/v1/chat/completion" \
   -H "Content-Type: application/json" \
   -H "x-api-key: {{project_api_key}}" \
   -d '{
@@ -138,7 +138,7 @@ curl -X POST "http://192.168.22.193:8001/api/v1/chat/completion" \
 
 **Endpoint:**
 ```
-POST http://192.168.22.193:8001/api/v1/chat/completion
+POST https://aigateway.shiprocket.in/api/v1/chat/completion
 ```
 
 **Description:**
@@ -159,7 +159,7 @@ Streams the AI response content progressively for real-time display. Ideal for c
 
 #### Example cURL
 ```bash
-curl -X POST "http://192.168.22.193:8001/api/v1/chat/completion" \
+curl -X POST "https://aigateway.shiprocket.in/api/v1/chat/completion" \
   -H "Content-Type: application/json" \
   -H "x-api-key: {{project_api_key}}" \
   -d '{
@@ -194,7 +194,7 @@ data: {"type":"complete","success":true,"tokens":{...}}
 
 **Endpoint:**
 ```
-POST http://192.168.22.193:8001/api/v1/chat/completion?debug=true
+POST https://aigateway.shiprocket.in/api/v1/chat/completion?debug=true
 ```
 
 **Description:**
@@ -214,7 +214,7 @@ Enables detailed debug information in the response, including input data, config
 
 #### Example cURL
 ```bash
-curl -X POST "http://192.168.22.193:8001/api/v1/chat/completion?debug=true" \
+curl -X POST "https://aigateway.shiprocket.in/api/v1/chat/completion?debug=true" \
   -H "Content-Type: application/json" \
   -H "x-api-key: {{project_api_key}}" \
   -d '{
@@ -275,7 +275,7 @@ curl -X POST "http://192.168.22.193:8001/api/v1/chat/completion?debug=true" \
 
 **Endpoint:**
 ```
-POST http://192.168.22.193:8001/api/v1/chat/completion?debug=true
+POST https://aigateway.shiprocket.in/api/v1/chat/completion?debug=true
 ```
 
 **Description:**
