@@ -114,11 +114,13 @@ export function ProjectSettingsTab({
   const [saving, setSaving] = useState(false);
 
   const [name, setName] = useState("");
+  const [nameError, setNameError] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<"active" | "inactive">("active");
   const [daily, setDaily] = useState<string>("");
   const [monthly, setMonthly] = useState<string>("");
   const [langfuseProjectName, setLangfuseProjectName] = useState<string>("");
+  const [langfuseSuffixError, setLangfuseSuffixError] = useState("");
 
   const [apiKeys, setApiKeys] = useState<{ name: string; key: string }[]>([]);
   const [langfuseStatus, setLangfuseStatus] = useState<
@@ -409,27 +411,24 @@ export function ProjectSettingsTab({
   // ---------- Save handlers ----------
   const handleSaveAll = async () => {
     if (!projectId) return;
+    setNameError("");
+    setLangfuseSuffixError("");
     if (!name.trim()) {
-      enqueueSnackbar("Project name cannot be empty", { variant: "warning" });
+      setNameError("Project name cannot be empty");
       return;
     }
 
     if (name.trim().length < 2) {
-      enqueueSnackbar("Project name should be atleast of 2 characters", {
-        variant: "warning",
-      });
+      setNameError("Project name should be atleast of 2 characters");
       return;
     }
     if (name.trim().length > 45) {
-      enqueueSnackbar("Project name should atmost be of 45 characters", {
-        variant: "warning",
-      });
+      setNameError("Project name should atmost be of 45 characters");
       return;
     }
     if (!hasValidCharacter(name.trim())) {
-      enqueueSnackbar(
+      setNameError(
         "Project name should not contain special characters except (-) and (_) and atleast 1 alphabet.",
-        { variant: "warning" }
       );
       return;
     }
@@ -438,29 +437,22 @@ export function ProjectSettingsTab({
     const trimmedSuffix = langfuseSuffix.trim();
     if (trimmedSuffix) {
       if (trimmedSuffix.length < 2) {
-        enqueueSnackbar(
+        setLangfuseSuffixError(
           "Langfuse log index suffix should be atleast of 2 characters",
-          {
-            variant: "warning",
-          }
         );
         return;
       }
 
       if (trimmedSuffix.length > 45) {
-        enqueueSnackbar(
+        setLangfuseSuffixError(
           "Langfuse log index suffix should atmost be of 45 characters",
-          {
-            variant: "warning",
-          }
         );
         return;
       }
 
       if (!hasValidCharacter(trimmedSuffix)) {
-        enqueueSnackbar(
+        setLangfuseSuffixError(
           "Langfuse log index suffix contain special characters except (-) and (_) and atleast 1 alphabet.",
-          { variant: "warning" }
         );
         return;
       }
@@ -741,7 +733,12 @@ export function ProjectSettingsTab({
                     label="Project name"
                     size="small"
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) => {
+                      setName(e.target.value);
+                      if (nameError) setNameError("");
+                    }}
+                    error={Boolean(nameError)}
+                    helperText={nameError}
                     InputProps={{
                       endAdornment: (
                         <InputAdornment position="end">
@@ -806,8 +803,11 @@ export function ProjectSettingsTab({
                           (nextSuffix ? `-${nextSuffix}` : "-")
                         : nextSuffix;
                       setLangfuseProjectName(nextFull);
+                      if (langfuseSuffixError) setLangfuseSuffixError("");
                     }}
                     placeholder="e.g. prod, staging"
+                    error={Boolean(langfuseSuffixError)}
+                    helperText={langfuseSuffixError}
                     InputProps={{
                       startAdornment: langfusePrefix ? (
                         <InputAdornment position="start">

@@ -198,6 +198,7 @@ export function HeaderBase({
   const [orgDialogOpen, setOrgDialogOpen] = useState(false);
   const [orgName, setOrgName] = useState("");
   const [creatingOrg, setCreatingOrg] = useState(false);
+  const [orgNameError, setOrgNameError] = useState("");
   const user = useSelector((state: RootState) => {
     return state.user.currUser
   });
@@ -371,30 +372,26 @@ export function HeaderBase({
 
   // new: handle create org from dialog
 const handleCreateOrgFromDialog = async () => {
+  setOrgNameError("");
   if (!orgName.trim()) {
-    enqueueSnackbar("Organization name cannot be empty", { variant: "warning" });
+    setOrgNameError("Organization name cannot be empty");
     return;
-  };
+  }
 
-   if (orgName.trim().length < 2) {
-        enqueueSnackbar("Organization name should be atleast of 2 characters", {
-          variant: "warning",
-        });
-        return;
-      }
-      if (orgName.trim().length > 90) {
-        enqueueSnackbar("Organization name should atmost be of 90 characters", {
-          variant: "warning",
-        });
-        return;
-      }
-      if (hasValidCharacter(orgName.trim()) === false) {
-        enqueueSnackbar(
-          "Project name should not contain special characters except (-) and (_) and atleast 1 alphabet.",
-          { variant: "warning" }
-        );
-        return;
-      }
+  if (orgName.trim().length < 2) {
+    setOrgNameError("Organization name should be atleast of 2 characters");
+    return;
+  }
+  if (orgName.trim().length > 90) {
+    setOrgNameError("Organization name should atmost be of 90 characters");
+    return;
+  }
+  if (hasValidCharacter(orgName.trim()) === false) {
+    setOrgNameError(
+      "Organization name should not contain special characters except (-) and (_) and atleast 1 alphabet."
+    );
+    return;
+  }
   
   try {
     setCreatingOrg(true);
@@ -434,6 +431,7 @@ const handleCreateOrgFromDialog = async () => {
 
     setOrgDialogOpen(false);
     setOrgName("");
+    setOrgNameError("");
   } catch (err) {
     console.log("🚀 ~ handleCreateOrgFromDialog ~ err:", err)
     enqueueSnackbar(err.payload.message, {variant : "error"})
@@ -547,7 +545,12 @@ const handleCreateOrgFromDialog = async () => {
             margin="dense"
             label="Organization name"
             value={orgName}
-            onChange={(e) => setOrgName(e.target.value)}
+            onChange={(e) => {
+              setOrgName(e.target.value);
+              if (orgNameError) setOrgNameError("");
+            }}
+            error={Boolean(orgNameError)}
+            helperText={orgNameError}
           />
         </DialogContent>
         <DialogActions>
