@@ -1,7 +1,7 @@
 "use client";
 
 import { z as zod } from "zod";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -29,7 +29,7 @@ export default function SetPasswordView() {
   const router = useRouter();
   const params = useSearchParams();
 
-  const prefillEmail = (params.get("email") || "").toLowerCase();
+  const prefillEmail = params.get("email")?.trim().toLowerCase() || "";
   // If you later add invite tokens:
   // const inviteToken = params.get("token") || "";
 
@@ -47,8 +47,9 @@ export default function SetPasswordView() {
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
-  useMemo(() => {
-    if (prefillEmail) setValue("email", prefillEmail);
+  useEffect(() => {
+    if (!prefillEmail) return;
+    setValue("email", prefillEmail, { shouldValidate: true });
   }, [prefillEmail, setValue]);
 
   const onSubmit = handleSubmit(async (data) => {

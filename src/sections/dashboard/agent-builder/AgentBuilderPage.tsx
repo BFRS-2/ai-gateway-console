@@ -1001,8 +1001,8 @@ export function AgentBuilderPage() {
                             p: 2,
                             borderRadius: 2,
                             border: `1px solid ${alpha(
-                              theme.palette.divider,
-                              0.3
+                              theme.palette.common.white,
+                              theme.palette.mode === "dark" ? 0.24 : 0.6
                             )}`,
                           }}
                         >

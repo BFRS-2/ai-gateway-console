@@ -39,6 +39,8 @@
 *************************************** */
 /* scrollbar */
 @import './components/scrollbar/styles.css';
+/* apexcharts */
+@import './components/chart/styles.css';
 
 /** **************************************
 * Baseline
