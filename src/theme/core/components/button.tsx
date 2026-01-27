@@ -103,16 +103,12 @@ const MuiButton: Components<Theme>['MuiButton'] = {
         inheritColor: {
           ...(ownerState.color === 'inherit' &&
             !ownerState.disabled && {
-              color: theme.vars.palette.common.white,
-              backgroundColor: theme.vars.palette.grey[800],
+              // Treat contained + inherit as primary to keep filled buttons consistent.
+              color: theme.vars.palette.primary.contrastText,
+              backgroundColor: theme.vars.palette.primary.main,
               '&:hover': {
-                boxShadow: theme.customShadows.z8,
-                backgroundColor: theme.vars.palette.grey[700],
-              },
-              [stylesMode.dark]: {
-                color: theme.vars.palette.grey[800],
-                backgroundColor: theme.vars.palette.common.white,
-                '&:hover': { backgroundColor: theme.vars.palette.grey[400] },
+                boxShadow: theme.customShadows.primary,
+                backgroundColor: theme.vars.palette.primary.dark,
               },
             }),
         },

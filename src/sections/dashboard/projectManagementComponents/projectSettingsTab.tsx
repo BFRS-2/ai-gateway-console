@@ -162,8 +162,7 @@ export function ProjectSettingsTab({
     borderRadius: 3,
     border: "1px solid",
     borderColor: "divider",
-    background:
-      "linear-gradient(180deg, rgba(124,58,237,0.06) 0%, rgba(16,185,129,0.06) 100%)",
+    backgroundColor: "background.paper",
   };
 
   const headerGradient: SxProps<Theme> = useMemo(

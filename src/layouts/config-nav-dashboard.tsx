@@ -54,7 +54,7 @@ export const navData = [
       // { title: 'Users', path: paths.dashboard.users, icon: ICONS.user },
       { title: 'Agent Builder', path: paths.dashboard.agent, icon: ICONS.parameter },
       { title: 'Playground', path: paths.dashboard.playground, icon: ICONS.course },
-      { title: 'Traceability', path: 'http://192.168.22.193:3000/', icon: ICONS.external, info: <Iconify width={18} icon="prime:external-link" /> },
+      { title: 'Traceability', path: 'https://us.cloud.langfuse.com/organization/cmishihtx00izad07h9j9hzks', icon: ICONS.external, info: <Iconify width={18} icon="prime:external-link" /> },
       // { title: 'Services', path: paths.dashboard.services, icon: ICONS.job },
     ],
   },
