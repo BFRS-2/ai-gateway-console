@@ -24,13 +24,11 @@ export const defaultConfig: BuilderConfig = {
       file: null,
       chunkingSize: 1000,
       overlappingSize: 200,
-      status: "idle",
       collectionName: "",
       selection: "new",
     },
     mcp: {
       url: "",
-      status: "idle",
     },
   },
   agent: {

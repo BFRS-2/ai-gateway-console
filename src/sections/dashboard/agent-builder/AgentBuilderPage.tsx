@@ -392,7 +392,7 @@ export function AgentBuilderPage() {
                   : "processing",
               collectionName:
                 prev.tools.kb.selection === "new" &&
-                prev.tools.kb.status !== "idle"
+                Boolean(prev.tools.kb.status)
                   ? res?.data?.collection_name || prev.tools.kb.collectionName
                   : prev.tools.kb.collectionName,
               selection:
@@ -473,7 +473,7 @@ export function AgentBuilderPage() {
           selection,
           collectionName:
             selection === "new" ? "" : prev.tools.kb.collectionName,
-          status: selection === "new" ? "idle" : prev.tools.kb.status,
+          status: selection === "new" ? undefined : prev.tools.kb.status,
         },
       },
     }));

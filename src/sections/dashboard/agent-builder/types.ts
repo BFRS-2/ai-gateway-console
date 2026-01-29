@@ -23,13 +23,13 @@ export type ToolingConfig = {
     file: File | null;
     chunkingSize: number;
     overlappingSize: number;
-    status: "idle" | "uploading" | "processing" | "ready" | "failed";
+    status?: "uploading" | "processing" | "ready" | "failed";
     collectionName: string;
     selection: "existing" | "new";
   };
   mcp: {
     url: string;
-    status: "idle" | "checking" | "valid" | "invalid";
+    status?: "checking" | "valid" | "invalid";
   };
 };
 
