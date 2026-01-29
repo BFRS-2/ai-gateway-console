@@ -108,7 +108,7 @@ export default function ToolsStep({
   const hasExistingKb = Boolean(existingKbCollection);
   const kbSelection = hasExistingKb ? "existing" : "new";
   const showKbStatusCheck =
-    config.tools.kb.status !== "idle" &&
+    Boolean(config.tools.kb.status) &&
     config.tools.kb.status !== "ready" &&
     kbStatus?.status !== "completed";
   const showKbRefresh =
@@ -117,11 +117,10 @@ export default function ToolsStep({
   const kbIsReady = config.tools.kb.status === "ready";
   const mcpIsConnected = mcpSaved;
   const canUploadKb =
-    (config.tools.kb.status === "idle" || config.tools.kb.status === "failed") &&
+    (!config.tools.kb.status || config.tools.kb.status === "failed") &&
     Boolean(config.tools.kb.file);
   const showUploadControls =
-    config.tools.kb.status === "failed" ||
-    (config.tools.kb.status === "idle" && !config.tools.kb.file);
+    !kbIsProcessing && !kbIsReady && config.tools.kb.status !== "uploading";
 
   const handleDownloadSampleCsv = () => {
     const sample = `text,label
@@ -198,7 +197,7 @@ export default function ToolsStep({
                         </TableCell>
                         <TableCell>
                           <Chip
-                            label={config.tools.kb.status || "idle"}
+                            label={config.tools.kb.status || "Not uploaded"}
                             color={kbChipColor}
                             size="small"
                           />
@@ -226,7 +225,7 @@ export default function ToolsStep({
                       >
                         Refresh status
                       </Button>
-                      {config.tools.kb.status !== "idle" && (
+                      {config.tools.kb.status && (
                         <Chip
                           label={config.tools.kb.status}
                           color={kbChipColor}
@@ -248,7 +247,7 @@ export default function ToolsStep({
                 <Stack spacing={2}>
                   {showUploadControls && (
                     <PaperInput
-                      label="Upload CSV"
+                      label={config.tools.kb.file ? "Change CSV" : "Upload CSV"}
                       file={config.tools.kb.file}
                       accept=".csv,text/csv"
                       onSelect={(file) =>
@@ -367,7 +366,7 @@ export default function ToolsStep({
                           >
                             Refresh status
                           </Button>
-                          {config.tools.kb.status !== "idle" && (
+                          {config.tools.kb.status && (
                             <Chip
                               label={config.tools.kb.status}
                               color={kbChipColor}
@@ -412,7 +411,7 @@ export default function ToolsStep({
                   <Typography variant="h6">MCP Tools</Typography>
                 </Stack>
                 <Stack direction="row" spacing={1} alignItems="center">
-                  {config.tools.mcp.status !== "idle" && (
+                  {config.tools.mcp.status && (
                     <Chip
                       size="small"
                       label={
@@ -447,7 +446,7 @@ export default function ToolsStep({
                         mcp: {
                           ...prev.tools.mcp,
                           url: e.target.value,
-                          status: "idle",
+                          status: undefined,
                         },
                       },
                     }));
