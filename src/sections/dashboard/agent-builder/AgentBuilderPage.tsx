@@ -535,6 +535,12 @@ export function AgentBuilderPage() {
       ? existingKbCollection
       : config.tools.kb.collectionName;
   const hasKbCollection = Boolean(selectedKbCollection);
+  const hasKbIngestionInProgress =
+    config.tools.kb.status === "processing" ||
+    kbStatus?.status === "pending" ||
+    kbStatus?.status === "started" ||
+    kbStatus?.status === "processing" ||
+    (kbLoading && Boolean(config.tools.kb.file));
   const hasValidMcp = config.tools.mcp.status === "valid";
 
   const submitServiceSetup = async (showToast = true) => {
@@ -611,7 +617,12 @@ export function AgentBuilderPage() {
       }
       return false;
     }
-    if (includeTools && hasValidMcp === false && hasKbCollection === false) {
+    if (
+      includeTools &&
+      hasValidMcp === false &&
+      hasKbCollection === false &&
+      hasKbIngestionInProgress === false
+    ) {
       if (showToast) {
         enqueueSnackbar(
           "Add MCP or Knowledge Base before setting up the agent",
@@ -809,7 +820,7 @@ export function AgentBuilderPage() {
         const ok = await handleCheckMcp();
         if (!ok) return;
       }
-      if (!hasKbCollection && !hasValidMcp) {
+      if (!hasKbCollection && !hasValidMcp && !hasKbIngestionInProgress) {
         enqueueSnackbar("Add MCP or Knowledge Base to continue", {
           variant: "warning",
         });
@@ -837,7 +848,7 @@ export function AgentBuilderPage() {
       );
     }
     if (stepIndex === 1) {
-      return hasKbCollection || hasValidMcp;
+      return hasKbCollection || hasValidMcp || hasKbIngestionInProgress;
     }
     return true;
   };
@@ -847,11 +858,14 @@ export function AgentBuilderPage() {
     serviceSaving ||
     agentSaving ||
     previewSubmitting ||
-    (activeStep === 1 && (kbLoading || mcpChecking));
+    (activeStep === 1 && mcpChecking);
   const nextDisabled = !stepIsValid(activeStep) || stepBusy;
   const nextTooltip =
-    activeStep === 1 && !hasKbCollection && !hasValidMcp
-      ? "You cannot proceed until either KB or MCP is connected."
+    activeStep === 1 &&
+    !hasKbCollection &&
+    !hasValidMcp &&
+    !hasKbIngestionInProgress
+      ? "You cannot proceed until either KB upload is started or MCP is connected."
       : "";
   const isLoading = !projectsLoaded || agentConfigLoading;
   const deployedAgentId = agentId;

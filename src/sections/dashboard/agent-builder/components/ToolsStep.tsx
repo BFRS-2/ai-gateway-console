@@ -237,7 +237,8 @@ export default function ToolsStep({
                   )}
                   {kbIsProcessing && (
                     <Alert severity="info">
-                      Knowledge base is processing. You can continue when the upload is complete.
+                      Knowledge base is processing. You can continue; until ingestion completes,
+                      the agent will respond using the prompt only.
                     </Alert>
                   )}
                 </Stack>
@@ -380,7 +381,8 @@ export default function ToolsStep({
                   )}
                   {kbIsProcessing && (
                     <Alert severity="info">
-                      Knowledge base is processing. You can continue when the upload is complete.
+                      Knowledge base is processing. You can continue; until ingestion completes,
+                      the agent will respond using the prompt only.
                     </Alert>
                   )}
                 </Stack>
