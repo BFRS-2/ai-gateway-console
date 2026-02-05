@@ -183,9 +183,13 @@ export default function DynamicServiceForm({
     }
 
     const currentModel = getByPath(value, modelPath);
-    const currentModelProvider = allowedModels.find(
-      (m) => m.value === currentModel.toString()
-    )?.provider;
+    const currentModelValue =
+      currentModel === undefined || currentModel === null
+        ? ""
+        : String(currentModel);
+    const currentModelProvider = currentModelValue
+      ? allowedModels.find((m) => m.value === currentModelValue)?.provider
+      : undefined;
     const nextModel = allowedModels.find(
       (m) => m.provider === providerValue
     )?.value;
@@ -376,6 +380,7 @@ export default function DynamicServiceForm({
                 variant="body2"
               />
             }
+            InputLabelProps={isModelDropdown ? { shrink: true } : undefined}
             value={v ?? f.default ?? ""}
             onChange={(e) => {
               const nextValue = e.target.value;
