@@ -27,6 +27,15 @@ export type SetPasswordBody = {
   // If you later add invite tokens: invite_token?: string;
 };
 
+export type ForgotPasswordBody = {
+  email: string;
+};
+
+export type ResetPasswordBody = {
+  token: string;
+  password: string;
+};
+
 const authService = {
   login: (payload: LoginRequest) => callPostApi(urls.LOGIN, payload),
   getUserInfo: () =>
@@ -37,6 +46,10 @@ const authService = {
     }>,
   setPassword: (body: SetPasswordBody) =>
     callPostApi("/api/v1/users/set-password", body),
+  forgotPassword: (body: ForgotPasswordBody) =>
+    callPostApi("/api/v1/auth/forgot-password", body),
+  resetPassword: (body: ResetPasswordBody) =>
+    callPostApi("/api/v1/auth/reset-password", body),
   getUserPermissionForProjectOrg: (
     organization_id : string,
     project_id : string

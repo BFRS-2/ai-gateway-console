@@ -1,5 +1,5 @@
 import objectToQueryString from "src/utils/objectToGetParams";
-import { callGetApi, callPostApi, callPutApi } from "../callApi";
+import { callDeleteApi, callGetApi, callPostApi, callPutApi } from "../callApi";
 
 type MemberRole = "admin" | "owner" | "member";
 type AccessType = "read" | "write" | "admin"; // adjust if your backend defines differently
@@ -86,6 +86,10 @@ const userManagementService = {
       project_id: projectId,
       access_type: accessType,
     });
+  },
+
+  removeMember: (payload: { project_id: string; user_id: string }) => {
+    return callDeleteApi("/api/v1/members/remove", payload);
   },
 
    updatePassword: (oldPassword: string, newPassword: string) =>
