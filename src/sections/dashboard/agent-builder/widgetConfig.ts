@@ -236,7 +236,7 @@ export const devConfig: WidgetConfig = {
       closeOnOutsideClick: true,
       focusTrap: true,
       persistConversation: {
-        enabled: true,
+        enabled: false,
         storage: "localStorage",
         key: "sr_widget_conversation_v1",
         ttlDays: 30,

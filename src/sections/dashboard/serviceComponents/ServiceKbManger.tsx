@@ -286,9 +286,9 @@ export function ServiceKbManager({
   const chipColor = useMemo<"default" | "success" | "error" | "warning">(() => {
     const status = statusData?.status?.toLowerCase();
     if (!status) return "default";
-    if (status === "completed" || status === "success") return "success";
-    if (status === "failed" || status === "error") return "error";
-    if (status === "pending" || status === "processing") return "warning";
+    if (status === "completed") return "success";
+    if (status === "failed") return "error";
+    if (status === "pending") return "warning";
     return "default";
   }, [statusData?.status]);
 
@@ -309,24 +309,14 @@ export function ServiceKbManager({
         <strong>Chunking:</strong> {statusData.chunking_size} /{" "}
         {statusData.overlapping_size}
       </Typography>
-      {statusData.csv_rows_processed != null && (
+      {statusData.collection_name && (
         <Typography variant="body2">
-          <strong>Rows:</strong> {statusData.csv_rows_processed}
+          <strong>Collection:</strong> {statusData.collection_name}
         </Typography>
       )}
-      {statusData.chunks_created != null && (
+      {statusData.message && (
         <Typography variant="body2">
-          <strong>Chunks:</strong> {statusData.chunks_created}
-        </Typography>
-      )}
-      {statusData.error && (
-        <Typography
-          variant="caption"
-          color="error"
-          display="block"
-          sx={{ mt: 0.5 }}
-        >
-          <strong>Error:</strong> {statusData.error}
+          <strong>Message:</strong> {statusData.message}
         </Typography>
       )}
 

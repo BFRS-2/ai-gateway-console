@@ -49,7 +49,7 @@ import {
   WidgetConfig,
 } from "./types";
 import { defaultConfig, steps } from "./constants";
-import { mapServiceValidationErrors } from "./helpers";
+import { mapServiceValidationErrors, normalizeKbStatus } from "./helpers";
 import {
   buildIntegrationSnippet,
   devConfig,
@@ -154,6 +154,8 @@ export function AgentBuilderPage() {
       (payload as any)?.mcp_url || (payload as any)?.mcpUrl || "";
     const nextKbCollection =
       (payload as any)?.kb_collection || (payload as any)?.kbCollection || "";
+    const nextKbStatus =
+      (payload as any)?.kb_status || (payload as any)?.kbStatus || null;
     const nextUiConfig =
       (payload as any)?.ui_config || (payload as any)?.uiConfig || null;
 
@@ -175,9 +177,9 @@ export function AgentBuilderPage() {
         kb: {
           ...prev.tools.kb,
           file: null,
-          collectionName: nextKbCollection || prev.tools.kb.collectionName,
-          selection: nextKbCollection ? "existing" : prev.tools.kb.selection,
-          status: nextKbCollection ? "ready" : prev.tools.kb.status,
+          collectionName: nextKbCollection || "",
+          selection: nextKbCollection ? "existing" : "new",
+          status: nextKbCollection ? "completed" : undefined,
         },
         mcp: {
           ...prev.tools.mcp,
@@ -189,16 +191,14 @@ export function AgentBuilderPage() {
 
     if (nextKbCollection) {
       setKbStatus({
+        _id: "",
         file_name: "",
+        file_path: "",
         chunking_size: 0,
         overlapping_size: 0,
-        status: "completed",
+        status: nextKbStatus || "completed",
         collection_name: nextKbCollection,
-        chunks_created: null,
-        csv_rows_processed: null,
-        csv_columns: null,
-        jsonl_path: null,
-        error: null,
+        message: "",
       });
     } else {
       setKbStatus(null);
@@ -374,31 +374,30 @@ export function AgentBuilderPage() {
     try {
       const res = await kbService.getKbStatus(projectId);
       if (res?.data) {
-        setKbStatus(res.data);
+        const statusData = res.data;
+        const normalizedStatus = normalizeKbStatus(statusData.status) ?? null;
+        const nextKbStatus: KBStatusData = {
+          ...statusData,
+          status: normalizedStatus,
+        };
+        setKbStatus(nextKbStatus);
         updateConfig((prev) => ({
           ...prev,
           tools: {
             ...prev.tools,
             kb: {
               ...prev.tools.kb,
-              status:
-                res?.data?.status === "completed"
-                  ? "ready"
-                  : res?.data?.status === "failed"
-                  ? "failed"
-                  : res?.data?.status === "pending" ||
-                    res?.data?.status === "started"
-                  ? "processing"
-                  : "processing",
+              status: normalizedStatus || undefined,
               collectionName:
-                prev.tools.kb.selection === "new" &&
-                Boolean(prev.tools.kb.status)
-                  ? res?.data?.collection_name || prev.tools.kb.collectionName
-                  : prev.tools.kb.collectionName,
+                normalizedStatus === "completed"
+                  ? statusData.collection_name || ""
+                  : "",
               selection:
-                res?.data?.collection_name && !kbSelectionTouched
+                normalizedStatus === "completed" &&
+                statusData.collection_name &&
+                !kbSelectionTouched
                   ? "existing"
-                  : prev.tools.kb.selection,
+                  : "new",
             },
           },
         }));
@@ -440,14 +439,34 @@ export function AgentBuilderPage() {
       if ((res as any)?.error) {
         enqueueSnackbar("KB upload failed", { variant: "error" });
       } else {
-        enqueueSnackbar("KB upload started", { variant: "success" });
+        const statusData = res?.data
+          ? {
+              ...res.data,
+              status: normalizeKbStatus(res.data.status) ?? null,
+            }
+          : null;
+        enqueueSnackbar(
+          statusData?.message || "File uploaded successfully",
+          { variant: "success" }
+        );
+        if (statusData) {
+          setKbStatus(statusData);
+        }
         updateConfig((prev) => ({
           ...prev,
           tools: {
             ...prev.tools,
             kb: {
               ...prev.tools.kb,
-              status: "processing",
+              status: statusData?.status || "pending",
+              collectionName:
+                statusData?.status === "completed"
+                  ? statusData.collection_name || ""
+                  : "",
+              selection:
+                statusData?.status === "completed" && statusData.collection_name
+                  ? "existing"
+                  : "new",
             },
           },
         }));
@@ -529,18 +548,17 @@ export function AgentBuilderPage() {
     }
   };
 
-  const existingKbCollection = kbStatus?.collection_name || "";
+  const existingKbCollection =
+    kbStatus?.status === "completed" ? kbStatus.collection_name || "" : "";
   const selectedKbCollection =
-    config.tools.kb.selection === "existing"
-      ? existingKbCollection
-      : config.tools.kb.collectionName;
+    existingKbCollection ||
+    (config.tools.kb.status === "completed"
+      ? config.tools.kb.collectionName
+      : "");
   const hasKbCollection = Boolean(selectedKbCollection);
   const hasKbIngestionInProgress =
-    config.tools.kb.status === "processing" ||
-    kbStatus?.status === "pending" ||
-    kbStatus?.status === "started" ||
-    kbStatus?.status === "processing" ||
-    (kbLoading && Boolean(config.tools.kb.file));
+    config.tools.kb.status === "pending" ||
+    kbStatus?.status === "pending";
   const hasValidMcp = config.tools.mcp.status === "valid";
 
   const submitServiceSetup = async (showToast = true) => {
@@ -720,6 +738,9 @@ export function AgentBuilderPage() {
     if (includeTools && hasKbCollection) {
       payload.kb_collection = selectedKbCollection;
     }
+    if (kbStatus?.status === "pending") {
+      payload.kb_collection = kbStatus.collection_name;
+    }
     if (includeUiConfig) {
       payload.ui_config = previewConfig;
     }
@@ -762,7 +783,7 @@ export function AgentBuilderPage() {
             reviewer_prompt: config.agent.reviewerPrompt,
             max_steps: config.agent.maxSteps,
             mcp_url: hasValidMcp ? config.tools.mcp.url.trim() : "",
-            kb_collection: hasKbCollection ? selectedKbCollection : "",
+            kb_collection: hasKbCollection ? selectedKbCollection : (kbStatus?.status === "pending" ? kbStatus.collection_name : ""),
             ui_config: previewConfig,
           };
           setAgentList((prev) => {

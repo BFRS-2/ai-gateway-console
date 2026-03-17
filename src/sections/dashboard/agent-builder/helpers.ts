@@ -1,3 +1,5 @@
+import { KbLifecycleStatus } from "./types";
+
 const SERVICE_FIELD_ERROR_MAP: Record<string, string> = {
   default_model: "defaultModel",
   backup_model: "backupModel",
@@ -29,4 +31,13 @@ export const mapServiceValidationErrors = (
     next[mappedKey] = message;
   });
   return next;
+};
+
+export const normalizeKbStatus = (
+  status: string | null | undefined
+): KbLifecycleStatus | undefined => {
+  if (status === "completed" || status === "failed" || status === "pending") {
+    return status;
+  }
+  return undefined;
 };
