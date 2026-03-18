@@ -22,6 +22,7 @@ import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import LanIcon from "@mui/icons-material/Lan";
 import { KBStatusData } from "src/api/services/kb.service";
+import { normalizeKbStatus } from "../helpers";
 import { BuilderConfig, ToolingConfig } from "../types";
 
 function PaperInput({
@@ -92,35 +93,33 @@ export default function ToolsStep({
 }) {
   const theme = useTheme();
 
-  const kbStatusLabel = kbStatus?.status || "unknown";
+  const normalizedKbStatus = normalizeKbStatus(kbStatus?.status);
+  const currentKbStatus = config.tools.kb.status || normalizedKbStatus;
   const kbFileName = kbStatus?.file_name || config.tools.kb.file?.name || "";
   const kbCollectionName =
-    existingKbCollection || config.tools.kb.collectionName || "";
-  const showKbSummary = Boolean(kbFileName || kbCollectionName);
+    currentKbStatus === "completed"
+      ? existingKbCollection || config.tools.kb.collectionName || ""
+      : "";
+  const showKbSummary = Boolean(kbFileName || kbCollectionName || currentKbStatus);
   const kbChipColor =
-    config.tools.kb.status === "ready"
+    currentKbStatus === "completed"
       ? "success"
-      : config.tools.kb.status === "failed"
+      : currentKbStatus === "failed"
       ? "error"
-      : config.tools.kb.status === "processing"
+      : currentKbStatus === "pending"
       ? "warning"
       : "default";
-  const hasExistingKb = Boolean(existingKbCollection);
+  const hasExistingKb =
+    currentKbStatus === "completed" && Boolean(existingKbCollection);
   const kbSelection = hasExistingKb ? "existing" : "new";
-  const showKbStatusCheck =
-    Boolean(config.tools.kb.status) &&
-    config.tools.kb.status !== "ready" &&
-    kbStatus?.status !== "completed";
-  const showKbRefresh =
-    config.tools.kb.status !== "ready" && kbStatus?.status !== "completed";
-  const kbIsProcessing = config.tools.kb.status === "processing";
-  const kbIsReady = config.tools.kb.status === "ready";
+  const showKbStatusCheck = currentKbStatus === "pending";
+  const showKbRefresh = currentKbStatus === "pending";
+  const kbIsPending = currentKbStatus === "pending";
+  const kbIsCompleted = currentKbStatus === "completed";
+  const kbHasFailed = currentKbStatus === "failed";
   const mcpIsConnected = mcpSaved;
-  const canUploadKb =
-    (!config.tools.kb.status || config.tools.kb.status === "failed") &&
-    Boolean(config.tools.kb.file);
-  const showUploadControls =
-    !kbIsProcessing && !kbIsReady && config.tools.kb.status !== "uploading";
+  const canUploadKb = !kbIsPending && !kbIsCompleted && Boolean(config.tools.kb.file);
+  const showUploadControls = !kbIsPending && !kbIsCompleted;
 
   const handleDownloadSampleCsv = () => {
     const sample = `text,label
@@ -169,7 +168,7 @@ export default function ToolsStep({
                   <Typography variant="h6">Knowledge Base</Typography>
                 </Stack>
                 <Stack direction="row" spacing={1} alignItems="center">
-                  {kbIsReady && (
+                  {kbIsCompleted && (
                     <CheckCircleRoundedIcon fontSize="medium" color="success" />
                   )}
                 </Stack>
@@ -197,7 +196,7 @@ export default function ToolsStep({
                         </TableCell>
                         <TableCell>
                           <Chip
-                            label={config.tools.kb.status || "Not uploaded"}
+                            label={currentKbStatus || "Not uploaded"}
                             color={kbChipColor}
                             size="small"
                           />
@@ -225,9 +224,9 @@ export default function ToolsStep({
                       >
                         Refresh status
                       </Button>
-                      {config.tools.kb.status && (
+                      {currentKbStatus && (
                         <Chip
-                          label={config.tools.kb.status}
+                          label={currentKbStatus}
                           color={kbChipColor}
                           size="small"
                         />
@@ -235,9 +234,9 @@ export default function ToolsStep({
                       {kbLoading && <CircularProgress size={20} />}
                     </Stack>
                   )}
-                  {kbIsProcessing && (
+                  {kbIsPending && (
                     <Alert severity="info">
-                      Knowledge base is processing. You can continue; until ingestion completes,
+                      Knowledge base is pending. You can continue; until ingestion completes,
                       the agent will respond using the prompt only.
                     </Alert>
                   )}
@@ -246,9 +245,23 @@ export default function ToolsStep({
 
               {kbSelection === "new" && (
                 <Stack spacing={2}>
+                  {kbHasFailed && (
+                    <Alert severity="error">
+                      Previous KB upload
+                      {kbStatus?.file_name ? ` (${kbStatus.file_name})` : ""} failed.
+                      Upload a new CSV to try again.
+                      {kbStatus?.message ? ` ${kbStatus.message}` : ""}
+                    </Alert>
+                  )}
                   {showUploadControls && (
                     <PaperInput
-                      label={config.tools.kb.file ? "Change CSV" : "Upload CSV"}
+                      label={
+                        config.tools.kb.file
+                          ? "Change CSV"
+                          : kbHasFailed
+                          ? "Re-upload CSV"
+                          : "Upload CSV"
+                      }
                       file={config.tools.kb.file}
                       accept=".csv,text/csv"
                       onSelect={(file) =>
@@ -342,7 +355,11 @@ export default function ToolsStep({
                         onClick={onUploadKb}
                         disabled={kbLoading || !canUploadKb}
                       >
-                        {kbLoading ? "Uploading..." : "Upload KB"}
+                        {kbLoading
+                          ? "Uploading..."
+                          : kbHasFailed
+                          ? "Re-upload KB"
+                          : "Upload KB"}
                       </Button>
                       <Stack direction="row" spacing={0.5} alignItems="center">
                         <Link
@@ -367,9 +384,9 @@ export default function ToolsStep({
                           >
                             Refresh status
                           </Button>
-                          {config.tools.kb.status && (
+                          {currentKbStatus && (
                             <Chip
-                              label={config.tools.kb.status}
+                              label={currentKbStatus}
                               color={kbChipColor}
                               size="small"
                             />
@@ -379,9 +396,9 @@ export default function ToolsStep({
                       {kbLoading && <CircularProgress size={20} />}
                     </Stack>
                   )}
-                  {kbIsProcessing && (
+                  {kbIsPending && (
                     <Alert severity="info">
-                      Knowledge base is processing. You can continue; until ingestion completes,
+                      Knowledge base is pending. You can continue; until ingestion completes,
                       the agent will respond using the prompt only.
                     </Alert>
                   )}

@@ -6,15 +6,20 @@ import FE_Error from "../errors/fe_error";
 
 const BASE = "/api/v1/kb";
 
-export interface KBItem {
+export type KBLifecycleApiStatus = "pending" | "completed" | "failed" | null;
+
+export interface KBRecord {
   _id: string;
   file_name: string;
   file_path: string;
   chunking_size: number;
   overlapping_size: number;
-  status: string;
+  status: KBLifecycleApiStatus;
+  collection_name: string | null;
   message: string;
 }
+
+export type KBItem = KBRecord;
 
 export interface KBInitResult {
   success: boolean;
@@ -23,18 +28,7 @@ export interface KBInitResult {
   error?: API_Error | FE_Error | null;
 }
 
-export interface KBStatusData {
-  file_name: string;
-  chunking_size: number;
-  overlapping_size: number;
-  status: "pending" | "processing" | "completed" | "failed" | "started";
-  collection_name: string | null;
-  chunks_created: number | null;
-  csv_rows_processed: number | null;
-  csv_columns: string[] | null;
-  jsonl_path: string | null;
-  error: string | null;
-}
+export type KBStatusData = KBRecord;
 export interface KBStatusResult {
   success: boolean;
   status_code?: number;

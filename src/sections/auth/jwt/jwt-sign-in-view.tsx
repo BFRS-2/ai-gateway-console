@@ -110,9 +110,9 @@ export function JwtSignInView() {
             ),
           }}
         />
-         <Link
+        <Link
           component={RouterLink}
-          href="#"
+          href="/forgot-password"
           variant="body2"
           color="inherit"
           sx={{ alignSelf: 'flex-end' }}

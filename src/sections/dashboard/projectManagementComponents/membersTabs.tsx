@@ -14,6 +14,11 @@ import {
   TablePagination,
   Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
 } from "@mui/material";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSnackbar } from "notistack";
@@ -64,6 +69,8 @@ export function MembersTab({
   const [userPage, setUserPage] = useState(0);
   const [userRowsPerPage, setUserRowsPerPage] = useState(10);
   const [userTotal, setUserTotal] = useState(0);
+  const [deleteTarget, setDeleteTarget] = useState<ApiUser | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // external refetch trigger
   const [refreshTick, setRefreshTick] = useState(0);
@@ -155,6 +162,7 @@ export function MembersTab({
   const userRole = useSelector((state: RootState) => {
     return state.user.userRole;
   });
+  const currUser = useSelector((state: RootState) => state.user.currUser);
   const userPermission = useSelector(
     (state: RootState) => state.user.userPermission
   );
@@ -165,6 +173,71 @@ export function MembersTab({
     if (userRole === "member" && userPermission === "write") return true;
     return false;
   }, [userRole, userPermission]);
+
+  const canDeleteUsers = useMemo(
+    () => ["admin", "owner"].includes(userRole || ""),
+    [userRole]
+  );
+
+  const getDeleteBlockReason = useCallback(
+    (u: ApiUser) => {
+      if (!canDeleteUsers) return "You do not have permission to delete users.";
+      if (currUser?.id && u.id === currUser.id) return "You cannot remove yourself.";
+      if (u.is_admin) return "Admins cannot be removed.";
+      return null;
+    },
+    [canDeleteUsers, currUser?.id]
+  );
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deleteTarget || !projectId) return;
+
+    const blockedReason = getDeleteBlockReason(deleteTarget);
+    if (blockedReason) {
+      enqueueSnackbar(blockedReason, { variant: "warning" });
+      return;
+    }
+
+    try {
+      setDeleteLoading(true);
+      const res = await (userManagementService as any).removeMember({
+        project_id: projectId,
+        user_id: deleteTarget.id,
+      });
+
+      const apiMessage =
+        (res as any)?.data?.message ||
+        (res as any)?.message ||
+        (res as any)?.error?.payload?.data?.message ||
+        (res as any)?.error?.payload?.message ||
+        (res as any)?.error?.message;
+
+      if (!res || (res as any)?.success === false || (res as any)?.error) {
+        enqueueSnackbar(apiMessage || "Failed to remove member", {
+          variant: "error",
+        });
+        return;
+      }
+
+      enqueueSnackbar(apiMessage || "Member removed successfully", {
+        variant: "success",
+      });
+      setDeleteTarget(null);
+      setRefreshTick((x) => x + 1);
+    } catch (err: any) {
+      console.error("removeMember failed", err);
+      enqueueSnackbar(
+        err?.error?.payload?.data?.message ||
+          err?.error?.payload?.message ||
+          err?.message ||
+          "Failed to remove member",
+        { variant: "error" }
+      );
+    } finally {
+      setDeleteLoading(false);
+    }
+  }, [deleteTarget, projectId, getDeleteBlockReason, enqueueSnackbar]);
+
   return (
     <Box sx={{ p: 2 }}>
       <Box
@@ -217,32 +290,49 @@ export function MembersTab({
                   <TableCell>Name</TableCell>
                   <TableCell>Role</TableCell>
                   <TableCell>Status</TableCell>
+                  {canDeleteUsers && <TableCell align="right">Actions</TableCell>}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {users.length ? (
-                  users.map((u) => (
-                    <TableRow key={u.id}>
-                      <TableCell>{u.email}</TableCell>
-                      <TableCell>{u.name}</TableCell>
-                      <TableCell>
-                        {u.is_admin
-                          ? "Admin"
-                          : u.role + ( u.role == "member"  ? ` (${u.access})` : "")
-                          }
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={u.status.toUpperCase()}
-                          color={u.status === "active" ? "success" : "error"}
-                          size="small"
-                        ></Chip>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  users.map((u) => {
+                    const deleteBlockedReason = getDeleteBlockReason(u);
+                    return (
+                      <TableRow key={u.id}>
+                        <TableCell>{u.email}</TableCell>
+                        <TableCell>{u.name}</TableCell>
+                        <TableCell>
+                          {u.is_admin
+                            ? "Admin"
+                            : u.role + (u.role == "member" ? ` (${u.access})` : "")}
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={u.status.toUpperCase()}
+                            color={u.status === "active" ? "success" : "error"}
+                            size="small"
+                          ></Chip>
+                        </TableCell>
+                        {canDeleteUsers && (
+                          <TableCell align="right">
+                            {!deleteBlockedReason && (
+                              <Button
+                                size="small"
+                                color="error"
+                                onClick={() => setDeleteTarget(u)}
+                                title="Delete user"
+                              >
+                                Delete
+                              </Button>
+                            )}
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    );
+                  })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={4}>
+                    <TableCell colSpan={canDeleteUsers ? 5 : 4}>
                       <Typography variant="body2">No Member Found</Typography>
                     </TableCell>
                   </TableRow>
@@ -268,6 +358,50 @@ export function MembersTab({
           </>
         )}
       </Paper>
+
+      <Dialog
+        open={!!deleteTarget}
+        onClose={() => {
+          if (!deleteLoading) setDeleteTarget(null);
+        }}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Delete user</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {deleteTarget
+              ? `Are you sure you want to remove ${deleteTarget.name || deleteTarget.email} from this org/project?`
+              : "Are you sure you want to remove this user from this org/project?"}
+          </DialogContentText>
+          {deleteTarget && getDeleteBlockReason(deleteTarget) && (
+            <Typography variant="body2" color="error" sx={{ mt: 1.5 }}>
+              {getDeleteBlockReason(deleteTarget)}
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setDeleteTarget(null)}
+            disabled={deleteLoading}
+            color="inherit"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmDelete}
+            color="error"
+            variant="contained"
+            disabled={
+              deleteLoading ||
+              !deleteTarget ||
+              !!(deleteTarget && getDeleteBlockReason(deleteTarget))
+            }
+          >
+            {deleteLoading ? "Deleting..." : "Delete"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

@@ -1,5 +1,7 @@
 export type WidgetConfig = Record<string, unknown>;
 
+export type KbLifecycleStatus = "pending" | "completed" | "failed";
+
 export type ServiceSetup = {
   serviceId: string;
   defaultModel: string;
@@ -23,7 +25,7 @@ export type ToolingConfig = {
     file: File | null;
     chunkingSize: number;
     overlappingSize: number;
-    status?: "uploading" | "processing" | "ready" | "failed";
+    status?: KbLifecycleStatus;
     collectionName: string;
     selection: "existing" | "new";
   };
