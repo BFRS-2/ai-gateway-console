@@ -578,7 +578,7 @@ export function AgentBuilderPage() {
           backup_model: config.service.backupModel,
           default_provider: config.service.defaultProvider,
           backup_provider: config.service.backupProvider,
-          allowed_models: config.service.allowedModels,
+          allowed_models: [],
           temperature: config.service.temperature,
         },
         limits: {
