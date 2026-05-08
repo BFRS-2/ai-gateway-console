@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "service": "ai-gateway",
+  "stack": "react",
+  "last_audit_score": 28,
+  "last_audit_date": "2026-05-07T11:30:51Z",
+  "last_audit_by": "claude-code",
+  "category_scores": {
+    "structure": 15,
+    "claude_md_quality": 0,
+    "test_approach": 0,
+    "pattern_consistency": 12,
+    "documentation_freshness": 1
+  },
+  "pending_doc_updates": [],
+  "update_history": [],
+  "audit_history": [{ "date": "2026-05-07T11:30:51Z", "score": 28, "run_by": "claude-code" }]
+}

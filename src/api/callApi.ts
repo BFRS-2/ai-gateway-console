@@ -21,7 +21,7 @@ function buildHeaders(body: any) {
   const token = localStorage.getItem(STORAGE_KEY);
   
   if (token) headers.set("authorization", `Bearer ${token}`);
-  headers.set("x-api-key", "693171099f3d11b57d7ef2e4");
+  headers.set("x-api-key", "6915c6a4fd440ec639b1f1c3");
 
   // Misc headers
   // headers.set("ngrok-skip-browser-warning", "69420");

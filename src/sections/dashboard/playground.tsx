@@ -34,6 +34,9 @@ import ChatBubbleOutlineRoundedIcon from "@mui/icons-material/ChatBubbleOutlineR
 import SummarizeRoundedIcon from "@mui/icons-material/SummarizeRounded";
 import TitleRoundedIcon from "@mui/icons-material/TitleRounded";
 import ImageRoundedIcon from "@mui/icons-material/ImageRounded";
+import VideocamRoundedIcon from "@mui/icons-material/VideocamRounded";
+import CloseIcon from "@mui/icons-material/Close";
+import LaunchIcon from "@mui/icons-material/Launch";
 
 import serviceManagementService from "src/api/services/serviceManagement.service";
 import playgroundService from "src/api/services/playground.service";
@@ -46,7 +49,8 @@ type PlaygroundServiceKey =
   | "chatCompletion"
   | "chatbot"
   | "embedding"
-  | "ocr";
+  | "ocr"
+  | "videoGeneration";
 
 // ---------------------- Helper Section -------------------
 
@@ -146,7 +150,7 @@ export default function DockyardPlayground() {
   const serviceModels = useMemo(() => {
     const serviceLc = service.toLowerCase().replace(/\s+/g, "");
 
-    return models.filter((m) => {
+    return (models ?? []).filter((m) => {
       const allowed = Array.isArray(m.allowed_services)
         ? m.allowed_services.map((s) => s.toLowerCase().replace(/\s+/g, ""))
         : [];
@@ -167,7 +171,7 @@ export default function DockyardPlayground() {
     // model.provider is PROVIDER NAME
     const providerNames = new Set(serviceModels.map((m) => m.provider));
 
-    return providers.filter(
+    return (providers ?? []).filter(
       (p) =>
         p.status?.toLowerCase() === "active" && providerNames.has(p.name)
     );
@@ -354,6 +358,12 @@ export default function DockyardPlayground() {
                 label="OCR"
                 value="ocr"
               />
+              <Tab
+                icon={<VideocamRoundedIcon fontSize="small" />}
+                iconPosition="start"
+                label="Video Generation"
+                value="videoGeneration"
+              />
             </Tabs>
 
             <Box sx={{ mt: 2 }}>
@@ -383,6 +393,12 @@ export default function DockyardPlayground() {
               )}
               {service === "ocr" && (
                 <OcrPanel provider={selectedProvider} model={selectedModel} />
+              )}
+              {service === "videoGeneration" && (
+                <VideoGenerationPanel
+                  provider={selectedProvider}
+                  model={selectedModel}
+                />
               )}
             </Box>
           </Section>
@@ -1093,14 +1109,318 @@ function EmbeddingPanel({
   );
 }
 
-// 5. OCR (pdf/image)
+// 5. Video Generation
+function VideoGenerationPanel({
+  provider,
+  model,
+}: {
+  provider: string;
+  model: string;
+}) {
+  const [prompt, setPrompt] = useState("A serene mountain landscape at sunrise with flowing clouds");
+  const [aspectRatio, setAspectRatio] = useState("16:9");
+  const [durationSeconds, setDurationSeconds] = useState(8);
+  const [negativePrompt, setNegativePrompt] = useState("");
+  const [customNegativePrompt, setCustomNegativePrompt] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const isVeo2 = model?.toLowerCase().includes("veo-2");
+  const durationOptions = isVeo2 ? [5, 8] : [4, 6, 8];
+  const [loading, setLoading] = useState(false);
+  const [statusMsg, setStatusMsg] = useState<string>("");
+  const [out, setOut] = useState<any>(null);
+  const [raw, setRaw] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopPolling = () => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  };
+
+  const pollStatus = (jobId: string) => {
+    stopPolling();
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await playgroundService.videoGenerationStatus(jobId);
+        const status = res?.data?.status ?? res?.data?.state ?? "";
+        setStatusMsg(status);
+        setRaw(res);
+        if (status?.toLowerCase() === "completed" || res?.data?.video_url) {
+          stopPolling();
+          setOut(res?.data);
+          setLoading(false);
+        } else if (["failed", "error"].includes(status?.toLowerCase())) {
+          stopPolling();
+          setError("Video generation failed on the server.");
+          setLoading(false);
+        }
+      } catch (err: any) {
+        stopPolling();
+        setError(err?.message ?? "Failed to fetch status");
+        setLoading(false);
+      }
+    }, 5000);
+  };
+
+  const run = async () => {
+    if (!prompt.trim()) return;
+    stopPolling();
+    setLoading(true);
+    setOut(null);
+    setRaw(null);
+    setError(null);
+    setStatusMsg("");
+    try {
+      const res = await playgroundService.videoGeneration({
+        prompt,
+        model,
+        provider,
+        aspect_ratio: aspectRatio,
+        duration_seconds: durationSeconds,
+        negative_prompt: negativePrompt === "__custom__" ? customNegativePrompt : negativePrompt,
+        ...(imageFile ? { image: imageFile } : {}),
+      });
+      setRaw(res);
+      const jobId = res?.data?.job_id;
+      if (jobId) {
+        setStatusMsg("queued");
+        pollStatus(jobId);
+      } else {
+        setOut(res?.data ?? res);
+        setLoading(false);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError(err?.message ?? "Video generation failed");
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Grid container spacing={2}>
+      <Grid item xs={12} md={7}>
+        <Typography variant="subtitle2" sx={{ mb: 2 }}>
+          Input
+        </Typography>
+        <TextField
+          label="Prompt"
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          fullWidth
+          multiline
+          minRows={4}
+          size="small"
+        />
+        <Grid container spacing={2} sx={{ mt: 1 }}>
+          <Grid item xs={12} sm={4}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Aspect Ratio</InputLabel>
+              <Select
+                label="Aspect Ratio"
+                value={aspectRatio}
+                onChange={(e) => setAspectRatio(e.target.value as string)}
+              >
+                {["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"].map((v) => (
+                  <MenuItem key={v} value={v}>{v}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={4}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Duration (s)</InputLabel>
+              <Select
+                label="Duration (s)"
+                value={durationSeconds}
+                onChange={(e) => setDurationSeconds(e.target.value as number)}
+              >
+                {durationOptions.map((v) => (
+                  <MenuItem key={v} value={v}>{v}s</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={4}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Negative Prompt</InputLabel>
+              <Select
+                label="Negative Prompt"
+                value={negativePrompt}
+                onChange={(e) => setNegativePrompt(e.target.value as string)}
+              >
+                {[
+                  { label: "None", value: "" },
+                  { label: "Blurry, low quality", value: "blurry, low quality" },
+                  { label: "Distorted, artifacts", value: "distorted, artifacts" },
+                  { label: "Dark, underexposed", value: "dark, underexposed" },
+                  { label: "Overexposed, washed out", value: "overexposed, washed out" },
+                  { label: "Shaky, motion blur", value: "shaky, motion blur" },
+                  { label: "Custom…", value: "__custom__" },
+                ].map((o) => (
+                  <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            {negativePrompt === "__custom__" && (
+              <TextField
+                sx={{ mt: 1 }}
+                label="Custom Negative Prompt"
+                value={customNegativePrompt}
+                onChange={(e) => setCustomNegativePrompt(e.target.value)}
+                fullWidth
+                size="small"
+                placeholder="e.g. blurry, low quality, distorted"
+              />
+            )}
+          </Grid>
+        </Grid>
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 2 }}>
+          <Button
+            variant="outlined"
+            component="label"
+            startIcon={<CloudUploadRoundedIcon />}
+            size="small"
+          >
+            {imageFile ? imageFile.name : "Upload Image"}
+            <input
+              hidden
+              type="file"
+              accept="image/*"
+              onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+            />
+          </Button>
+          {imageFile && (
+            <IconButton size="small" onClick={() => setImageFile(null)}>
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          )}
+        </Stack>
+        <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+          <Button
+            variant="contained"
+            onClick={run}
+            disabled={loading}
+            startIcon={<VideocamRoundedIcon />}
+          >
+            Generate
+          </Button>
+          <Button
+            onClick={() => {
+              stopPolling();
+              setPrompt("");
+              setOut(null);
+              setRaw(null);
+              setError(null);
+              setStatusMsg("");
+              setImageFile(null);
+            }}
+            variant="outlined"
+            startIcon={<RestartAltRoundedIcon />}
+          >
+            Reset
+          </Button>
+        </Stack>
+        {error && (
+          <Alert severity="error" sx={{ mt: 2 }}>
+            {error}
+          </Alert>
+        )}
+      </Grid>
+      <Grid item xs={12} md={5}>
+        <Typography variant="subtitle2" sx={{ mb: 2 }}>
+          Output
+        </Typography>
+        <Paper
+          variant="outlined"
+          sx={{ p: 2, height: 340, overflow: "auto" }}
+        >
+          {loading && (
+            <>
+              <LinearProgress sx={{ mb: 1 }} />
+              {statusMsg && (
+                <Typography variant="caption" color="text.secondary" sx={{ textTransform: "capitalize" }}>
+                  Status: {statusMsg}…
+                </Typography>
+              )}
+            </>
+          )}
+          {out?.video_url ? (
+            <Stack spacing={1.5}>
+              <Button
+                variant="contained"
+                size="small"
+                endIcon={<LaunchIcon />}
+                href={out.video_url}
+                target="_blank"
+                rel="noreferrer"
+                component="a"
+                sx={{ alignSelf: "flex-start" }}
+              >
+                Open Video
+              </Button>
+              <Alert severity="warning" sx={{ py: 0.5, fontSize: 12 }}>
+                This video link will expire in 1 hour.
+              </Alert>
+              {out.resolution && (
+                <Typography variant="body2" color="text.secondary">Resolution: {out.resolution}</Typography>
+              )}
+              {out.duration && (
+                <Typography variant="body2" color="text.secondary">Duration: {out.duration}s</Typography>
+              )}
+              {out.fps && (
+                <Typography variant="body2" color="text.secondary">FPS: {out.fps}</Typography>
+              )}
+            </Stack>
+          ) : (
+            !loading && (
+              <Typography variant="body2" color="text.secondary">
+                Run to see output
+              </Typography>
+            )
+          )}
+          {raw && (
+            <>
+              <Divider sx={{ my: 1 }} />
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ fontFamily: "monospace" }}
+              >
+                Raw:
+              </Typography>
+              <Typography
+                component="pre"
+                sx={{
+                  fontSize: 11,
+                  mt: 0.5,
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                  fontFamily: "monospace",
+                }}
+              >
+                {JSON.stringify(raw, null, 2)}
+              </Typography>
+            </>
+          )}
+        </Paper>
+      </Grid>
+    </Grid>
+  );
+}
+
+// 6. OCR (pdf/image)
 function OcrPanel({ provider, model }: { provider: string; model: string }) {
   const [file, setFile] = useState<File | null>(null);
   const [fileType, setFileType] = useState<"pdf" | "image">("image");
+  const [responseFormat, setResponseFormat] = useState<"text" | "json">("text");
+  const [prompt, setPrompt] = useState("");
   const [text, setText] = useState("");
   const [raw, setRaw] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isPytesseract = provider?.toLowerCase().includes("pytesseract");
 
   const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -1126,6 +1446,8 @@ function OcrPanel({ provider, model }: { provider: string; model: string }) {
         file_type: fileType,
         model,
         provider,
+        ...(!isPytesseract ? { type: responseFormat } : {}),
+        ...(responseFormat === "text" && prompt.trim() ? { system_prompt: prompt } : {}),
       });
 
       setRaw(res);
@@ -1173,6 +1495,34 @@ function OcrPanel({ provider, model }: { provider: string; model: string }) {
             <ToggleButton value="pdf">PDF</ToggleButton>
           </ToggleButtonGroup>
 
+          {!isPytesseract && (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Typography variant="caption" color="text.secondary">Response Format:</Typography>
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                value={responseFormat}
+                onChange={(_, v) => v && setResponseFormat(v)}
+              >
+                <ToggleButton value="text">Text</ToggleButton>
+                <ToggleButton value="json">JSON</ToggleButton>
+              </ToggleButtonGroup>
+            </Stack>
+          )}
+
+          {!isPytesseract && responseFormat === "text" && (
+            <TextField
+              label="Prompt"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              fullWidth
+              multiline
+              minRows={2}
+              size="small"
+              placeholder="e.g. Extract all invoice numbers and dates"
+            />
+          )}
+
           <Stack direction="row" spacing={1}>
             <Button
               variant="contained"
@@ -1184,6 +1534,7 @@ function OcrPanel({ provider, model }: { provider: string; model: string }) {
             <Button
               onClick={() => {
                 setFile(null);
+                setPrompt("");
                 setText("");
                 setRaw(null);
                 setError(null);
