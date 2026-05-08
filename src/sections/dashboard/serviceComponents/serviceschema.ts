@@ -397,6 +397,85 @@ export const serviceSchemas: ServiceSchemas = {
     },
   },
 
+  // === VIDEO GENERATION ===
+  "video generation": {
+    service: "video generation",
+    title: "Configure Video Generation",
+    ui: {
+      containerStyle: { width: "70vw", maxWidth: "1100px", margin: "0 auto", padding: "16px 0 32px" },
+      formStyle: { display: "flex", flexDirection: "column", gap: "20px" },
+      fieldStyle: { minWidth: 0 },
+      groups: [
+        {
+          id: "default_model_block",
+          title: "Default Model",
+          description: "Select the primary model and its provider.",
+          fields: ["config.default_provider", "config.default_model"],
+          style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "16px" },
+        },
+        {
+          id: "backup_model_block",
+          title: "Fallback Model",
+          description: "A fallback used if the primary model is unavailable.",
+          fields: ["config.backup_provider", "config.backup_model"],
+          style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "16px" },
+        },
+        {
+          id: "allowed_models_block",
+          title: "Allowed Models",
+          description: "Restrict which models can be selected at runtime (Optionally leave empty to allow all).",
+          fields: ["config.allowed_models"],
+          style: { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: "16px" },
+        },
+        {
+          id: "generation_prompt",
+          title: "System Prompt",
+          description: "Instruction injected on every request.",
+          fields: ["config.system_prompt"],
+          style: { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: "16px" },
+        },
+        {
+          id: "limits",
+          title: "Usage Limits",
+          description: "Set service-level daily/monthly caps and toggle availability.",
+          fields: ["limits.daily", "limits.monthly", "enabled"],
+          style: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "16px" },
+        },
+        {
+          id: "alerts",
+          title: "Usage Alerts",
+          description: "Send alerts when usage crosses a threshold.",
+          fields: ["alerts.daily", "alerts.monthly"],
+          style: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "16px" },
+        },
+      ],
+    },
+    initial: {
+      service: "video generation",
+      config: {
+        ...COMMON_DEFAULTS,
+        allowed_models: [],
+        system_prompt: "You are a helpful assistant.",
+      },
+      limits: { daily: 100, monthly: 300 },
+      alerts: { daily: 80, monthly: 80 },
+      enabled: true,
+    },
+    fields: {
+      "config.default_model": { label: "Model", type: "dropdown", required: true, dynamic: "models", helpText: "Primary model used for requests unless overridden." },
+      "config.backup_model": { label: "Fallback Model", type: "dropdown", required: true, dynamic: "models", helpText: "Fallback model if the Model is unavailable." },
+      "config.default_provider": { label: "Provider", type: "dropdown", required: true, dynamic: "providers", helpText: "Provider for the Model (e.g., OpenAI, Google)." },
+      "config.backup_provider": { label: "Provider", type: "dropdown", required: true, dynamic: "providers", helpText: "Provider for the Fallback Model." },
+      "config.allowed_models": { label: "Allowed Models", type: "multiselect", dynamic: "models", helpText: "Restrict which models can be selected at runtime (Optionally leave empty to allow all)." },
+      "config.system_prompt": { label: "System Prompt", type: "textarea", required: true, helpText: "High-level instruction injected before user input." },
+      "limits.daily": { label: "Daily Limit", type: "number", min: 0, required: true, helpText: "Maximum requests/cost per day for this service." },
+      "limits.monthly": { label: "Monthly Limit", type: "number", min: 0, required: true, helpText: "Maximum requests/cost per month for this service." },
+      "alerts.daily": { label: "Daily Alert %", type: "number", min: 0, max: 100, step: 1, helpText: "Alert when daily usage crosses this percentage of the limit." },
+      "alerts.monthly": { label: "Monthly Alert %", type: "number", min: 0, max: 100, step: 1, helpText: "Alert when monthly usage crosses this percentage of the limit." },
+      enabled: { label: "Enabled", type: "switch", helpText: "Toggle this service on or off." },
+    },
+  },
+
   // === CHATBOT ===
   chatbot: {
     service: "chatbot",

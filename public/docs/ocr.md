@@ -48,6 +48,8 @@ Extracts text content from uploaded image files using OCR technology. Supports c
 | `file_type` | string | Yes | Must be `"image"` |
 | `model` | string | No | Model to use (default: from project config) |
 | `provider` | string | No | Provider to use (default: from project config) |
+| `type` | string | No | Output format: `"text"` or `"json"`. Not applicable for `pytesseract` provider |
+| `system_prompt` | string | No | Custom instruction to guide the OCR extraction. Only used when `type` is `"text"` |
 
 #### Example cURL
 ```bash
@@ -56,7 +58,9 @@ curl -X POST "https://aigateway.shiprocket.in/api/v1/ocr" \
   -F "file=@/path/to/image.jpg" \
   -F "file_type=image" \
   -F "model=gpt-4o-mini" \
-  -F "provider=openai"
+  -F "provider=openai" \
+  -F "type=text" \
+  -F "system_prompt=Extract only the invoice number and total amount"
 ```
 
 #### Example Response
@@ -100,6 +104,8 @@ Extracts text content from uploaded PDF documents. **Note: PDF files are limited
 | `file_type` | string | Yes | Must be `"pdf"` |
 | `model` | string | No | Model to use (default: from project config) |
 | `provider` | string | No | Provider to use (default: from project config) |
+| `type` | string | No | Output format: `"text"` or `"json"`. Not applicable for `pytesseract` provider |
+| `system_prompt` | string | No | Custom instruction to guide the OCR extraction. Only used when `type` is `"text"` |
 
 #### Example cURL
 ```bash
@@ -108,7 +114,8 @@ curl -X POST "https://aigateway.shiprocket.in/api/v1/ocr" \
   -F "file=@/path/to/document.pdf" \
   -F "file_type=pdf" \
   -F "model=gpt-4o" \
-  -F "provider=openai"
+  -F "provider=openai" \
+  -F "type=json"
 ```
 
 #### Example Response
@@ -122,10 +129,7 @@ curl -X POST "https://aigateway.shiprocket.in/api/v1/ocr" \
         "page_1": "```\nCompany, Inc.\n\nSample PDF\n\nPrepared By\nChadwick Hilarity\n\n+123-456-7890                   https://sample-files.com\n```"
       },
       {
-        "page_2": "Sample PDF Content\n\nIntroduction\n\nLorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam. Sed nisi. Nulla quis sem at nibh elementum imperdiet.\n\nObjectives\n\nThe main objectives of this document are:\n\n• To provide a detailed overview of the project.\n• To illustrate the key findings through charts and tables.\n• To highlight the next steps and action items.\n\nKey Findings\n\n1. Market Analysis: Lorem ipsum dolor sit amet, consectetur adipiscing elit.\n2. User Insights: Integer nec odio. Praesent libero. Sed cursus ante dapibus diam.\n3. Technical Feasibility: Sed nisi. Nulla quis sem at nibh elementum imperdiet. Duis sagittis ipsum.\n\nMethodology\n\nLorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam."
-      },
-      {
-        "page_3": "Data Collection\n\n- **Surveys:** Lorem ipsum dolor sit amet, consectetur adipiscing elit.\n- **Interviews:** Integer nec odio. Praesent libero. Sed cursus ante dapibus diam.\n- **Observations:** Sed nisi. Nulla quis sem at nibh elementum imperdiet.\n\nData Analysis\n\n- **Quantitative Analysis:** Lorem ipsum dolor sit amet, consectetur adipiscing elit.\n- **Qualitative Analysis:** Integer nec odio. Praesent libero. Sed cursus ante dapibus diam.\n\nResults\n\nThe following table summarizes the key data points:\n\n| Metric             | Value      |\n|--------------------|------------|\n| Market Size        | $50 Billion|\n| User Satisfaction  | 85%        |\n| Growth Rate        | 10%        |\n\n_(Table 1: Summary of Key Data Points)_"
+        "page_2": "Sample PDF Content\n\nIntroduction\n\nLorem ipsum dolor sit amet, consectetur adipiscing elit..."
       }
     ],
     "tokens": {
@@ -140,59 +144,6 @@ curl -X POST "https://aigateway.shiprocket.in/api/v1/ocr" \
 
 ---
 
-### 3. POST Extract Text - Using Default Configuration
-
-**Endpoint:**
-```
-POST https://aigateway.shiprocket.in/api/v1/ocr
-```
-
-**Description:**
-Extracts text using default model and provider from project configuration. Simplest usage pattern.
-
-#### Request (Form Data)
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `file` | file | Yes | Image or PDF file to process |
-| `file_type` | string | Yes | Either `"image"` or `"pdf"` |
-
-#### Example cURL
-```bash
-curl -X POST "https://aigateway.shiprocket.in/api/v1/ocr" \
-  -H "x-api-key: {{project_api_key}}" \
-  -F "file=@/path/to/document.pdf" \
-  -F "file_type=pdf"
-```
-
-#### Example Response (PDF)
-```json
-{
-  "success": true,
-  "status_code": 200,
-  "data": {
-    "output": [
-      {
-        "page_1": "Text content from page 1..."
-      },
-      {
-        "page_2": "Text content from page 2..."
-      }
-    ],
-    "tokens": {
-      "input": 300,
-      "output": 150,
-      "total": 450
-    },
-    "model_used": "gpt-4o-mini"
-  }
-}
-```
-
-**Note:** For image files, `output` will be an array with a single object containing `page_1` key.
-
----
-
 ### Request Parameters
 
 | Parameter | Type | Required | Description |
@@ -201,6 +152,8 @@ curl -X POST "https://aigateway.shiprocket.in/api/v1/ocr" \
 | `file_type` | string | Yes | Type of file: `"image"` or `"pdf"` |
 | `model` | string | No | Model to use (default: from project config) |
 | `provider` | string | No | Provider to use (default: from project config) |
+| `type` | string | No | Output format: `"text"` or `"json"`. Not applicable for `pytesseract` provider |
+| `system_prompt` | string | No | Custom system instruction to guide the extraction. Only used when `type` is `"text"` |
 
 ---
 
@@ -275,19 +228,17 @@ curl -X POST "https://aigateway.shiprocket.in/api/v1/ocr" \
 ---
 
 #### Notes
-- The OCR service may have rate limits based on your API key.
+- **Model & Provider Priority**: Payload → Database Config → Default
 - **PDF files are limited to 10 pages maximum** for processing.
-- Model and provider are optional - defaults from project configuration will be used if not specified.
-- File size limits may apply based on your project configuration.
-- The extracted text quality depends on the image/PDF quality and the model used.
+- Model and provider are optional — defaults from project configuration will be used if not specified.
+- The `type` field (`"text"` or `"json"`) controls the output format. It is **not supported** when using the `pytesseract` provider.
+- The `system_prompt` field allows you to pass custom instructions (e.g. "extract only dates and amounts") and is only applied when `type` is `"text"`.
 - **Output Format:**
-  - **Image files**: `output` is an **array with a single object** containing `page_1` key with the extracted text
-  - **PDF files**: `output` is an **array of objects**, where each object contains a page key (e.g., `page_1`, `page_2`, `page_3`) with the extracted text as the value
-  - Both image and PDF responses use the same array format, with images having only one page object
+  - **Image files**: `output` is an array with a single object containing a `page_1` key
+  - **PDF files**: `output` is an array of objects, one per page (`page_1`, `page_2`, etc.)
 
 ---
 
 **Author:** API Platform Team  
-**Version:** 1.0.0  
-**Last Updated:** 2025-01-13
-
+**Version:** 2.0.0  
+**Last Updated:** 2026-04-02

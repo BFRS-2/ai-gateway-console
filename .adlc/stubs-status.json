@@ -1,0 +1,10 @@
+{
+  "generated_at": "2026-05-07T11:28:19Z",
+  "stack": "react",
+  "repo": "ai-gateway",
+  "extraction_summary": {
+    "total_stubs": 12,
+    "claude_extracted": 6,
+    "team_required": 6
+  }
+}

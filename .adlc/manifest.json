@@ -1,0 +1,5 @@
+{
+  "adlc_manifest_version": "1",
+  "stack": "react",
+  "components": ["claude-md","knowledge-base","hooks","github-actions"]
+}
