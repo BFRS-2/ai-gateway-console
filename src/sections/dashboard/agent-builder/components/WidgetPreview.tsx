@@ -28,10 +28,17 @@ export default function WidgetPreview({
   const widgetApiKey = apiKey || "YOUR_API_KEY";
   const widgetUserId = userId || "USER_ID";
   const configPayload = JSON.stringify(config);
-  const safeConfigJson = JSON.stringify(config, null, 2).replace(
-    /<\/script>/g,
-    "<\\/script>"
-  );
+  // Escape every "<" so no config string can open or close a tag inside the
+  // inline <script> (a case-insensitive </script> or "</script " would
+  // otherwise break out of the script context).
+  const safeConfigJson = JSON.stringify(config, null, 2).replace(/</g, "\\u003c");
+  // HTML-attribute encoding for values interpolated into element attributes.
+  const escapeAttr = (value: string) =>
+    String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
 
   useEffect(() => {
     const frame = iframeRef.current;
@@ -120,7 +127,7 @@ export default function WidgetPreview({
     `</section>`,
     `</div>`,
     `</div>`,
-    `<shiprocket-agent-widget agent-id="${widgetAgentId}" user-id="${widgetUserId}" x-auth-token="YOUR_AUTH_TOKEN"></shiprocket-agent-widget>`,
+    `<shiprocket-agent-widget agent-id="${escapeAttr(widgetAgentId)}" user-id="${escapeAttr(widgetUserId)}" x-auth-token="YOUR_AUTH_TOKEN"></shiprocket-agent-widget>`,
     "</div>",
     "</body>",
     "</html>",

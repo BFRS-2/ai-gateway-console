@@ -78,11 +78,11 @@ export default function SetPasswordView() {
         (res as any)?.message ||
           "Password set successfully. You can now sign in."
       );
-      // Give the user a moment to read, then go to login with email prefilled
+      // Give the user a moment to read, then go to login.
+      // Email is intentionally NOT placed in the URL (avoids leaking it into
+      // browser history / referrer); the login view does not consume it.
       setTimeout(() => {
-        router.push(
-          `/login?email=${encodeURIComponent(normalizedEmail)}&set=ok`
-        );
+        router.push("/login");
       }, 800);
     } catch (e: any) {
       console.error(e);

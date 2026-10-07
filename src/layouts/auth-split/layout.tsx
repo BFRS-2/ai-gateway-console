@@ -75,13 +75,21 @@ export default function AuthSplitLayout({ children, image, title }: Props) {
     setIsMounted(true);
     try{
       const loadVanta = () => {
+        // Pinned versions + Subresource Integrity so a compromised/mutated CDN
+        // asset cannot execute arbitrary script on this credential-entry page.
         const threeScript = document.createElement("script");
         threeScript.src =
           "https://cdnjs.cloudflare.com/ajax/libs/three.js/r121/three.min.js";
+        threeScript.integrity =
+          "sha384-DXar47anhP2p0NKLdo4cUCrnUtBBp/r91y336ez5hAeL8XPMqKND66/jv8ocrYAL";
+        threeScript.crossOrigin = "anonymous";
         threeScript.onload = () => {
           const vantaScript = document.createElement("script");
           vantaScript.src =
-            "https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.globe.min.js";
+            "https://cdn.jsdelivr.net/npm/vanta@0.5.24/dist/vanta.globe.min.js";
+          vantaScript.integrity =
+            "sha384-HiLexGd74hcQ6g/RxA2NsDBwbmX+PmKsMBVLRsUWFwFJth+ybhAQ6N90hz80HeSD";
+          vantaScript.crossOrigin = "anonymous";
           vantaScript.onload = () => {
             if (myRef.current) {
               window.VANTA.GLOBE({
@@ -222,8 +230,16 @@ export default function AuthSplitLayout({ children, image, title }: Props) {
   );
   return (
     <>
-      <Script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js" />
-      <Script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.clouds.min.js" />
+      <Script
+        src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"
+        integrity="sha384-9EQoUIJYrv09/oYhSxnw1VpLcfPw3BM9dE7+D/3wGUPeLLa7F9Z6OAoD+i/M6FK9"
+        crossOrigin="anonymous"
+      />
+      <Script
+        src="https://cdn.jsdelivr.net/npm/vanta@0.5.24/dist/vanta.clouds.min.js"
+        integrity="sha384-1taX5yEk+ymUOq1idyE+buIpKOZz94Xz/nz4iRxF0OCv/ppmRhun994ocCLRtaUR"
+        crossOrigin="anonymous"
+      />
       <Stack
         component="main"
         direction="row"
