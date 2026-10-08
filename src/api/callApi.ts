@@ -16,7 +16,6 @@ function buildHeaders(body: any) {
     headers.set("Content-Type", "application/json");
   }
 
-  headers.set("ngrok-skip-browser-warning", "43534");
   // Auth header — add only if we actually have a token.
   // Backend PR #54: requests authenticate via the login Bearer token only.
   // The former static x-api-key was a shared project key and has been removed;
