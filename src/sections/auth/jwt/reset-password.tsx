@@ -61,6 +61,7 @@ export default function ResetPasswordView() {
         password: data.password,
       });
 
+      const status = (res as any)?.error?.status;
       const apiErrorMessage =
         (res as any)?.error?.payload?.data?.message ||
         (res as any)?.error?.payload?.message ||
@@ -69,7 +70,14 @@ export default function ResetPasswordView() {
         (res as any)?.message;
 
       if (!res || (res as any)?.success === false || (res as any)?.error) {
-        setErrorMsg(apiErrorMessage || "Failed to reset password. Please try again.");
+        // Backend PR #54: a reused (already-consumed) reset link returns 400.
+        const statusMessage =
+          status === 400
+            ? "This reset link has already been used. Please request a new password reset link."
+            : "";
+        setErrorMsg(
+          statusMessage || apiErrorMessage || "Failed to reset password. Please try again."
+        );
         return;
       }
 

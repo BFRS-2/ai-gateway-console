@@ -24,7 +24,10 @@ export interface UserInfo {
 export type SetPasswordBody = {
   email: string;
   password: string;
-  // If you later add invite tokens: invite_token?: string;
+  // Backend PR #54: signed invite token from the invitation email link
+  // (48h validity, single-use). Mandatory — the server rejects activation
+  // without it.
+  token: string;
 };
 
 export type ForgotPasswordBody = {

@@ -526,7 +526,14 @@ export function AgentBuilderPage() {
           },
         },
       }));
-      enqueueSnackbar(ok ? "MCP connection looks good" : "MCP check failed", {
+      // Backend PR #54: 400 means the MCP host is an internal address or does
+      // not resolve. Surface the server's reason instead of a generic failure.
+      const failMessage =
+        (res as any)?.error?.status === 400
+          ? (res as any)?.error?.payload?.message ||
+            "This MCP URL points to an internal or unresolvable host. Use a public, resolvable address."
+          : "MCP check failed";
+      enqueueSnackbar(ok ? "MCP connection looks good" : failMessage, {
         variant: ok ? "success" : "error",
       });
       return !!ok;

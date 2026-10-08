@@ -117,11 +117,11 @@ export type VideoGenerationStatusResponse = ApiResponse<{
 const playgroundService = {
   // /api/v1/summarization
   summarize: (body: SummarizationBody) =>
-    callPostApi("/api/v1/summarization", body) as Promise<SummarizationResponse>,
+    callPostApi("/api/v1/playground/summarization", body) as Promise<SummarizationResponse>,
 
   // /api/v1/embedding
   embed: (body: EmbeddingBody) =>
-    callPostApi("/api/v1/embedding", body) as Promise<EmbeddingResponse>,
+    callPostApi("/api/v1/playground/embedding", body) as Promise<EmbeddingResponse>,
 
   // /api/v1/ocr  (multipart)
   ocr: (body: OcrBody) => {
@@ -133,20 +133,20 @@ const playgroundService = {
     if (body.type) formData.append("type", body.type);
     if (body.system_prompt) formData.append("system_prompt", body.system_prompt);
 
-    return callPostApi("/api/v1/ocr", formData) as Promise<OcrResponse>;
+    return callPostApi("/api/v1/playground/ocr", formData) as Promise<OcrResponse>;
   },
 
   // /api/v1/chat/completion
   chatCompletion: (body: ChatCompletionBody) =>
     callPostApi(
-      "/api/v1/chat/completion",
+      "/api/v1/playground/chat/completion",
       body
     ) as Promise<ChatCompletionResponse>,
 
   // /api/v1/chat  (chatbot / RAG)
   chatbot: (body: ChatbotBody) =>
     // If you need X-User-Id header, extend `callPostApi` to accept options
-    callPostApi("/api/v1/chat", {
+    callPostApi("/api/v1/playground/chat", {
       query: body.query,
       model: body.model,
       provider: body.provider,
@@ -164,12 +164,12 @@ const playgroundService = {
     if (body.duration_seconds != null) formData.append("duration_seconds", String(body.duration_seconds));
     if (body.negative_prompt) formData.append("negative_prompt", body.negative_prompt);
     if (body.image) formData.append("image", body.image);
-    return callPostApi("/api/v1/video-generation/", formData) as Promise<VideoGenerationResponse>;
+    return callPostApi("/api/v1/playground/video-generation/", formData) as Promise<VideoGenerationResponse>;
   },
 
   // /api/v1/video-generation/status/:job_id
   videoGenerationStatus: (jobId: string) =>
-    callGetApi(`/api/v1/video-generation/status/${jobId}`) as Promise<VideoGenerationStatusResponse>,
+    callGetApi(`/api/v1/playground/video-generation/status/${jobId}`) as Promise<VideoGenerationStatusResponse>,
 };
 
 export default playgroundService;
