@@ -134,6 +134,7 @@ export function ProjectSettingsTab({
 
   // Revoke dialog
   const [revokeOpen, setRevokeOpen] = useState(false);
+  const [revoking, setRevoking] = useState(false);
   const [pendingRevokeKey, setPendingRevokeKey] = useState<{
     name: string;
     key: string;
@@ -511,6 +512,7 @@ export function ProjectSettingsTab({
 
   // ---------- Create key: submit with name ----------
   const submitCreateKey = async () => {
+    if (creatingKey) return; // guard against double submit (button + Enter key)
     if (!projectId) return;
     const trimmed = newKeyName.trim();
     if (!trimmed) {
@@ -551,8 +553,6 @@ export function ProjectSettingsTab({
           name: trimmed,
         }
       )) as CreateKeyResponse;
-
-      console.log("create key response:", res);
 
       if (res?.success) {
         const plain = res?.data?.api_key?.key ?? "";
@@ -595,7 +595,8 @@ export function ProjectSettingsTab({
   };
 
   const handleRevoke = async () => {
-    if (!pendingRevokeKey) return;
+    if (!pendingRevokeKey || revoking) return; // guard against repeated clicks
+    setRevoking(true);
     try {
       const res = await (projectService as any).deleteApiKey?.(
         projectId,
@@ -621,6 +622,7 @@ export function ProjectSettingsTab({
     } catch (err) {
       enqueueSnackbar("Failed to revoke API key", { variant: "error" });
     } finally {
+      setRevoking(false);
       setRevokeOpen(false);
       setPendingRevokeKey(null);
     }
@@ -1076,9 +1078,16 @@ export function ProjectSettingsTab({
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setRevokeOpen(false)}>Cancel</Button>
-          <Button color="error" variant="contained" onClick={handleRevoke}>
-            Revoke
+          <Button onClick={() => setRevokeOpen(false)} disabled={revoking}>
+            Cancel
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={handleRevoke}
+            disabled={revoking}
+          >
+            {revoking ? "Revoking…" : "Revoke"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1136,7 +1145,10 @@ export function ProjectSettingsTab({
       {/* One-time key reveal modal */}
       <Dialog
         open={showKeyModal}
-        onClose={() => setShowKeyModal(false)}
+        onClose={() => {
+          setShowKeyModal(false);
+          setPlainNewKey("");
+        }}
         fullWidth
         maxWidth="sm"
       >
@@ -1173,7 +1185,13 @@ export function ProjectSettingsTab({
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowKeyModal(false)} variant="contained">
+          <Button
+            onClick={() => {
+              setShowKeyModal(false);
+              setPlainNewKey("");
+            }}
+            variant="contained"
+          >
             I saved it
           </Button>
         </DialogActions>
