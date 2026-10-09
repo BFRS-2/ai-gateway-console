@@ -16,15 +16,13 @@ function buildHeaders(body: any) {
     headers.set("Content-Type", "application/json");
   }
 
-  headers.set("ngrok-skip-browser-warning", "43534");
-  // Auth header — add only if we actually have a token
+  // Auth header — add only if we actually have a token.
+  // Backend PR #54: requests authenticate via the login Bearer token only.
+  // The former static x-api-key was a shared project key and has been removed;
+  // the server now supplies the playground project key server-side.
   const token = localStorage.getItem(STORAGE_KEY);
-  
-  if (token) headers.set("authorization", `Bearer ${token}`);
-  headers.set("x-api-key", "6915c6a4fd440ec639b1f1c3");
 
-  // Misc headers
-  // headers.set("ngrok-skip-browser-warning", "69420");
+  if (token) headers.set("authorization", `Bearer ${token}`);
 
   return headers;
 }

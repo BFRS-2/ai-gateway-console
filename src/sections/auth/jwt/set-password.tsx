@@ -30,8 +30,8 @@ export default function SetPasswordView() {
   const params = useSearchParams();
 
   const prefillEmail = params.get("email")?.trim().toLowerCase() || "";
-  // If you later add invite tokens:
-  // const inviteToken = params.get("token") || "";
+  // Backend PR #54: activation requires the signed token from the invite link.
+  const inviteToken = params.get("token")?.trim() || "";
 
   const methods = useForm<SetPasswordForm>({
     resolver: zodResolver(SetPasswordSchema),
@@ -54,22 +54,40 @@ export default function SetPasswordView() {
 
   const onSubmit = handleSubmit(async (data) => {
     setErrorMsg("");
+
+    if (!inviteToken) {
+      setErrorMsg(
+        "This activation link is missing its token. Please open the latest invite link from your email."
+      );
+      return;
+    }
+
     try {
       const normalizedEmail = data.email.trim().toLowerCase();
       const res = await authService.setPassword({
         email: normalizedEmail,
         password: data.password,
-        // invite_token: inviteToken,
+        token: inviteToken,
       });
 
+      const status = (res as any)?.error?.status;
       const apiErrorMessage =
         (res as any)?.error?.payload?.message ||
         (res as any)?.error?.message ||
         (res as any)?.message;
 
       if (!res || (res as any)?.success !== true) {
+        // Backend PR #54 status mapping for invite-token failures.
+        const statusMessage =
+          status === 422
+            ? "This activation link is missing its token. Please open the latest invite link from your email."
+            : status === 400
+            ? "This invitation link is invalid or has expired. Please request a new invite."
+            : "";
         setErrorMsg(
-          apiErrorMessage || "Failed to set password. Please try again."
+          statusMessage ||
+            apiErrorMessage ||
+            "Failed to set password. Please try again."
         );
         return;
       }
@@ -104,6 +122,13 @@ export default function SetPasswordView() {
           This activates your account from the invite.
         </Typography>
       </Stack>
+
+      {!inviteToken && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          This activation link is missing its token. Please open the latest
+          invite link from your email.
+        </Alert>
+      )}
 
       {!!errorMsg && (
         <Alert severity="error" sx={{ mb: 3 }}>
@@ -141,6 +166,7 @@ export default function SetPasswordView() {
             variant="contained"
             loading={isSubmitting}
             loadingIndicator="Setting..."
+            disabled={!inviteToken}
           >
             Set password
           </LoadingButton>

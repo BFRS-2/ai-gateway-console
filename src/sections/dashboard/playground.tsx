@@ -54,6 +54,26 @@ type PlaygroundServiceKey =
 
 // ---------------------- Helper Section -------------------
 
+/**
+ * Map a playground API result to a user-facing error message.
+ * `callApi` resolves (does not throw) an API_Error on non-2xx, so a result
+ * can carry `.error.status`. Returns null when the result is a success.
+ * (401 never reaches here — callApi clears the session and redirects to login.)
+ * Backend PR #54: 503 means the playground project is not configured.
+ */
+function playgroundErrorMessage(res: any): string | null {
+  const status = res?.error?.status;
+  if (status == null) return null;
+  if (status === 503) {
+    return "The playground is not configured yet. Please contact your administrator.";
+  }
+  return (
+    res?.error?.payload?.message ||
+    res?.error?.message ||
+    "The request could not be completed. Please try again."
+  );
+}
+
 function Section({
   title,
   right,
@@ -449,6 +469,11 @@ function SummarizationPanel({
       });
 
       setRaw(res);
+      const sErr = playgroundErrorMessage(res);
+      if (sErr) {
+        setError(sErr);
+        return;
+      }
       const summary = res?.data?.summary || JSON.stringify(res, null, 2);
       setOut(summary);
     } catch (err) {
@@ -649,6 +674,11 @@ function ChatCompletionPanel({
       });
 
       setRaw(res);
+      const cErr = playgroundErrorMessage(res);
+      if (cErr) {
+        setError(cErr);
+        return;
+      }
       const text = res?.data?.answer || JSON.stringify(res, null, 2);
       setAnswer(text);
     } catch (err) {
@@ -822,6 +852,11 @@ function ChatbotPanel({
         userId,
       });
 
+      const chatErr = playgroundErrorMessage(res);
+      if (chatErr) {
+        setError(chatErr);
+        return;
+      }
       const replyText = res?.data?.answer || JSON.stringify(res, null, 2);
 
       setMessages((prev) => [
@@ -986,6 +1021,12 @@ function EmbeddingPanel({
 
       setRaw(res);
 
+      const eErr = playgroundErrorMessage(res);
+      if (eErr) {
+        setError(eErr);
+        return;
+      }
+
       const vector =
         res?.data?.vector ||
         res?.data?.embedding ||
@@ -1144,6 +1185,13 @@ function VideoGenerationPanel({
     pollRef.current = setInterval(async () => {
       try {
         const res = await playgroundService.videoGenerationStatus(jobId);
+        const statusErr = playgroundErrorMessage(res);
+        if (statusErr) {
+          stopPolling();
+          setLoading(false);
+          setError(statusErr);
+          return;
+        }
         const status = res?.data?.status ?? res?.data?.state ?? "";
         setStatusMsg(status);
         setRaw(res);
@@ -1183,6 +1231,11 @@ function VideoGenerationPanel({
         ...(imageFile ? { image: imageFile } : {}),
       });
       setRaw(res);
+      const vErr = playgroundErrorMessage(res);
+      if (vErr) {
+        setError(vErr);
+        return;
+      }
       const jobId = res?.data?.job_id;
       if (jobId) {
         setStatusMsg("queued");
@@ -1451,6 +1504,11 @@ function OcrPanel({ provider, model }: { provider: string; model: string }) {
       });
 
       setRaw(res);
+      const oErr = playgroundErrorMessage(res);
+      if (oErr) {
+        setError(oErr);
+        return;
+      }
       const extracted =
         res?.data?.text ||
         res?.data?.content ||
