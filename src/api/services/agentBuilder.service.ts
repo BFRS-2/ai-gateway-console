@@ -1,4 +1,4 @@
-import { callGetApi, callPostApi } from "../callApi";
+import { callDeleteApi, callGetApi, callPostApi } from "../callApi";
 
 export interface ProjectServiceSetupBody {
   service_id: string;
@@ -42,6 +42,13 @@ export interface AgentSetupPayload {
   max_steps: number;
 }
 
+/** A key as /agent/config returns it: the value is masked, never the full key. */
+export interface AgentKey {
+  name: string;
+  key?: string;
+  created_at?: string;
+}
+
 export interface WidgetConfigPayload {
   project_id: string;
   config: Record<string, unknown>;
@@ -59,6 +66,18 @@ const agentBuilderService = {
 
   setupAgent: (payload: AgentSetupPayload) =>
     callPostApi("/api/v1/agent/setup", payload),
+
+  // Returns the full key once; it is never retrievable again.
+  generateAgentKey: (agentId: string, name: string) =>
+    callPostApi(
+      `/api/v1/agent/config/${encodeURIComponent(agentId)}/key/generate`,
+      { name }
+    ),
+
+  deleteAgentKey: (agentId: string, name: string) =>
+    callDeleteApi(
+      `/api/v1/agent/config/${encodeURIComponent(agentId)}/key/${encodeURIComponent(name)}`
+    ),
 
   submitWidgetConfig: (payload: WidgetConfigPayload) =>
     callPostApi("/api/v1/agent/preview", payload),

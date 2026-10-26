@@ -1,12 +1,14 @@
-import { Dispatch, SetStateAction, useEffect, useMemo } from "react";
+import { Dispatch, SetStateAction, useEffect, useMemo, useState } from "react";
 import {
   Accordion,
   AccordionDetails,
   AccordionSummary,
+  Alert,
   Box,
   Button,
   Card,
   Divider,
+  IconButton,
   FormControl,
   FormControlLabel,
   Grid,
@@ -17,10 +19,14 @@ import {
   Stack,
   Switch,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import AddIcon from "@mui/icons-material/Add";
+import type { AgentKey } from "src/api/services/agentBuilder.service";
 import { useSnackbar } from "notistack";
 import { WidgetConfig } from "../types";
 import {
@@ -32,14 +38,29 @@ type PreviewStepProps = {
   config: WidgetConfig;
   onChange: Dispatch<SetStateAction<WidgetConfig>>;
   agentId: string;
+  /** Full key, known only right after generation. */
+  agentKey?: string;
+  agentKeys?: AgentKey[];
+  agentKeyBusy?: boolean;
+  onGenerateAgentKey?: (name: string) => void;
+  onDeleteAgentKey?: (name: string) => void;
 };
 
 export default function PreviewStep({
   config,
   onChange,
   agentId,
+  agentKey = "",
+  agentKeys = [],
+  agentKeyBusy = false,
+  onGenerateAgentKey,
+  onDeleteAgentKey,
 }: PreviewStepProps) {
   const { enqueueSnackbar } = useSnackbar();
+  const [newKeyName, setNewKeyName] = useState("default");
+  // The gateway allows at most five keys per agent.
+  const AGENT_KEY_MAX = 5;
+  const atKeyLimit = agentKeys.length >= AGENT_KEY_MAX;
   const widgetAgentId = agentId;
   const widgetConfig = useMemo(() => {
     const nextConfig = config as any;
@@ -52,7 +73,7 @@ export default function PreviewStep({
     };
   }, [config]);
   const widgetLayouts = widgetConfig?.widget?.layouts || {};
-  const integrationSnippet = buildIntegrationSnippet(widgetAgentId);
+  const integrationSnippet = buildIntegrationSnippet(widgetAgentId, agentKey);
 
   const handleCopySnippet = async (snippet: string, label: string) => {
     try {
@@ -2962,6 +2983,127 @@ export default function PreviewStep({
             </Accordion>
           </Stack>
         </Card>
+
+        {Boolean(agentId) && (
+          <Card sx={{ p: 2.5, borderRadius: 2, mt: 2 }}>
+            <Stack spacing={1.5}>
+              <Typography variant="subtitle1">Agent keys</Typography>
+              <Typography variant="caption" color="text.secondary">
+                The widget sends this key on chat and history calls. It is
+                stored masked and can only be replaced, never read back.
+              </Typography>
+
+              <Stack direction="row" spacing={1} alignItems="center">
+                <TextField
+                  label="Key name"
+                  value={newKeyName}
+                  onChange={(event) => setNewKeyName(event.target.value)}
+                  size="small"
+                  fullWidth
+                  disabled={agentKeyBusy}
+                />
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<AddIcon />}
+                  disabled={agentKeyBusy || !newKeyName.trim() || atKeyLimit}
+                  onClick={() => onGenerateAgentKey?.(newKeyName.trim())}
+                  sx={{ flexShrink: 0 }}
+                >
+                  Generate
+                </Button>
+              </Stack>
+              {atKeyLimit && (
+                <Typography variant="caption" color="warning.main">
+                  Limit of {AGENT_KEY_MAX} keys reached. Delete one before
+                  generating another.
+                </Typography>
+              )}
+
+              {agentKey && (
+                <Stack spacing={1}>
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    justifyContent="space-between"
+                    alignItems="center"
+                  >
+                    <Typography variant="subtitle2">New key</Typography>
+                    <Button
+                      size="small"
+                      startIcon={<ContentCopyIcon />}
+                      onClick={() => handleCopySnippet(agentKey, "Agent key")}
+                    >
+                      Copy key
+                    </Button>
+                  </Stack>
+                  <TextField
+                    value={agentKey}
+                    fullWidth
+                    InputProps={{
+                      readOnly: true,
+                      sx: { fontFamily: "monospace" },
+                    }}
+                  />
+                  <Alert severity="warning" sx={{ py: 0.5 }}>
+                    Copy this key now. It is shown only once and cannot be
+                    retrieved again.
+                  </Alert>
+                </Stack>
+              )}
+
+              {agentKeys.length > 0 ? (
+                <Stack divider={<Divider flexItem />}>
+                  {agentKeys.map((item) => (
+                    <Stack
+                      key={item.name}
+                      direction="row"
+                      spacing={1}
+                      alignItems="center"
+                      justifyContent="space-between"
+                      sx={{ py: 1 }}
+                    >
+                      <Stack spacing={0.25} sx={{ minWidth: 0 }}>
+                        <Typography variant="subtitle2" noWrap>
+                          {item.name}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ fontFamily: "monospace" }}
+                          noWrap
+                        >
+                          {item.key || "••••••••"}
+                          {item.created_at
+                            ? ` · created ${new Date(
+                                item.created_at
+                              ).toLocaleDateString()}`
+                            : ""}
+                        </Typography>
+                      </Stack>
+                      <Tooltip title="Delete key">
+                        <span>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            disabled={agentKeyBusy}
+                            onClick={() => onDeleteAgentKey?.(item.name)}
+                          >
+                            <DeleteOutlineIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </Stack>
+                  ))}
+                </Stack>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  No keys yet. Generate one and add it to the embed snippet.
+                </Typography>
+              )}
+            </Stack>
+          </Card>
+        )}
 
         <Card sx={{ p: 2.5, borderRadius: 2, mt: 2 }}>
           <Stack spacing={1.5}>
