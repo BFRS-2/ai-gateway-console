@@ -100,8 +100,11 @@ export const reactDomUmdUrl =
   process.env.NEXT_PUBLIC_REACT_DOM_UMD_URL ||
   "https://unpkg.com/react-dom@18/umd/react-dom.production.min.js";
 
-export const buildIntegrationSnippet = (agentId: string) => {
-  const widgetSnippet = `<shiprocket-agent-widget agent-id="${agentId}" user-id="USER_ID" x-auth-token="YOUR_AUTH_TOKEN"></shiprocket-agent-widget>`;
+export const buildIntegrationSnippet = (agentId: string, agentKey?: string) => {
+  // The key is only known right after it is generated, so the snippet falls
+  // back to a placeholder the integrator replaces by hand.
+  const keyAttr = ` agent-key="${agentKey || "YOUR_AGENT_KEY"}"`;
+  const widgetSnippet = `<shiprocket-agent-widget agent-id="${agentId}"${keyAttr} user-id="USER_ID" x-auth-token="YOUR_AUTH_TOKEN"></shiprocket-agent-widget>`;
   return [
     shouldLoadReactUmd ? `<script src="${reactUmdUrl}"></script>` : "",
     shouldLoadReactUmd ? `<script src="${reactDomUmdUrl}"></script>` : "",

@@ -34,6 +34,7 @@ import { useSelector } from "react-redux";
 import { DashboardContent } from "src/layouts/dashboard";
 import kbService, { KBStatusData } from "src/api/services/kb.service";
 import agentBuilderService, {
+  AgentKey,
   AgentSetupPayload,
 } from "src/api/services/agentBuilder.service";
 import serviceManagementService from "src/api/services/serviceManagement.service";
@@ -102,6 +103,10 @@ export function AgentBuilderPage() {
   const [agentSaving, setAgentSaving] = useState(false);
   const [previewSubmitting, setPreviewSubmitting] = useState(false);
   const [deployModalOpen, setDeployModalOpen] = useState(false);
+  // Full key, shown once after generation. Memory only - never persisted.
+  const [revealedAgentKey, setRevealedAgentKey] = useState("");
+  const [agentKeys, setAgentKeys] = useState<AgentKey[]>([]);
+  const [agentKeyBusy, setAgentKeyBusy] = useState(false);
   const [showListView, setShowListView] = useState(true);
   const [agentList, setAgentList] = useState<AgentListItem[]>([]);
   const [agentConfigLoading, setAgentConfigLoading] = useState(false);
@@ -132,6 +137,8 @@ export function AgentBuilderPage() {
       setAgentId("");
       setKbStatus(null);
       setToolsSaved(false);
+      setAgentKeys([]);
+      setRevealedAgentKey("");
       return;
     }
 
@@ -158,6 +165,11 @@ export function AgentBuilderPage() {
       (payload as any)?.kb_status || (payload as any)?.kbStatus || null;
     const nextUiConfig =
       (payload as any)?.ui_config || (payload as any)?.uiConfig || null;
+    const nextAgentKeys = Array.isArray((payload as any)?.agent_keys)
+      ? ((payload as any).agent_keys as AgentKey[])
+      : [];
+    setAgentKeys(nextAgentKeys);
+    setRevealedAgentKey("");
 
     setConfig((prev) => ({
       ...prev,
@@ -790,6 +802,16 @@ export function AgentBuilderPage() {
       if (returnedAgentId) {
         setAgentId(returnedAgentId);
       }
+      // /agent/setup returns the full key exactly once, on create only.
+      const returnedAgentKey =
+        (res as any)?.data?.agent_key || (res as any)?.agent_key || "";
+      if (returnedAgentKey) {
+        setRevealedAgentKey(String(returnedAgentKey));
+      }
+      const returnedAgentKeys = (res as any)?.data?.agent_keys;
+      if (Array.isArray(returnedAgentKeys)) {
+        setAgentKeys(returnedAgentKeys as AgentKey[]);
+      }
       if (ok) {
         const nextAgentId = returnedAgentId || agentId;
         if (nextAgentId) {
@@ -908,8 +930,8 @@ export function AgentBuilderPage() {
   const isLoading = !projectsLoaded || agentConfigLoading;
   const deployedAgentId = agentId;
   const deploymentSnippet = useMemo(
-    () => buildIntegrationSnippet(deployedAgentId),
-    [deployedAgentId]
+    () => buildIntegrationSnippet(deployedAgentId, revealedAgentKey),
+    [deployedAgentId, revealedAgentKey]
   );
 
   const handleCopyDeploySnippet = async () => {
@@ -921,7 +943,73 @@ export function AgentBuilderPage() {
     }
   };
 
+  const handleCopyAgentKey = async () => {
+    try {
+      await navigator.clipboard.writeText(revealedAgentKey);
+      enqueueSnackbar("Agent key copied", { variant: "success" });
+    } catch (error) {
+      enqueueSnackbar("Unable to copy agent key", { variant: "error" });
+    }
+  };
+
+  const handleGenerateAgentKey = async (name: string) => {
+    if (!agentId) return;
+    setAgentKeyBusy(true);
+    try {
+      const res = await agentBuilderService.generateAgentKey(agentId, name);
+      const errorPayload = (res as any)?.error;
+      if (errorPayload) {
+        // The gateway returns 409 for a name that already exists and caps an
+        // agent at AGENT_KEY_MAX keys.
+        const status = errorPayload?.status;
+        enqueueSnackbar(
+          status === 409
+            ? `A key named "${name}" already exists`
+            : "Unable to generate agent key",
+          { variant: "error" }
+        );
+        return;
+      }
+      const fullKey =
+        (res as any)?.data?.agent_key ||
+        (res as any)?.data?.key ||
+        (res as any)?.agent_key ||
+        "";
+      if (fullKey) setRevealedAgentKey(String(fullKey));
+      const masked = (res as any)?.data?.key_masked || "";
+      setAgentKeys((prev) => [
+        ...prev.filter((item) => item.name !== name),
+        { name, key: masked, created_at: new Date().toISOString() },
+      ]);
+      enqueueSnackbar("Agent key generated", { variant: "success" });
+    } catch (error) {
+      enqueueSnackbar("Unable to generate agent key", { variant: "error" });
+    } finally {
+      setAgentKeyBusy(false);
+    }
+  };
+
+  const handleDeleteAgentKey = async (name: string) => {
+    if (!agentId) return;
+    setAgentKeyBusy(true);
+    try {
+      const res = await agentBuilderService.deleteAgentKey(agentId, name);
+      if ((res as any)?.error) {
+        enqueueSnackbar("Unable to delete agent key", { variant: "error" });
+        return;
+      }
+      setAgentKeys((prev) => prev.filter((item) => item.name !== name));
+      enqueueSnackbar("Agent key deleted", { variant: "success" });
+    } catch (error) {
+      enqueueSnackbar("Unable to delete agent key", { variant: "error" });
+    } finally {
+      setAgentKeyBusy(false);
+    }
+  };
+
   const handleCloseDeployModal = () => {
+    // The full key is shown once; do not keep it in memory after the dialog.
+    setRevealedAgentKey("");
     setDeployModalOpen(false);
     setActiveStep(0);
     setShowListView(true);
@@ -1142,6 +1230,11 @@ export function AgentBuilderPage() {
                       config={previewConfig}
                       onChange={setPreviewConfig}
                       agentId={agentId}
+                      agentKey={revealedAgentKey}
+                      agentKeys={agentKeys}
+                      agentKeyBusy={agentKeyBusy}
+                      onGenerateAgentKey={handleGenerateAgentKey}
+                      onDeleteAgentKey={handleDeleteAgentKey}
                     />
                   )}
                 </Box>
@@ -1213,6 +1306,37 @@ export function AgentBuilderPage() {
                 You can come back here again to edit the agent.
               </Typography>
             </Stack>
+            {revealedAgentKey && (
+              <Stack spacing={1}>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  alignItems="center"
+                  justifyContent="space-between"
+                >
+                  <Typography variant="subtitle2">Agent key</Typography>
+                  <Button
+                    size="small"
+                    startIcon={<ContentCopyIcon />}
+                    onClick={handleCopyAgentKey}
+                  >
+                    Copy key
+                  </Button>
+                </Stack>
+                <TextField
+                  value={revealedAgentKey}
+                  fullWidth
+                  InputProps={{
+                    readOnly: true,
+                    sx: { fontFamily: "monospace" },
+                  }}
+                />
+                <Alert severity="warning" sx={{ py: 0.5 }}>
+                  Copy this key now. It is shown only once and cannot be
+                  retrieved again.
+                </Alert>
+              </Stack>
+            )}
             <Stack
               direction="row"
               spacing={1}
