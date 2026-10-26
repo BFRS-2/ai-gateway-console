@@ -270,6 +270,16 @@ export function AgentBuilderPage() {
             loadedAgentConfigRef.current = projectId;
             return;
           }
+          if (errorStatus === 403) {
+            // Backend now authorises /agent/config against the logged-in
+            // user's project access: 403 means the token is valid but this
+            // user cannot see this project's agents.
+            enqueueSnackbar(
+              "You do not have access to this project's agents",
+              { variant: "error" }
+            );
+            return;
+          }
           enqueueSnackbar("Unable to load agent config", { variant: "error" });
           return;
         }

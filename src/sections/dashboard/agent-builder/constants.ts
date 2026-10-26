@@ -4,11 +4,11 @@ import { BuilderConfig } from "./types";
 export const defaultConfig: BuilderConfig = {
   service: {
     serviceId: "69313811f2214e98ad240396",
-    defaultModel: "gpt-4o",
+    defaultModel: "in.openai.gpt-5.6-luna",
     backupModel: "gpt-4o-mini",
-    defaultProvider: "openai",
+    defaultProvider: "bedrock",
     backupProvider: "openai",
-    allowedModels: ["gpt-4o", "gpt-4o-mini"],
+    allowedModels: ["in.openai.gpt-5.6-luna", "gpt-4o", "gpt-4o-mini"],
     temperature: 0.7,
     limits: {
       daily: 100,
