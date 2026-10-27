@@ -58,9 +58,11 @@ export default function PreviewStep({
 }: PreviewStepProps) {
   const { enqueueSnackbar } = useSnackbar();
   const [newKeyName, setNewKeyName] = useState("default");
-  // The gateway allows at most five keys per agent.
-  const AGENT_KEY_MAX = 5;
+  // The gateway allows at most two keys per agent and refuses to delete the
+  // last one. Both are server-enforced; these are conveniences, not the gate.
+  const AGENT_KEY_MAX = 2;
   const atKeyLimit = agentKeys.length >= AGENT_KEY_MAX;
+  const isLastKey = agentKeys.length <= 1;
   const widgetAgentId = agentId;
   const widgetConfig = useMemo(() => {
     const nextConfig = config as any;
@@ -3081,12 +3083,18 @@ export default function PreviewStep({
                             : ""}
                         </Typography>
                       </Stack>
-                      <Tooltip title="Delete key">
+                      <Tooltip
+                        title={
+                          isLastKey
+                            ? "An agent must keep at least one key"
+                            : "Delete key"
+                        }
+                      >
                         <span>
                           <IconButton
                             size="small"
                             color="error"
-                            disabled={agentKeyBusy}
+                            disabled={agentKeyBusy || isLastKey}
                             onClick={() => onDeleteAgentKey?.(item.name)}
                           >
                             <DeleteOutlineIcon fontSize="small" />

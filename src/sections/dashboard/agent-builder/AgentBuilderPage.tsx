@@ -962,10 +962,14 @@ export function AgentBuilderPage() {
         // The gateway returns 409 for a name that already exists and caps an
         // agent at AGENT_KEY_MAX keys.
         const status = errorPayload?.status;
+        // 409 duplicate name, 400 key cap. The gateway owns both limits, so
+        // its message is shown as-is rather than restated here.
+        const serverMessage =
+          errorPayload?.payload?.message || errorPayload?.payload?.detail || "";
         enqueueSnackbar(
           status === 409
             ? `A key named "${name}" already exists`
-            : "Unable to generate agent key",
+            : serverMessage || "Unable to generate agent key",
           { variant: "error" }
         );
         return;
@@ -994,8 +998,14 @@ export function AgentBuilderPage() {
     setAgentKeyBusy(true);
     try {
       const res = await agentBuilderService.deleteAgentKey(agentId, name);
-      if ((res as any)?.error) {
-        enqueueSnackbar("Unable to delete agent key", { variant: "error" });
+      const errorPayload = (res as any)?.error;
+      if (errorPayload) {
+        // 400 covers "An agent must keep at least one key".
+        const serverMessage =
+          errorPayload?.payload?.message || errorPayload?.payload?.detail || "";
+        enqueueSnackbar(serverMessage || "Unable to delete agent key", {
+          variant: "error",
+        });
         return;
       }
       setAgentKeys((prev) => prev.filter((item) => item.name !== name));

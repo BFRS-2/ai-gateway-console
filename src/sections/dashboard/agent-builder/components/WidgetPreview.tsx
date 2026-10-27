@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Box } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import { WidgetConfig } from "../types";
+import { STORAGE_KEY } from "src/auth/context/jwt";
 import {
   reactDomUmdUrl,
   reactUmdUrl,
@@ -46,8 +47,20 @@ export default function WidgetPreview({
       if (widgetElement) {
         widgetElement.setAttribute("config", configPayload);
         widgetElement.setAttribute("agent-id", widgetAgentId);
-        widgetElement.setAttribute("api-key", widgetApiKey);
         widgetElement.setAttribute("user-id", widgetUserId);
+        // Preview chat runs as the logged-in panel user against
+        // /agent/preview, because the plaintext agent key is shown only once
+        // and the panel cannot read it back. Set here at runtime only - the
+        // token must never reach the srcDoc HTML or the embed snippet.
+        const previewToken =
+          typeof window !== "undefined"
+            ? localStorage.getItem(STORAGE_KEY) || ""
+            : "";
+        if (previewToken) {
+          widgetElement.setAttribute("preview-token", previewToken);
+        } else {
+          widgetElement.removeAttribute("preview-token");
+        }
         if (authToken) {
           widgetElement.setAttribute("x-auth-token", authToken);
         } else {

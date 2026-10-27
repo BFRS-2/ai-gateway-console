@@ -49,11 +49,6 @@ export interface AgentKey {
   created_at?: string;
 }
 
-export interface WidgetConfigPayload {
-  project_id: string;
-  config: Record<string, unknown>;
-}
-
 const agentBuilderService = {
   addProjectService: (projectId: string, body: ProjectServiceSetupBody) =>
     callPostApi(`/api/v1/projects/${encodeURIComponent(projectId)}/services`, body),
@@ -78,9 +73,6 @@ const agentBuilderService = {
     callDeleteApi(
       `/api/v1/agent/config/${encodeURIComponent(agentId)}/key/${encodeURIComponent(name)}`
     ),
-
-  submitWidgetConfig: (payload: WidgetConfigPayload) =>
-    callPostApi("/api/v1/agent/preview", payload),
 };
 
 export default agentBuilderService;
