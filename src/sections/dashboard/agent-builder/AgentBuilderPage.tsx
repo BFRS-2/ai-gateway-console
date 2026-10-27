@@ -952,6 +952,34 @@ export function AgentBuilderPage() {
     }
   };
 
+  // The panel holds no authoritative key state: after a generate or a delete
+  // the list is re-read from /agent/config, so what is on screen is what the
+  // gateway actually has. Deliberately narrow - applyAgentConfig would also
+  // reset the widget config and discard unsaved edits in this step.
+  const refreshAgentKeys = useCallback(async () => {
+    if (!projectId || !agentId) return;
+    try {
+      const res = await agentBuilderService.getAgentConfig(projectId);
+      if ((res as any)?.error) {
+        enqueueSnackbar("Unable to refresh agent keys", { variant: "error" });
+        return;
+      }
+      const payload = (res as any)?.data ?? (res as any)?.config ?? res;
+      const items = Array.isArray(payload) ? payload : [payload];
+      const match = items.find(
+        (item: any) =>
+          String(item?.id || item?.agent_id || item?.agentId || "") === agentId
+      );
+      setAgentKeys(
+        Array.isArray((match as any)?.agent_keys)
+          ? ((match as any).agent_keys as AgentKey[])
+          : []
+      );
+    } catch (error) {
+      enqueueSnackbar("Unable to refresh agent keys", { variant: "error" });
+    }
+  }, [agentId, enqueueSnackbar, projectId]);
+
   const handleGenerateAgentKey = async (name: string) => {
     if (!agentId) return;
     setAgentKeyBusy(true);
@@ -980,11 +1008,6 @@ export function AgentBuilderPage() {
         (res as any)?.agent_key ||
         "";
       if (fullKey) setRevealedAgentKey(String(fullKey));
-      const masked = (res as any)?.data?.key_masked || "";
-      setAgentKeys((prev) => [
-        ...prev.filter((item) => item.name !== name),
-        { name, key: masked, created_at: new Date().toISOString() },
-      ]);
       enqueueSnackbar("Agent key generated", { variant: "success" });
     } catch (error) {
       enqueueSnackbar("Unable to generate agent key", { variant: "error" });
@@ -1008,7 +1031,7 @@ export function AgentBuilderPage() {
         });
         return;
       }
-      setAgentKeys((prev) => prev.filter((item) => item.name !== name));
+      await refreshAgentKeys();
       enqueueSnackbar("Agent key deleted", { variant: "success" });
     } catch (error) {
       enqueueSnackbar("Unable to delete agent key", { variant: "error" });
@@ -1245,6 +1268,7 @@ export function AgentBuilderPage() {
                       agentKeyBusy={agentKeyBusy}
                       onGenerateAgentKey={handleGenerateAgentKey}
                       onDeleteAgentKey={handleDeleteAgentKey}
+                      onRefreshAgentKeys={refreshAgentKeys}
                     />
                   )}
                 </Box>

@@ -7,6 +7,11 @@ import {
   Box,
   Button,
   Card,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   IconButton,
   FormControl,
@@ -22,7 +27,11 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import VpnKeyRoundedIcon from "@mui/icons-material/VpnKeyRounded";
+import CodeRoundedIcon from "@mui/icons-material/CodeRounded";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import AddIcon from "@mui/icons-material/Add";
@@ -42,8 +51,10 @@ type PreviewStepProps = {
   agentKey?: string;
   agentKeys?: AgentKey[];
   agentKeyBusy?: boolean;
-  onGenerateAgentKey?: (name: string) => void;
-  onDeleteAgentKey?: (name: string) => void;
+  onGenerateAgentKey?: (name: string) => void | Promise<void>;
+  onDeleteAgentKey?: (name: string) => void | Promise<void>;
+  /** Re-reads the key list from the API; the panel keeps no local copy. */
+  onRefreshAgentKeys?: () => void | Promise<void>;
 };
 
 export default function PreviewStep({
@@ -55,14 +66,22 @@ export default function PreviewStep({
   agentKeyBusy = false,
   onGenerateAgentKey,
   onDeleteAgentKey,
+  onRefreshAgentKeys,
 }: PreviewStepProps) {
   const { enqueueSnackbar } = useSnackbar();
   const [newKeyName, setNewKeyName] = useState("default");
+  const [keyDialogOpen, setKeyDialogOpen] = useState(false);
+  const [embedDialogOpen, setEmbedDialogOpen] = useState(false);
+  const [keyPendingDelete, setKeyPendingDelete] = useState<string | null>(null);
+  // A revealed key can also arrive from agent creation, so the dialog shows
+  // its reveal stage only when the value changes while the dialog is open.
+  const [keyBeforeGenerate, setKeyBeforeGenerate] = useState("");
   // The gateway allows at most two keys per agent and refuses to delete the
   // last one. Both are server-enforced; these are conveniences, not the gate.
   const AGENT_KEY_MAX = 2;
   const atKeyLimit = agentKeys.length >= AGENT_KEY_MAX;
   const isLastKey = agentKeys.length <= 1;
+  const hasAgentKey = agentKeys.length > 0;
   const widgetAgentId = agentId;
   const widgetConfig = useMemo(() => {
     const nextConfig = config as any;
@@ -76,6 +95,39 @@ export default function PreviewStep({
   }, [config]);
   const widgetLayouts = widgetConfig?.widget?.layouts || {};
   const integrationSnippet = buildIntegrationSnippet(widgetAgentId, agentKey);
+
+  const showGeneratedKey =
+    keyDialogOpen && Boolean(agentKey) && agentKey !== keyBeforeGenerate;
+
+  const handleOpenKeyDialog = () => {
+    setKeyBeforeGenerate(agentKey);
+    setNewKeyName(
+      agentKeys.some((item) => item.name === "default") ? "" : "default"
+    );
+    setKeyDialogOpen(true);
+  };
+
+  const handleCloseKeyDialog = () => {
+    setKeyDialogOpen(false);
+    // The new key is never inserted locally - the list comes back from the
+    // API once the dialog is done with it.
+    if (showGeneratedKey) onRefreshAgentKeys?.();
+  };
+
+  const handleConfirmDeleteKey = async () => {
+    if (!keyPendingDelete) return;
+    // Awaited so the dialog stays up until the gateway has answered - the
+    // parent re-reads the list before this resolves.
+    await onDeleteAgentKey?.(keyPendingDelete);
+    setKeyPendingDelete(null);
+  };
+
+  const handleGenerateKey = () => {
+    const name = newKeyName.trim();
+    if (!name) return;
+    setKeyBeforeGenerate(agentKey);
+    onGenerateAgentKey?.(name);
+  };
 
   const handleCopySnippet = async (snippet: string, label: string) => {
     try {
@@ -169,6 +221,420 @@ export default function PreviewStep({
   return (
     <Grid container spacing={2} alignItems="stretch">
       <Grid item xs={12} md={5}>
+        {Boolean(agentId) && (
+          <Card sx={{ p: 2.5, borderRadius: 2, mb: 2 }}>
+            <Stack spacing={2}>
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Box
+                  sx={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: "50%",
+                    bgcolor: (t) => alpha(t.palette.primary.main, 0.1),
+                    display: "grid",
+                    placeItems: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <VpnKeyRoundedIcon color="primary" />
+                </Box>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  alignItems="center"
+                  flexWrap="wrap"
+                  sx={{ flex: 1, minWidth: 0 }}
+                >
+                  <Typography variant="subtitle1">Connect your site</Typography>
+                  <Chip
+                    size="small"
+                    variant="outlined"
+                    color={hasAgentKey ? "success" : "warning"}
+                    label={hasAgentKey ? "Key active" : "Key required"}
+                  />
+                </Stack>
+              </Stack>
+
+              <Divider />
+
+              <Stack spacing={1.5}>
+                <Typography variant="subtitle2">Agent keys</Typography>
+                {agentKeys.length > 0 ? (
+                  <Stack divider={<Divider flexItem />}>
+                    {agentKeys.map((item) => (
+                      <Stack
+                        key={item.name}
+                        direction="row"
+                        spacing={1}
+                        alignItems="center"
+                        justifyContent="space-between"
+                        sx={{ py: 1 }}
+                      >
+                        <Stack spacing={0.25} sx={{ minWidth: 0 }}>
+                          <Typography variant="subtitle2" noWrap>
+                            {item.name}
+                          </Typography>
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ fontFamily: "monospace" }}
+                            noWrap
+                          >
+                            {item.key || "••••••••"}
+                            {item.created_at
+                              ? ` · created ${new Date(
+                                  item.created_at
+                                ).toLocaleDateString()}`
+                              : ""}
+                          </Typography>
+                        </Stack>
+                        <Tooltip
+                          title={
+                            isLastKey
+                              ? "An agent must keep at least one key"
+                              : "Delete key"
+                          }
+                        >
+                          <span>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              disabled={agentKeyBusy || isLastKey}
+                              onClick={() => setKeyPendingDelete(item.name)}
+                            >
+                              <DeleteOutlineIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                      </Stack>
+                    ))}
+                  </Stack>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    No keys yet. Generate one to activate the embed code.
+                  </Typography>
+                )}
+                {isLastKey && hasAgentKey && (
+                  <Typography variant="caption" color="text.secondary">
+                    An agent must keep at least one key, so this one cannot be
+                    deleted. Generate a second key first, then delete it.
+                  </Typography>
+                )}
+
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  <Tooltip
+                    title={
+                      atKeyLimit
+                        ? `Limit of ${AGENT_KEY_MAX} keys reached — delete one first`
+                        : ""
+                    }
+                  >
+                    <span>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        startIcon={<AddIcon />}
+                        disabled={agentKeyBusy || atKeyLimit}
+                        onClick={handleOpenKeyDialog}
+                      >
+                        Generate new key
+                      </Button>
+                    </span>
+                  </Tooltip>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<CodeRoundedIcon />}
+                    onClick={() => setEmbedDialogOpen(true)}
+                  >
+                    Get embed code
+                  </Button>
+                </Stack>
+              </Stack>
+            </Stack>
+          </Card>
+        )}
+        <Dialog
+          open={Boolean(keyPendingDelete)}
+          onClose={agentKeyBusy ? undefined : () => setKeyPendingDelete(null)}
+          fullWidth
+          maxWidth="xs"
+        >
+          <DialogTitle>Delete this key?</DialogTitle>
+          <DialogContent>
+            <Stack spacing={1.5} sx={{ pt: 0.5 }}>
+              <Typography variant="body2" color="text.secondary">
+                Any page still embedding{" "}
+                <Box component="code" sx={{ fontFamily: "monospace" }}>
+                  {keyPendingDelete}
+                </Box>{" "}
+                stops working as soon as this key is deleted, and the key
+                cannot be restored.
+              </Typography>
+              <Alert severity="warning" sx={{ py: 0.5 }}>
+                Update the embed code on your site with another key first.
+              </Alert>
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button
+              color="inherit"
+              disabled={agentKeyBusy}
+              onClick={() => setKeyPendingDelete(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              color="error"
+              startIcon={<DeleteOutlineIcon />}
+              disabled={agentKeyBusy}
+              onClick={handleConfirmDeleteKey}
+            >
+              {agentKeyBusy ? "Deleting…" : "Delete key"}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog
+          open={embedDialogOpen}
+          onClose={() => setEmbedDialogOpen(false)}
+          fullWidth
+          maxWidth="sm"
+        >
+          <DialogTitle>Embed code</DialogTitle>
+          <DialogContent>
+            <Stack spacing={1.5} sx={{ pt: 0.5 }}>
+              <TextField
+                value={integrationSnippet}
+                multiline
+                minRows={10}
+                fullWidth
+                InputProps={{
+                  readOnly: true,
+                  sx: { fontFamily: "monospace" },
+                }}
+              />
+              <Box
+                sx={{
+                  p: 1.5,
+                  borderRadius: 1.5,
+                  bgcolor: (t) => alpha(t.palette.divider, 0.06),
+                }}
+              >
+                <Stack spacing={0.75}>
+                  <Typography variant="caption" fontWeight={600}>
+                    Replace before you ship
+                  </Typography>
+                  {[
+                    {
+                      token: "YOUR_AGENT_KEY",
+                      text: "the key you generated",
+                    },
+                    {
+                      token: "USER_ID",
+                      text: "your visitor’s own id, which scopes their chat history",
+                    },
+                    {
+                      token: "YOUR_AUTH_TOKEN",
+                      text: "optional, forwarded to your tools; drop it if unused",
+                    },
+                  ].map((item) => (
+                    <Typography
+                      key={item.token}
+                      variant="caption"
+                      color="text.secondary"
+                    >
+                      <Box
+                        component="code"
+                        sx={{ fontFamily: "monospace", color: "text.primary" }}
+                      >
+                        {item.token}
+                      </Box>
+                      {` — ${item.text}`}
+                    </Typography>
+                  ))}
+                </Stack>
+              </Box>
+              {agentKey ? (
+                <Typography variant="caption" color="success.main">
+                  This snippet already carries the key you just generated -
+                  copy it as it is.
+                </Typography>
+              ) : agentKeys.length > 0 ? (
+                <Typography variant="caption" color="text.secondary">
+                  Stored keys are masked, so yours cannot be filled in here.
+                  Paste the one you saved, or generate a new key if it is
+                  lost.
+                </Typography>
+              ) : (
+                <Typography variant="caption" color="warning.main">
+                  Generate a key first — the placeholder will not
+                  authenticate.
+                </Typography>
+              )}
+              <Typography variant="caption" color="text.secondary">
+                Note: For the widget’s full-screen mode, use a separate page
+                URL for the implementation.
+              </Typography>
+
+            <Accordion
+              disableGutters
+              elevation={0}
+              sx={{
+                bgcolor: "transparent",
+                "&:before": { display: "none" },
+              }}
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMoreIcon />}
+                sx={{ px: 0, minHeight: 0 }}
+              >
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <InfoOutlinedIcon fontSize="small" color="action" />
+                  <Typography variant="subtitle2">
+                    How the key is used
+                  </Typography>
+                </Stack>
+              </AccordionSummary>
+              <AccordionDetails sx={{ px: 0, pt: 0 }}>
+                <Stack
+                  spacing={1}
+                  component="ul"
+                  sx={{ pl: 2.5, my: 0, color: "text.secondary" }}
+                >
+                  <Typography variant="caption" component="li">
+                    It goes in the snippet’s{" "}
+                    <Box component="code" sx={{ fontFamily: "monospace" }}>
+                      agent-key
+                    </Box>{" "}
+                    attribute. The widget then sends it as the{" "}
+                    <Box component="code" sx={{ fontFamily: "monospace" }}>
+                      x-agent-key
+                    </Box>{" "}
+                    header on its config, chat and history calls.
+                  </Typography>
+                  <Typography variant="caption" component="li">
+                    It sits in your page’s HTML, so visitors can read it.
+                    Treat it as an identifier for this agent, not as a server
+                    secret, and rotate it if it is abused.
+                  </Typography>
+                  <Typography variant="caption" component="li">
+                    Two slots let you rotate without downtime: generate the
+                    second key, update the snippet on your site, then delete
+                    the old key.
+                  </Typography>
+                  <Typography variant="caption" component="li">
+                    Keys are stored masked. The full value is shown once,
+                    immediately after you generate it.
+                  </Typography>
+                </Stack>
+              </AccordionDetails>
+            </Accordion>
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button color="inherit" onClick={() => setEmbedDialogOpen(false)}>
+              Close
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<ContentCopyIcon />}
+              onClick={() =>
+                handleCopySnippet(integrationSnippet, "Integration code")
+              }
+            >
+              Copy code
+            </Button>
+          </DialogActions>
+        </Dialog>
+        <Dialog
+          open={keyDialogOpen}
+          onClose={agentKeyBusy ? undefined : handleCloseKeyDialog}
+          fullWidth
+          maxWidth="xs"
+        >
+          <DialogTitle>
+            {showGeneratedKey ? "Your new agent key" : "Generate agent key"}
+          </DialogTitle>
+          <DialogContent>
+            {showGeneratedKey ? (
+              <Stack spacing={1.5} sx={{ pt: 0.5 }}>
+                <Alert severity="warning" sx={{ py: 0.5 }}>
+                  Copy this key now. It is shown only once and cannot be
+                  retrieved again.
+                </Alert>
+                <TextField
+                  value={agentKey}
+                  fullWidth
+                  size="small"
+                  InputProps={{
+                    readOnly: true,
+                    sx: { fontFamily: "monospace" },
+                  }}
+                />
+                <Button
+                  variant="contained"
+                  startIcon={<ContentCopyIcon />}
+                  onClick={() => handleCopySnippet(agentKey, "Agent key")}
+                >
+                  Copy key
+                </Button>
+                <Typography variant="caption" color="text.secondary">
+                  Next, use “Get embed code” to drop it into your page.
+                </Typography>
+              </Stack>
+            ) : (
+              <Stack spacing={2} sx={{ pt: 0.5 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Name the key so you can tell your keys apart later. The full
+                  value is shown once, on the next screen.
+                </Typography>
+                <TextField
+                  label="Key name"
+                  value={newKeyName}
+                  onChange={(event) => setNewKeyName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      handleGenerateKey();
+                    }
+                  }}
+                  size="small"
+                  fullWidth
+                  autoFocus
+                  disabled={agentKeyBusy}
+                  helperText="A label for you, e.g. website or staging"
+                />
+              </Stack>
+            )}
+          </DialogContent>
+          <DialogActions>
+            {showGeneratedKey ? (
+              <Button variant="contained" onClick={handleCloseKeyDialog}>
+                Done
+              </Button>
+            ) : (
+              <>
+                <Button
+                  color="inherit"
+                  disabled={agentKeyBusy}
+                  onClick={handleCloseKeyDialog}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  disabled={agentKeyBusy || !newKeyName.trim() || atKeyLimit}
+                  onClick={handleGenerateKey}
+                >
+                  {agentKeyBusy ? "Generating…" : "Generate"}
+                </Button>
+              </>
+            )}
+          </DialogActions>
+        </Dialog>
         <Card sx={{ p: 2.5, borderRadius: 2 }}>
           <Stack spacing={2}>
             <Typography variant="h6">Configuration</Typography>
@@ -2983,165 +3449,6 @@ export default function PreviewStep({
                 </Stack>
               </AccordionDetails>
             </Accordion>
-          </Stack>
-        </Card>
-
-        {Boolean(agentId) && (
-          <Card sx={{ p: 2.5, borderRadius: 2, mt: 2 }}>
-            <Stack spacing={1.5}>
-              <Typography variant="subtitle1">Agent keys</Typography>
-              <Typography variant="caption" color="text.secondary">
-                The widget sends this key on chat and history calls. It is
-                stored masked and can only be replaced, never read back.
-              </Typography>
-
-              <Stack direction="row" spacing={1} alignItems="center">
-                <TextField
-                  label="Key name"
-                  value={newKeyName}
-                  onChange={(event) => setNewKeyName(event.target.value)}
-                  size="small"
-                  fullWidth
-                  disabled={agentKeyBusy}
-                />
-                <Button
-                  size="small"
-                  variant="outlined"
-                  startIcon={<AddIcon />}
-                  disabled={agentKeyBusy || !newKeyName.trim() || atKeyLimit}
-                  onClick={() => onGenerateAgentKey?.(newKeyName.trim())}
-                  sx={{ flexShrink: 0 }}
-                >
-                  Generate
-                </Button>
-              </Stack>
-              {atKeyLimit && (
-                <Typography variant="caption" color="warning.main">
-                  Limit of {AGENT_KEY_MAX} keys reached. Delete one before
-                  generating another.
-                </Typography>
-              )}
-
-              {agentKey && (
-                <Stack spacing={1}>
-                  <Stack
-                    direction="row"
-                    spacing={1}
-                    justifyContent="space-between"
-                    alignItems="center"
-                  >
-                    <Typography variant="subtitle2">New key</Typography>
-                    <Button
-                      size="small"
-                      startIcon={<ContentCopyIcon />}
-                      onClick={() => handleCopySnippet(agentKey, "Agent key")}
-                    >
-                      Copy key
-                    </Button>
-                  </Stack>
-                  <TextField
-                    value={agentKey}
-                    fullWidth
-                    InputProps={{
-                      readOnly: true,
-                      sx: { fontFamily: "monospace" },
-                    }}
-                  />
-                  <Alert severity="warning" sx={{ py: 0.5 }}>
-                    Copy this key now. It is shown only once and cannot be
-                    retrieved again.
-                  </Alert>
-                </Stack>
-              )}
-
-              {agentKeys.length > 0 ? (
-                <Stack divider={<Divider flexItem />}>
-                  {agentKeys.map((item) => (
-                    <Stack
-                      key={item.name}
-                      direction="row"
-                      spacing={1}
-                      alignItems="center"
-                      justifyContent="space-between"
-                      sx={{ py: 1 }}
-                    >
-                      <Stack spacing={0.25} sx={{ minWidth: 0 }}>
-                        <Typography variant="subtitle2" noWrap>
-                          {item.name}
-                        </Typography>
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          sx={{ fontFamily: "monospace" }}
-                          noWrap
-                        >
-                          {item.key || "••••••••"}
-                          {item.created_at
-                            ? ` · created ${new Date(
-                                item.created_at
-                              ).toLocaleDateString()}`
-                            : ""}
-                        </Typography>
-                      </Stack>
-                      <Tooltip
-                        title={
-                          isLastKey
-                            ? "An agent must keep at least one key"
-                            : "Delete key"
-                        }
-                      >
-                        <span>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            disabled={agentKeyBusy || isLastKey}
-                            onClick={() => onDeleteAgentKey?.(item.name)}
-                          >
-                            <DeleteOutlineIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    </Stack>
-                  ))}
-                </Stack>
-              ) : (
-                <Typography variant="body2" color="text.secondary">
-                  No keys yet. Generate one and add it to the embed snippet.
-                </Typography>
-              )}
-            </Stack>
-          </Card>
-        )}
-
-        <Card sx={{ p: 2.5, borderRadius: 2, mt: 2 }}>
-          <Stack spacing={1.5}>
-            <Stack
-              direction="row"
-              spacing={1}
-              justifyContent="space-between"
-              alignItems="center"
-            >
-              <Typography variant="subtitle1">Integration code</Typography>
-              <Button
-                size="small"
-                startIcon={<ContentCopyIcon />}
-                onClick={() =>
-                  handleCopySnippet(integrationSnippet, "Integration code")
-                }
-              >
-                Copy code
-              </Button>
-            </Stack>
-            <TextField
-              value={integrationSnippet}
-              multiline
-              minRows={10}
-              fullWidth
-              InputProps={{ readOnly: true, sx: { fontFamily: "monospace" } }}
-            />
-             <Typography variant="caption" color="text.secondary">
-              Note: For the widget’s full-screen mode, use a separate page URL for the implementation.
-            </Typography>
           </Stack>
         </Card>
       </Grid>
