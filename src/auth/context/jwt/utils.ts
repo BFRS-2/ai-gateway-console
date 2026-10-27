@@ -58,7 +58,9 @@ export function tokenExpired(exp: number) {
   setTimeout(() => {
     try {
       // alert('Token expired!');
+      localStorage.removeItem(STORAGE_KEY);
       sessionStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem('_user');
       window.location.href = "/login";
     } catch (error) {
       console.error('Error during token expiration:', error);
@@ -84,7 +86,11 @@ export async function setSession(accessToken: string | null) {
         throw new Error('Invalid access token!');
       }
     } else {
+      // Clear every stored credential/identity copy on logout so no reusable
+      // token or cached user survives (login writes both storages + _user).
       localStorage.removeItem(STORAGE_KEY);
+      sessionStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem('_user');
       delete axios.defaults.headers.common.Authorization;
     }
   } catch (error) {

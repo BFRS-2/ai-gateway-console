@@ -139,7 +139,24 @@ export default function AccountPopover() {
     setPwdError("");
     setPwdSuccess("");
     try {
-      await userService.updatePassword(data.oldPassword, data.newPassword);
+      const res: any = await userService.updatePassword(
+        data.oldPassword,
+        data.newPassword
+      );
+
+      // callApi resolves (does not throw) with an API_Error/FE_Error on failure,
+      // so an awaited result is not proof of success — inspect it explicitly.
+      const errMessage =
+        res?.error?.payload?.message ||
+        res?.error?.message ||
+        res?.payload?.message ||
+        res?.message;
+
+      if (!res || res.error || res.success === false) {
+        setPwdError(errMessage || "Failed to update password. Please try again.");
+        return;
+      }
+
       setPwdSuccess("Password updated successfully.");
       // Optionally close after short delay
       setTimeout(() => {

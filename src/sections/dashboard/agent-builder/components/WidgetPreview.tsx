@@ -29,11 +29,10 @@ export default function WidgetPreview({
   const widgetApiKey = apiKey || "YOUR_API_KEY";
   const widgetUserId = userId || "USER_ID";
   const configPayload = JSON.stringify(config);
-  const safeConfigJson = JSON.stringify(config, null, 2).replace(
-    /<\/script>/g,
-    "<\\/script>"
-  );
-
+  // Escape every "<" so no config string can open or close a tag inside the
+  // inline <script> (a case-insensitive </script> or "</script " would
+  // otherwise break out of the script context).
+  const safeConfigJson = JSON.stringify(config, null, 2).replace(/</g, "\\u003c");
   // The widget element is created here instead of in the srcDoc markup, and
   // every attribute is set before it is inserted. A custom element boots on
   // insertion, so an element that is already in the markup starts its first
