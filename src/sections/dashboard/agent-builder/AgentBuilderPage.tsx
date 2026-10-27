@@ -952,6 +952,34 @@ export function AgentBuilderPage() {
     }
   };
 
+  // The panel holds no authoritative key state: after a generate or a delete
+  // the list is re-read from /agent/config, so what is on screen is what the
+  // gateway actually has. Deliberately narrow - applyAgentConfig would also
+  // reset the widget config and discard unsaved edits in this step.
+  const refreshAgentKeys = useCallback(async () => {
+    if (!projectId || !agentId) return;
+    try {
+      const res = await agentBuilderService.getAgentConfig(projectId);
+      if ((res as any)?.error) {
+        enqueueSnackbar("Unable to refresh agent keys", { variant: "error" });
+        return;
+      }
+      const payload = (res as any)?.data ?? (res as any)?.config ?? res;
+      const items = Array.isArray(payload) ? payload : [payload];
+      const match = items.find(
+        (item: any) =>
+          String(item?.id || item?.agent_id || item?.agentId || "") === agentId
+      );
+      setAgentKeys(
+        Array.isArray((match as any)?.agent_keys)
+          ? ((match as any).agent_keys as AgentKey[])
+          : []
+      );
+    } catch (error) {
+      enqueueSnackbar("Unable to refresh agent keys", { variant: "error" });
+    }
+  }, [agentId, enqueueSnackbar, projectId]);
+
   const handleGenerateAgentKey = async (name: string) => {
     if (!agentId) return;
     setAgentKeyBusy(true);
@@ -962,10 +990,14 @@ export function AgentBuilderPage() {
         // The gateway returns 409 for a name that already exists and caps an
         // agent at AGENT_KEY_MAX keys.
         const status = errorPayload?.status;
+        // 409 duplicate name, 400 key cap. The gateway owns both limits, so
+        // its message is shown as-is rather than restated here.
+        const serverMessage =
+          errorPayload?.payload?.message || errorPayload?.payload?.detail || "";
         enqueueSnackbar(
           status === 409
             ? `A key named "${name}" already exists`
-            : "Unable to generate agent key",
+            : serverMessage || "Unable to generate agent key",
           { variant: "error" }
         );
         return;
@@ -976,11 +1008,6 @@ export function AgentBuilderPage() {
         (res as any)?.agent_key ||
         "";
       if (fullKey) setRevealedAgentKey(String(fullKey));
-      const masked = (res as any)?.data?.key_masked || "";
-      setAgentKeys((prev) => [
-        ...prev.filter((item) => item.name !== name),
-        { name, key: masked, created_at: new Date().toISOString() },
-      ]);
       enqueueSnackbar("Agent key generated", { variant: "success" });
     } catch (error) {
       enqueueSnackbar("Unable to generate agent key", { variant: "error" });
@@ -994,11 +1021,17 @@ export function AgentBuilderPage() {
     setAgentKeyBusy(true);
     try {
       const res = await agentBuilderService.deleteAgentKey(agentId, name);
-      if ((res as any)?.error) {
-        enqueueSnackbar("Unable to delete agent key", { variant: "error" });
+      const errorPayload = (res as any)?.error;
+      if (errorPayload) {
+        // 400 covers "An agent must keep at least one key".
+        const serverMessage =
+          errorPayload?.payload?.message || errorPayload?.payload?.detail || "";
+        enqueueSnackbar(serverMessage || "Unable to delete agent key", {
+          variant: "error",
+        });
         return;
       }
-      setAgentKeys((prev) => prev.filter((item) => item.name !== name));
+      await refreshAgentKeys();
       enqueueSnackbar("Agent key deleted", { variant: "success" });
     } catch (error) {
       enqueueSnackbar("Unable to delete agent key", { variant: "error" });
@@ -1235,6 +1268,7 @@ export function AgentBuilderPage() {
                       agentKeyBusy={agentKeyBusy}
                       onGenerateAgentKey={handleGenerateAgentKey}
                       onDeleteAgentKey={handleDeleteAgentKey}
+                      onRefreshAgentKeys={refreshAgentKeys}
                     />
                   )}
                 </Box>
