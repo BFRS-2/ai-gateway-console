@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Box } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import { WidgetConfig } from "../types";
@@ -34,38 +34,49 @@ export default function WidgetPreview({
     "<\\/script>"
   );
 
-  useEffect(() => {
+  // The widget element is created here instead of in the srcDoc markup, and
+  // every attribute is set before it is inserted. A custom element boots on
+  // insertion, so an element that is already in the markup starts its first
+  // history load before the preview token can be attached - and that load
+  // goes to the public visitor endpoints (/chat/sessions) as USER_ID.
+  // Called from both the effect and the iframe's onLoad, because srcDoc is
+  // not yet parsed when the effect first runs.
+  const applyWidgetAttributes = useCallback(() => {
     const frame = iframeRef.current;
     if (!frame) return;
     try {
       const targetWindow = frame.contentWindow;
-      if (!targetWindow) return;
+      const doc = frame.contentDocument;
+      if (!targetWindow || !doc) return;
       (targetWindow as any).ShiprocketAgentWidgetConfig = config;
-      const widgetElement = frame.contentDocument?.querySelector(
-        "shiprocket-agent-widget"
-      );
-      if (widgetElement) {
-        widgetElement.setAttribute("config", configPayload);
-        widgetElement.setAttribute("agent-id", widgetAgentId);
-        widgetElement.setAttribute("user-id", widgetUserId);
-        // Preview chat runs as the logged-in panel user against
-        // /agent/preview, because the plaintext agent key is shown only once
-        // and the panel cannot read it back. Set here at runtime only - the
-        // token must never reach the srcDoc HTML or the embed snippet.
-        const previewToken =
-          typeof window !== "undefined"
-            ? localStorage.getItem(STORAGE_KEY) || ""
-            : "";
-        if (previewToken) {
-          widgetElement.setAttribute("preview-token", previewToken);
-        } else {
-          widgetElement.removeAttribute("preview-token");
-        }
-        if (authToken) {
-          widgetElement.setAttribute("x-auth-token", authToken);
-        } else {
-          widgetElement.removeAttribute("x-auth-token");
-        }
+      const host = doc.getElementById("widget-root");
+      if (!host) return;
+      const existing = doc.querySelector("shiprocket-agent-widget");
+      const widgetElement =
+        existing || doc.createElement("shiprocket-agent-widget");
+      widgetElement.setAttribute("config", configPayload);
+      widgetElement.setAttribute("agent-id", widgetAgentId);
+      widgetElement.setAttribute("user-id", widgetUserId);
+      // Preview chat runs as the logged-in panel user against
+      // /agent/preview, because the plaintext agent key is shown only once
+      // and the panel cannot read it back. Set here at runtime only - the
+      // token must never reach the srcDoc HTML or the embed snippet.
+      const previewToken =
+        typeof window !== "undefined"
+          ? localStorage.getItem(STORAGE_KEY) || ""
+          : "";
+      if (previewToken) {
+        widgetElement.setAttribute("preview-token", previewToken);
+      } else {
+        widgetElement.removeAttribute("preview-token");
+      }
+      if (authToken) {
+        widgetElement.setAttribute("x-auth-token", authToken);
+      } else {
+        widgetElement.removeAttribute("x-auth-token");
+      }
+      if (!existing) {
+        host.appendChild(widgetElement);
       }
     } catch (error) {
       // Ignore cross-origin access errors for the preview iframe.
@@ -75,9 +86,12 @@ export default function WidgetPreview({
     config,
     configPayload,
     widgetAgentId,
-    widgetApiKey,
     widgetUserId,
   ]);
+
+  useEffect(() => {
+    applyWidgetAttributes();
+  }, [applyWidgetAttributes]);
 
   const iframeHtml = [
     "<!doctype html>",
@@ -133,7 +147,6 @@ export default function WidgetPreview({
     `</section>`,
     `</div>`,
     `</div>`,
-    `<shiprocket-agent-widget agent-id="${widgetAgentId}" user-id="${widgetUserId}" x-auth-token="YOUR_AUTH_TOKEN"></shiprocket-agent-widget>`,
     "</div>",
     "</body>",
     "</html>",
@@ -156,6 +169,7 @@ export default function WidgetPreview({
     >
       <iframe
         ref={iframeRef}
+        onLoad={applyWidgetAttributes}
         title="Widget preview"
         srcDoc={iframeHtml}
         sandbox="allow-scripts allow-same-origin"
