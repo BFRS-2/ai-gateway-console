@@ -5,7 +5,7 @@ export const defaultConfig: BuilderConfig = {
   service: {
     serviceId: "69313811f2214e98ad240396",
     defaultModel: "in.openai.gpt-5.6-luna",
-    backupModel: "gpt-4o-mini",
+    backupModel: "gpt-4.1",
     defaultProvider: "bedrock",
     backupProvider: "openai",
     allowedModels: ["in.openai.gpt-5.6-luna", "gpt-4o", "gpt-4o-mini"],
