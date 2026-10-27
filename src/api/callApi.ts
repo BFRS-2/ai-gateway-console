@@ -24,10 +24,6 @@ function buildHeaders(body: any) {
 
   if (token) headers.set("authorization", `Bearer ${token}`);
 
-  // Not auth: free ngrok tunnels answer a browser GET with an HTML interstitial
-  // that carries no CORS headers, which fails the fetch. Harmless off-tunnel.
-  headers.set("ngrok-skip-browser-warning", "true");
-
   return headers;
 }
 
